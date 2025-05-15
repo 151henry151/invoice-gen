@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invoice Preview</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .actions {
+            margin: 20px 0;
+        }
+        .actions a {
+            margin-right: 10px;
+            padding: 5px 10px;
+            background-color: #38761d;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+        }
+        .actions a:hover {
+            background-color: #2d5c16;
+        }
+        iframe {
+            width: 100%;
+            height: 800px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Invoice Preview</h1>
+    
+    <div class="actions">
+        <a href="{{ url_for('download_invoice', invoice_number=invoice.invoice_number) }}">Download PDF</a>
+        <a href="{{ url_for('index') }}">Back to Home</a>
+    </div>
+    
+    <iframe src="{{ url_for('static', filename=invoice.client_name.lower().replace(' ', '_') + '_invoice_' + invoice.invoice_number + '.html') }}"></iframe>
+</body>
+</html> 

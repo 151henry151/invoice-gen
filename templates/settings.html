@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Invoice Generator{% endblock %}
+
+{% block page_subtitle %}Settings{% endblock %}
+
+{% block content %}
+    <div class="container">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-messages">
+                {% for message in messages %}
+                    <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="selector-container">
+            <select class="company-selector" onchange="updateFormAction(this.value)">
+                <option value="" disabled selected>Select Your Business</option>
+                <option value="{{ url_for('settings') }}?new=true">Create New Business</option>
+                {% for company in companies %}
+                    <option value="{{ url_for('settings', company_id=company.id) }}" {% if company.id == selected_company_id %}selected{% endif %}>{{ company.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <form method="POST" action="{{ url_for('settings', company_id=selected_company_id) if selected_company_id else url_for('settings') }}" enctype="multipart/form-data" id="company-form">
+            <input type="text" id="company_name" name="company_name" placeholder="Name" value="{{ company.name if company else '' }}" required>
+            
+            <input type="text" id="company_address" name="company_address" placeholder="Address" value="{{ company.address if company else '' }}" required>
+            
+            <input type="email" id="company_email" name="company_email" placeholder="Email" value="{{ company.email if company else '' }}" required>
+            
+            <input type="tel" id="company_phone" name="company_phone" placeholder="Phone Number" value="{{ company.phone if company else '' }}" required>
+            
+            <label for="logo">Logo:</label>
+            <input type="file" id="logo" name="logo" accept="image/*" onchange="previewLogo(this)">
+            <div id="logo-preview" class="current-logo" style="display: none;">
+                <p>Selected Logo:</p>
+                <img id="preview-image" src="" alt="Selected Logo" style="max-width: 200px;">
+            </div>
+            {% if company and company.logo_path %}
+                <div class="current-logo">
+                    <p>Current Logo:</p>
+                    <img src="{{ url_for('static', filename='logos/' + company.logo_path) }}" alt="Current Logo" style="max-width: 200px;">
+                </div>
+            {% endif %}
+
+            <div class="button-container">
+                <input type="submit" value="Save Details" class="file-input-style" form="company-form">
+                <a href="{{ url_for('index') }}" class="file-input-style">Cancel</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function updateFormAction(companyId) {
+        if (companyId) {
+            window.location.href = companyId;
+        }
+    }
+
+    function previewLogo(input) {
+        const preview = document.getElementById('logo-preview');
+        const previewImage = document.getElementById('preview-image');
+        
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                previewImage.src = e.target.result;
+                preview.style.display = 'block';
+            }
+            
+            reader.readAsDataURL(input.files[0]);
+        } else {
+            preview.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %} 

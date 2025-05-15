@@ -1,0 +1,623 @@
+{% extends "base.html" %}
+
+{% block title %}Invoice Generator{% endblock %}
+
+{% block page_subtitle %}Dashboard{% endblock %}
+
+{% block extra_head %}
+    <style>
+        .form-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .line-item, .notes-section {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+        .line-item.preview-mode, .notes-section.preview-mode {
+            background-color: #f8f9fa;
+        }
+        .line-item.preview-mode .form-control, .notes-section.preview-mode .form-control {
+            background-color: transparent;
+            border: none;
+            padding: 0;
+            pointer-events: none;
+        }
+        .line-item.preview-mode .form-control:focus, .notes-section.preview-mode .form-control:focus {
+            box-shadow: none;
+        }
+        .add-to-invoice-btn {
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .add-to-invoice-btn i {
+            font-size: 1rem;
+        }
+        .edit-button, .remove-button {
+            display: none;
+            margin-top: 1rem;
+        }
+        .preview-mode .edit-button, .preview-mode .remove-button {
+            display: inline-block;
+        }
+        .preview-mode .add-to-invoice-btn {
+            display: none;
+        }
+        .line-item-header, .notes-header {
+            margin-bottom: 0.5rem;
+        }
+        .line-item-content {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .preview-mode .line-item-content {
+            flex-wrap: wrap;
+        }
+        .preview-mode .form-group {
+            margin-bottom: 0;
+        }
+        .preview-mode .form-group label {
+            display: none;
+        }
+        .preview-mode .time-inputs {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .preview-mode .time-inputs label {
+            display: inline;
+            margin: 0;
+        }
+        .button-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            align-items: center;
+        }
+        .add-to-invoice-btn, .remove-item-btn {
+            background-color: #6c757d;
+            color: white;
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            height: 24px;
+            line-height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            margin: 0;
+        }
+        .main-action-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        .main-action-buttons.hidden {
+            display: none;
+        }
+        .add-to-invoice-btn:hover, .remove-item-btn:hover {
+            background-color: #5a6268;
+        }
+        .notes-content {
+            margin-bottom: 1rem;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="text"],
+        input[type="email"],
+        input[type="date"],
+        textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .dollar-input {
+            position: relative;
+        }
+        .dollar-input::before {
+            content: "$";
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+        }
+        .dollar-input input {
+            padding-left: 20px;
+        }
+        .total-cost {
+            font-weight: bold;
+            margin-top: 5px;
+            color: #4CAF50;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .flash-messages {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        width: auto;
+        max-width: 80%;
+        text-align: center;
+        }
+        .flash-message {
+        padding: 15px 30px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        background-color: #4CAF50;
+        color: white;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        animation: slideIn 0.5s ease-out;
+    }
+    @keyframes slideIn {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    @keyframes fadeOut {
+        from {
+            opacity: 1;
+        }
+        to {
+            opacity: 0;
+        }
+        }
+        .line-item.confirmed {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .line-item.confirmed .content-wrapper {
+            display: flex;
+            flex-direction: column;
+        }
+        .line-item.confirmed .detail-item {
+            margin-right: 0;
+            position: relative;
+        }
+        .line-item.confirmed .detail-item:first-child {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            gap: 1rem;
+        }
+        .line-item.confirmed .detail-item:first-child > div {
+            flex: 1;
+        }
+        .line-item.confirmed .remove-item-btn {
+            margin: 0;
+            font-size: 12px;
+            padding: 4px 8px;
+            height: 20px;
+            line-height: 12px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .line-item.confirmed .detail-label {
+            font-weight: bold;
+            color: #495057;
+        }
+        .line-item.confirmed .detail-value {
+            color: #212529;
+        }
+        .line-item.confirmed .total-cost {
+            font-weight: bold;
+            color: #28a745;
+            margin-top: 0.5rem;
+            clear: both;
+        }
+    </style>
+<script>
+    // Function to calculate total cost
+    window.calculateTotalCost = function(itemDiv) {
+        const hours = parseFloat(itemDiv.querySelector('input[name="hours[]"]').value) || 0;
+        const minutes = parseFloat(itemDiv.querySelector('input[name="minutes[]"]').value) || 0;
+        const rate = parseFloat(itemDiv.querySelector('input[name="labor_rate[]"]').value) || 0;
+        
+        const totalHours = hours + (minutes / 60);
+        const totalCost = totalHours * rate;
+        const roundedCost = Math.floor(totalCost * 100) / 100;
+        
+        const totalCostElement = itemDiv.querySelector('.total-cost');
+        if (totalCostElement) {
+            totalCostElement.textContent = `Total Cost: $${roundedCost.toFixed(2)}`;
+        }
+        return roundedCost.toFixed(2);
+    };
+
+    // Set today's date as default for invoice date
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date').value = today;
+
+        // Function to calculate total cost
+        function calculateTotalCost(itemDiv) {
+            const hours = parseFloat(itemDiv.querySelector('input[name="hours[]"]').value) || 0;
+            const minutes = parseFloat(itemDiv.querySelector('input[name="minutes[]"]').value) || 0;
+            const rate = parseFloat(itemDiv.querySelector('input[name="labor_rate[]"]').value) || 0;
+            
+            const totalHours = hours + (minutes / 60);
+            const totalCost = totalHours * rate;
+            const roundedCost = Math.floor(totalCost * 100) / 100;
+            
+            const totalCostElement = itemDiv.querySelector('.total-cost');
+            if (totalCostElement) {
+                totalCostElement.textContent = `Total Cost: $${roundedCost.toFixed(2)}`;
+            }
+            return roundedCost.toFixed(2);
+        }
+
+        // Add event listener for the Add Labor button
+        document.getElementById('addLaborBtn').addEventListener('click', function() {
+            console.log('Add Labor button clicked');
+            const itemsDiv = document.getElementById('items');
+            console.log('itemsDiv:', itemsDiv);
+            const newItem = document.createElement('div');
+            newItem.className = 'item';
+            newItem.innerHTML = 
+                '<label>Labor Item:</label>' +
+                '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
+                '<option value="" disabled selected>Select Labor Item</option>' +
+                '<option value="new">Create New Labor Item</option>' +
+                '{% for item in labor_items %}' +
+                '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
+                '{% endfor %}' +
+                '</select>' +
+                '<label>Date labor performed:</label>' +
+                '<input type="date" name="item_date[]" required>' +
+                '<label>Hours:</label>' +
+                '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+                '<label>Minutes:</label>' +
+                '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+                '<input type="hidden" name="labor_rate[]" value="0.00">' +
+                '<div class="total-cost">Total Cost: $0.00</div>' +
+                '<div class="button-group">' +
+                '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)">Add to invoice</button>' +
+                '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)">Cancel</button>' +
+                '</div>';
+            itemsDiv.appendChild(newItem);
+            // Hide main action buttons
+            document.querySelector('.main-action-buttons').classList.add('hidden');
+            console.log('New labor item added');
+        });
+
+        // Function to handle labor item selection
+        window.handleLaborItemSelection = function(selectElement) {
+            const value = selectElement.value;
+            if (value === 'new') {
+                window.location.href = "{{ url_for('labor_details') }}?new=true";
+            } else {
+                const option = selectElement.options[selectElement.selectedIndex];
+                const rate = option.getAttribute('data-rate');
+                const itemDiv = selectElement.parentElement;
+                const rateInput = itemDiv.querySelector('input[name="labor_rate[]"]');
+                rateInput.value = rate;
+                calculateTotalCost(itemDiv);
+            }
+        };
+
+        // Function to remove labor item from invoice
+        window.removeLaborItemFromInvoice = function(button) {
+            const itemDiv = button.parentElement;
+            itemDiv.remove();
+            // Show main action buttons again
+            document.querySelector('.main-action-buttons').classList.remove('hidden');
+        };
+
+        // Add event listener for the Add Item button
+        document.getElementById('addItemBtn').addEventListener('click', function() {
+            console.log('Add Item button clicked');
+            const itemsDiv = document.getElementById('items');
+            console.log('itemsDiv:', itemsDiv);
+            const newItem = document.createElement('div');
+            newItem.className = 'item';
+            newItem.innerHTML = 
+                '<label>Item:</label>' +
+                '<input type="text" name="item[]" required>' +
+                '<label>Quantity:</label>' +
+                '<input type="number" name="quantity[]" min="1" value="1" required>' +
+                '<label>Price:</label>' +
+                '<input type="number" name="price[]" min="0" step="0.01" value="0.00" required>' +
+                '<button type="button" onclick="this.parentElement.remove()">Remove</button>';
+            itemsDiv.appendChild(newItem);
+            console.log('New item added');
+        });
+
+        // Handle flash messages
+        const flashMessages = document.querySelectorAll('.flash-message');
+        if (flashMessages.length > 0) {
+            flashMessages.forEach(message => {
+                // Add initial animation
+                message.style.animation = 'slideIn 0.5s ease-out';
+                
+                // Set timeout for fade out
+                setTimeout(() => {
+                    message.style.animation = 'fadeOut 0.5s ease-out forwards';
+                    // Remove element after fade out animation completes
+                    setTimeout(() => {
+                        message.parentElement.remove();
+                    }, 500);
+                }, 3000);
+            });
+        }
+
+        // Handle invoice number auto-increment
+        const invoiceNumberInput = document.getElementById('invoice_number');
+        const autoInvoiceNumber = document.getElementById('auto_invoice_number');
+        
+        // When form is submitted, if the invoice number hasn't been changed,
+        // increment the auto number for next time
+        document.querySelector('form').addEventListener('submit', function(e) {
+            if (invoiceNumberInput.value === autoInvoiceNumber.value) {
+                // User didn't change the number, so increment for next time
+                const nextNumber = (parseInt(autoInvoiceNumber.value) + 1).toString();
+                autoInvoiceNumber.value = nextNumber;
+            }
+        });
+
+        // Function to add labor to invoice
+        window.addLaborToInvoice = function(button) {
+            const itemDiv = button.closest('.item');
+            const select = itemDiv.querySelector('select[name="labor_item[]"]');
+            const date = itemDiv.querySelector('input[name="item_date[]"]');
+            const hours = itemDiv.querySelector('input[name="hours[]"]');
+            const minutes = itemDiv.querySelector('input[name="minutes[]"]');
+            
+            if (!select.value || select.value === 'new') {
+                alert('Please select a labor item');
+                return;
+            }
+            if (!date.value) {
+                alert('Please select a date');
+                return;
+            }
+            if (hours.value === '0' && minutes.value === '0') {
+                alert('Please enter hours or minutes');
+                return;
+            }
+            
+            // Get the selected option text
+            const selectedOption = select.options[select.selectedIndex];
+            const laborDescription = selectedOption.text;
+            
+            // Create the confirmed item display
+            itemDiv.className = 'item confirmed';
+            itemDiv.innerHTML = `
+                <div class="content-wrapper">
+                    <div class="detail-item">
+                        <div>
+                            <span class="detail-label">Labor Item:</span>
+                            <span class="detail-value">${laborDescription}</span>
+                        </div>
+                        <button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)">Remove Item</button>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Date labor performed:</span>
+                        <span class="detail-value">${date.value}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Time:</span>
+                        <span class="detail-value">${hours.value} hours, ${minutes.value} minutes</span>
+                    </div>
+                    <div class="total-cost">Total Cost: $${calculateTotalCost(itemDiv)}</div>
+                </div>
+            `;
+            
+            // Add hidden inputs to preserve the data
+            const hiddenInputs = document.createElement('div');
+            hiddenInputs.style.display = 'none';
+            hiddenInputs.innerHTML = `
+                <input type="hidden" name="labor_item[]" value="${select.value}">
+                <input type="hidden" name="item_date[]" value="${date.value}">
+                <input type="hidden" name="hours[]" value="${hours.value}">
+                <input type="hidden" name="minutes[]" value="${minutes.value}">
+                <input type="hidden" name="labor_rate[]" value="${itemDiv.querySelector('input[name="labor_rate[]"]').value}">
+            `;
+            itemDiv.appendChild(hiddenInputs);
+            
+            // Show main action buttons again
+            document.querySelector('.main-action-buttons').classList.remove('hidden');
+        };
+    });
+</script>
+{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <div class="company-details">
+            <div class="logo-placeholder">
+                {% if get_setting('logo_path') %}
+                    <img src="{{ url_for('static', filename='logos/' + get_setting('logo_path')) }}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">
+                {% else %}
+                    <span class="logo-placeholder-text">Company Logo</span>
+                {% endif %}
+            </div>
+            <div class="details-content">
+                <div style="position: relative;">
+                    <a href="{{ url_for('settings') }}" class="settings-link {% if not get_setting('company_name') or get_setting('company_name') == 'Your Company Name' %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
+                        {% if get_setting('company_name') and get_setting('company_name') != 'Your Company Name' %}
+                            Edit Details
+                        {% else %}
+                            Edit Details
+                        {% endif %}
+                    </a>
+                    <div class="detail-item">
+                        <span class="detail-label">Name:</span>
+                        <span class="detail-value" data-placeholder="Business Name">{{ get_setting('company_name', '') }}</span>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Address:</span>
+                    <span class="detail-value" data-placeholder="Business Address">{{ get_setting('company_address', '') }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Email:</span>
+                    <span class="detail-value" data-placeholder="business@example.com">{{ get_setting('company_email', '') }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Phone:</span>
+                    <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ get_setting('company_phone', '') }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="navigation">
+            <div class="selector-container">
+                <select class="company-selector" onchange="window.location.href=this.value">
+                    <option value="" disabled selected>Select Your Business</option>
+                    <option value="{{ url_for('settings') }}?new=true">Create New Business</option>
+                    {% if get_setting('company_name') != 'Your Company Name' %}
+                        <option value="{{ url_for('settings') }}" selected>{{ get_setting('company_name') }}</option>
+                    {% endif %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="client-details">
+            <div class="details-content">
+                <div style="position: relative;">
+                    <a href="{{ url_for('client_details') }}" class="settings-link {% if not clients %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
+                        {% if clients %}
+                            Edit Client Details
+                        {% else %}
+                            Edit Client Details
+                        {% endif %}
+                    </a>
+                    {% if clients %}
+                        {% for client in clients %}
+                        <div class="detail-item">
+                            <span class="detail-label">Client Name:</span>
+                            <span class="detail-value">{{ client.name }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Address:</span>
+                            <span class="detail-value">{{ client.address }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Email:</span>
+                            <span class="detail-value">{{ client.email }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Phone Number:</span>
+                            <span class="detail-value">{{ client.phone }}</span>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="detail-item">
+                            <span class="detail-label">Client Name:</span>
+                            <span class="detail-value" data-placeholder="Your Client's Name"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Address:</span>
+                            <span class="detail-value" data-placeholder="Your Client's Address"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Email:</span>
+                            <span class="detail-value" data-placeholder="Your Client's Email"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Phone Number:</span>
+                            <span class="detail-value" data-placeholder="Your Client's Phone Number"></span>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="navigation">
+            <div class="selector-container">
+                <select class="client-selector" onchange="window.location.href=this.value">
+                    <option value="" disabled selected>Select Client</option>
+                    <option value="{{ url_for('client_details') }}?new=true">Create New Client</option>
+                    {% for client in clients %}
+                        <option value="{{ url_for('client_details', client_id=client.id) }}">{{ client.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-messages">
+                {% for message in messages %}
+                        <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <div class="form-group">
+            <form action="{{ url_for('create_invoice') }}" method="post">
+                <label for="date">Invoice Date:</label>
+                <input type="date" id="date" name="date" required>
+                
+                <label for="invoice_number">Invoice Number:</label>
+                <input type="text" id="invoice_number" name="invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
+                <input type="hidden" id="auto_invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
+            
+                <div id="items">
+                </div>
+                
+                <div class="main-action-buttons">
+                    <button type="button" id="addLaborBtn">Add Labor</button>
+                    <button type="button" id="addItemBtn">Add Item</button>
+                </div>
+                
+                <label for="notes">Notes:</label>
+                <textarea id="notes" name="notes" rows="4"></textarea>
+                
+                <button type="submit">Generate Invoice</button>
+                </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% endblock %} 
