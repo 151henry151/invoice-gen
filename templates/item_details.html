@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash-messages">
+            {% for message in messages %}
+                <div class="flash-message">{{ message }}</div>
+            {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="form-group">
+        <select name="item" id="item" onchange="handleItemSelection(this.value)">
+            <option value="" disabled selected>Edit Item</option>
+            <option value="new">Create New Item</option>
+            {% for item in items %}
+                <option value="{{ item.id }}" data-description="{{ item.description }}" data-price="{{ item.price }}">
+                    {{ item.description }} - ${{ "%.2f"|format(item.price) }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <form action="{{ url_for('update_item') }}" method="post" id="item-form">
+        {% if selected_item %}
+            <input type="hidden" name="item_id" value="{{ selected_item.id }}">
+        {% endif %}
+        
+        <input type="text" id="description" name="description" placeholder="Item Description" value="{{ selected_item.description if selected_item else '' }}" required>
+        
+        <div class="dollar-input">
+            <input type="number" id="price" name="price" placeholder="Price" value="{{ "%.2f"|format(selected_item.price) if selected_item else '' }}" step="0.01" min="0" required>
+        </div>
+
+        <button type="submit">Save Item</button>
+    </form>
+</div>
+
+<script>
+    function handleItemSelection(value) {
+        if (value === 'new') {
+            document.getElementById('description').value = '';
+            document.getElementById('price').value = '';
+            return;
+        }
+        
+        const select = document.getElementById('item');
+        const option = select.options[select.selectedIndex];
+        const description = option.getAttribute('data-description');
+        const price = option.getAttribute('data-price');
+        
+        document.getElementById('description').value = description;
+        document.getElementById('price').value = price;
+    }
+</script>
+{% endblock %} 

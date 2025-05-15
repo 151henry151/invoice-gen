@@ -71,4 +71,13 @@ CREATE TABLE IF NOT EXISTS labor_items (
     description TEXT NOT NULL,
     rate REAL NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+-- Items table
+CREATE TABLE IF NOT EXISTS items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    description TEXT NOT NULL,
+    price REAL NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users (id)
 ); 

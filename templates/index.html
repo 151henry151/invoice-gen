@@ -216,11 +216,12 @@
         
         /* Add styles for narrower input fields */
         input[type="date"] {
-            width: 180px !important;  /* 1.5x wider than before */
+            width: 150px !important;  /* Reduced from 180px */
         }
         
         input[name="hours[]"],
-        input[name="minutes[]"] {
+        input[name="minutes[]"],
+        input[name="quantity[]"] {
             width: 60px !important;  /* 0.5x narrower than before */
         }
         
@@ -299,17 +300,18 @@
         .line-item.confirmed {
             background-color: #f8f9fa;
             border: 1px solid #e9ecef;
-            padding: 1rem;
-            margin-bottom: 1rem;
+            padding: 0.5rem;  /* Reduced from 1rem */
+            margin-bottom: 0.5rem;  /* Reduced from 1rem */
         }
         .line-item.confirmed .content-wrapper {
             display: flex;
             flex-direction: column;
         }
         .line-item.confirmed .detail-item {
-            margin: 2px 0;
-            padding: 1px 0;
+            margin: 0;  /* Removed margin */
+            padding: 0;  /* Removed padding */
             font-size: 0.9em;
+            line-height: 1.2;  /* Added tighter line height */
         }
         
         .line-item.confirmed .detail-label {
@@ -323,7 +325,7 @@
         .line-item.confirmed .total-cost {
             font-weight: bold;
             color: #28a745;
-            margin-top: 0.5rem;
+            margin-top: 0.25rem;  /* Reduced from 0.5rem */
             clear: both;
         }
         .invoice-header {
@@ -542,15 +544,25 @@
             date: document.getElementById('date').value,
             invoiceNumber: document.getElementById('invoice_number').value,
             isConfirmed: document.querySelector('.invoice-header').classList.contains('confirmed'),
-            items: Array.from(document.querySelectorAll('.line-item.confirmed')).map(item => ({
-                type: item.dataset.type,
-                description: item.dataset.description,
-                date: item.dataset.date,
-                hours: item.dataset.hours,
-                minutes: item.dataset.minutes,
-                rate: item.dataset.rate,
-                total: item.dataset.total
-            }))
+            items: Array.from(document.querySelectorAll('.line-item.confirmed')).map(item => {
+                const data = {
+                    type: item.dataset.type,
+                    description: item.dataset.description,
+                    total: item.dataset.total
+                };
+                
+                if (item.dataset.type === 'labor') {
+                    data.date = item.dataset.date;
+                    data.hours = item.dataset.hours;
+                    data.minutes = item.dataset.minutes;
+                    data.rate = item.dataset.rate;
+                } else if (item.dataset.type === 'item') {
+                    data.quantity = item.dataset.quantity;
+                    data.price = item.dataset.price;
+                }
+                
+                return data;
+            })
         };
         localStorage.setItem(`invoiceData_${userId}`, JSON.stringify(invoiceData));
     }
@@ -577,46 +589,84 @@
             invoiceData.items.forEach(item => {
                 const lineItem = document.createElement('div');
                 lineItem.className = 'line-item confirmed';
-                lineItem.innerHTML = `
-                    <div class="line-item-content">
-                        <div class="detail-item">
-                            <span class="detail-label">Description:</span>
-                            <span class="detail-value">${item.description}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Date:</span>
-                            <span class="detail-value">${item.date}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Time:</span>
-                            <span class="detail-value">${item.hours}h ${item.minutes}m</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Rate:</span>
-                            <span class="detail-value">$${parseFloat(item.rate).toFixed(2)}/hr</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Total:</span>
-                            <span class="detail-value">$${parseFloat(item.total).toFixed(2)}</span>
-                        </div>
-                    </div>
-                    <div class="line-item-actions">
-                        <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
-                            <i class="fas fa-pencil-alt"></i>
-                        </button>
-                        <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                `;
                 
-                lineItem.dataset.type = item.type;
-                lineItem.dataset.description = item.description;
-                lineItem.dataset.date = item.date;
-                lineItem.dataset.hours = item.hours;
-                lineItem.dataset.minutes = item.minutes;
-                lineItem.dataset.rate = item.rate;
-                lineItem.dataset.total = item.total;
+                if (item.type === 'labor') {
+                    lineItem.innerHTML = `
+                        <div class="line-item-content">
+                            <div class="detail-item">
+                                <span class="detail-label">Description:</span>
+                                <span class="detail-value">${item.description}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Date:</span>
+                                <span class="detail-value">${item.date}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Time:</span>
+                                <span class="detail-value">${item.hours}h ${item.minutes}m</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Rate:</span>
+                                <span class="detail-value">$${parseFloat(item.rate).toFixed(2)}/hr</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Total:</span>
+                                <span class="detail-value">$${parseFloat(item.total).toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <div class="line-item-actions">
+                            <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                            <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    
+                    lineItem.dataset.type = 'labor';
+                    lineItem.dataset.description = item.description;
+                    lineItem.dataset.date = item.date;
+                    lineItem.dataset.hours = item.hours;
+                    lineItem.dataset.minutes = item.minutes;
+                    lineItem.dataset.rate = item.rate;
+                    lineItem.dataset.total = item.total;
+                } else if (item.type === 'item') {
+                    lineItem.innerHTML = `
+                        <div class="line-item-content">
+                            <div class="detail-item">
+                                <span class="detail-label">Description:</span>
+                                <span class="detail-value">${item.description}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Quantity:</span>
+                                <span class="detail-value">${item.quantity}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Price:</span>
+                                <span class="detail-value">$${parseFloat(item.price).toFixed(2)}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Total:</span>
+                                <span class="detail-value">$${parseFloat(item.total).toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <div class="line-item-actions">
+                            <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                            <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    
+                    lineItem.dataset.type = 'item';
+                    lineItem.dataset.description = item.description;
+                    lineItem.dataset.quantity = item.quantity;
+                    lineItem.dataset.price = item.price;
+                    lineItem.dataset.total = item.total;
+                }
                 
                 itemsContainer.appendChild(lineItem);
             });
@@ -631,6 +681,254 @@
         localStorage.removeItem(`invoiceData_${userId}`);
     }
 
+    // Function to save selected business and client
+    function saveSelectedBusinessAndClient() {
+        const userId = "{{ session.get('user_id') }}";
+        const selectedBusiness = document.querySelector('.company-selector').value;
+        const selectedClient = document.querySelector('.client-selector').value;
+        
+        const selectionData = {
+            businessId: selectedBusiness,
+            clientId: selectedClient
+        };
+        
+        localStorage.setItem(`selectionData_${userId}`, JSON.stringify(selectionData));
+    }
+
+    // Function to restore selected business and client
+    function restoreSelectedBusinessAndClient() {
+        const userId = "{{ session.get('user_id') }}";
+        const savedData = localStorage.getItem(`selectionData_${userId}`);
+        
+        if (savedData) {
+            const selectionData = JSON.parse(savedData);
+            
+            // Restore business selection
+            const businessSelect = document.querySelector('.company-selector');
+            if (businessSelect && selectionData.businessId) {
+                businessSelect.value = selectionData.businessId;
+                handleCompanySelection(selectionData.businessId);
+            }
+            
+            // Restore client selection
+            const clientSelect = document.querySelector('.client-selector');
+            if (clientSelect && selectionData.clientId) {
+                clientSelect.value = selectionData.clientId;
+                handleClientSelection(selectionData.clientId);
+            }
+        }
+    }
+
+    // Update the handleCompanySelection function
+    function handleCompanySelection(value) {
+        if (value.startsWith('/settings')) {
+            // If it's the "Create New Business" option, navigate to settings
+            window.location.href = value;
+        } else {
+            // Otherwise, update the company details on the page
+            fetch(`/get_company/${value}`)
+                .then(response => response.json())
+                .then(company => {
+                    // Update company details
+                    const nameElement = document.querySelector('.detail-value[data-placeholder="Business Name"]');
+                    const addressElement = document.querySelector('.detail-value[data-placeholder="Business Address"]');
+                    const emailElement = document.querySelector('.detail-value[data-placeholder="business@example.com"]');
+                    const phoneElement = document.querySelector('.detail-value[data-placeholder="(xxx) xxx-xxxx"]');
+                    
+                    if (nameElement) nameElement.textContent = company.name;
+                    if (addressElement) addressElement.textContent = company.address;
+                    if (emailElement) emailElement.textContent = company.email;
+                    if (phoneElement) phoneElement.textContent = company.phone;
+                    
+                    // Update logo if it exists
+                    const logoPlaceholder = document.querySelector('.logo-placeholder');
+                    if (logoPlaceholder) {
+                        if (company.logo_path) {
+                            logoPlaceholder.innerHTML = `<img src="{{ url_for('static', filename='logos/') }}${company.logo_path}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
+                        } else {
+                            logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
+                        }
+                    }
+
+                    // Enable the Edit Details button
+                    const editButton = document.querySelector('.settings-link');
+                    if (editButton) {
+                        editButton.classList.remove('disabled');
+                        editButton.href = `/settings?company_id=${value}`;
+                    }
+                    
+                    // Save the selection
+                    saveSelectedBusinessAndClient();
+                })
+                .catch(error => {
+                    console.error('Error fetching company details:', error);
+                });
+        }
+    }
+
+    // Update the handleClientSelection function
+    function handleClientSelection(value) {
+        console.log('Client selection changed:', value);
+        if (value.startsWith('/client_details')) {
+            // If it's the "Create New Client" option, navigate to client details
+            console.log('Navigating to create new client page');
+            window.location.href = value;
+        } else {
+            // Otherwise, update the client details on the page
+            console.log('Fetching client details for ID:', value);
+            fetch(`/get_client/${value}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(client => {
+                    console.log('Received client details:', client);
+                    // Get the client details container
+                    const clientDetails = document.querySelector('.client-details .details-content');
+                    if (!clientDetails) {
+                        console.error('Could not find client details container');
+                        return;
+                    }
+                    
+                    // Update the content with the client details
+                    clientDetails.innerHTML = `
+                        <div style="position: relative;">
+                            <a href="/client_details?client_id=${value}" class="settings-link" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
+                                Edit Client Details
+                            </a>
+                            <div class="detail-item">
+                                <span class="detail-label">Client Name:</span>
+                                <span class="detail-value">${client.name}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Address:</span>
+                                <span class="detail-value">${client.address}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Email:</span>
+                                <span class="detail-value">${client.email}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Phone Number:</span>
+                                <span class="detail-value">${client.phone}</span>
+                            </div>
+                        </div>
+                    `;
+                    console.log('Updated client details in the DOM');
+                    
+                    // Save the selection
+                    saveSelectedBusinessAndClient();
+                })
+                .catch(error => {
+                    console.error('Error fetching or updating client details:', error);
+                });
+        }
+    }
+
+    // Function to handle item selection
+    window.handleItemSelection = function(selectElement) {
+        const value = selectElement.value;
+        if (value === 'new') {
+            window.location.href = "{{ url_for('item_details') }}?new=true";
+        } else {
+            const option = selectElement.options[selectElement.selectedIndex];
+            const price = option.getAttribute('data-price');
+            const itemDiv = selectElement.closest('.item');
+            const priceInput = itemDiv.querySelector('input[name="item_price[]"]');
+            priceInput.value = price;
+            calculateItemTotal(itemDiv);
+        }
+    };
+
+    // Function to calculate item total
+    window.calculateItemTotal = function(itemDiv) {
+        const quantity = parseFloat(itemDiv.querySelector('input[name="quantity[]"]').value) || 0;
+        const price = parseFloat(itemDiv.querySelector('input[name="item_price[]"]').value) || 0;
+        
+        const totalCost = quantity * price;
+        const roundedCost = Math.floor(totalCost * 100) / 100;
+        
+        const totalCostElement = itemDiv.querySelector('.total-cost');
+        if (totalCostElement) {
+            const span = totalCostElement.querySelector('span');
+            if (span) {
+                span.textContent = `Total Cost: $${roundedCost.toFixed(2)}`;
+            }
+        }
+        return roundedCost.toFixed(2);
+    };
+
+    // Function to add item to invoice
+    window.addItemToInvoice = function(button) {
+        const itemDiv = button.closest('.item');
+        const itemSelect = itemDiv.querySelector('select[name="item[]"]');
+        const quantityInput = itemDiv.querySelector('input[name="quantity[]"]');
+        const priceInput = itemDiv.querySelector('input[name="item_price[]"]');
+        const totalCost = itemDiv.querySelector('.total-cost');
+        
+        if (!itemSelect.value || !quantityInput.value) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        const selectedOption = itemSelect.options[itemSelect.selectedIndex];
+        const description = selectedOption.text;
+        const quantity = parseInt(quantityInput.value) || 0;
+        const price = parseFloat(priceInput.value);
+        const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
+        
+        const lineItem = document.createElement('div');
+        lineItem.className = 'line-item confirmed';
+        lineItem.innerHTML = `
+            <div class="line-item-content">
+                <div class="detail-item">
+                    <span class="detail-label">Description:</span>
+                    <span class="detail-value">${description}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Quantity:</span>
+                    <span class="detail-value">${quantity}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Price:</span>
+                    <span class="detail-value">$${price.toFixed(2)}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Total:</span>
+                    <span class="detail-value">$${total.toFixed(2)}</span>
+                </div>
+            </div>
+            <div class="line-item-actions">
+                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        lineItem.dataset.type = 'item';
+        lineItem.dataset.description = description;
+        lineItem.dataset.quantity = quantity;
+        lineItem.dataset.price = price;
+        lineItem.dataset.total = total;
+        
+        document.getElementById('items').appendChild(lineItem);
+        itemDiv.remove();
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+        saveInvoiceData();
+    };
+
+    // Function to remove item from invoice
+    window.removeItemFromInvoice = function(button) {
+        const itemDiv = button.closest('.item');
+        itemDiv.remove();
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+    };
+
     // Initialize everything when the DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
         const today = new Date().toISOString().split('T')[0];
@@ -638,6 +936,7 @@
 
         // Restore saved data
         restoreInvoiceData();
+        restoreSelectedBusinessAndClient();
 
         // Add Labor button
         document.getElementById('addLaborBtn').addEventListener('click', function() {
@@ -678,13 +977,25 @@
             newItem.className = 'item';
             newItem.innerHTML = 
                 '<label>Item:</label>' +
-                '<input type="text" name="item[]" required>' +
+                '<select name="item[]" required onchange="handleItemSelection(this)">' +
+                '<option value="" disabled selected>Select Item</option>' +
+                '<option value="new">Create New Item</option>' +
+                '{% for item in items %}' +
+                '<option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.description }} - ${{ "%.2f"|format(item.price) }}</option>' +
+                '{% endfor %}' +
+                '</select>' +
                 '<label>Quantity:</label>' +
-                '<input type="number" name="quantity[]" min="1" value="1" required>' +
-                '<label>Price:</label>' +
-                '<input type="number" name="price[]" min="0" step="0.01" value="0.00" required>' +
-                '<button type="button" onclick="this.parentElement.remove()">Remove</button>';
+                '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
+                '<input type="hidden" name="item_price[]" value="0.00">' +
+                '<div class="total-cost">' +
+                '<span>Total Cost: $0.00</span>' +
+                '</div>' +
+                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                '</div>';
             itemsDiv.appendChild(newItem);
+            document.querySelector('.main-action-buttons').classList.add('hidden');
         });
 
         // Invoice header buttons
@@ -835,108 +1146,101 @@
             calculateTotalCost(newItem);
             
             lineItem.replaceWith(newItem);
+        } else if (type === 'item') {
+            const newItem = document.createElement('div');
+            newItem.className = 'item';
+            
+            newItem.dataset.type = 'item';
+            newItem.dataset.description = lineItem.dataset.description;
+            newItem.dataset.quantity = lineItem.dataset.quantity;
+            newItem.dataset.price = lineItem.dataset.price;
+            newItem.dataset.total = lineItem.dataset.total;
+            
+            newItem.innerHTML = 
+                '<label>Item:</label>' +
+                '<select name="item[]" required onchange="handleItemSelection(this)">' +
+                '<option value="" disabled>Select Item</option>' +
+                '<option value="new">Create New Item</option>' +
+                '{% for item in items %}' +
+                '<option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.description }} - ${{ "%.2f"|format(item.price) }}</option>' +
+                '{% endfor %}' +
+                '</select>' +
+                '<label>Quantity:</label>' +
+                '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
+                '<input type="hidden" name="item_price[]" value="0.00">' +
+                '<div class="total-cost">' +
+                '<span>Total Cost: $0.00</span>' +
+                '</div>' +
+                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                '<button type="button" class="add-to-invoice-btn" onclick="confirmEdit(this)" title="Update item"><i class="fas fa-check"></i></button>' +
+                '<button type="button" class="remove-item-btn" onclick="cancelEdit(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                '</div>';
+            
+            const select = newItem.querySelector('select');
+            const options = Array.from(select.options);
+            const matchingOption = options.find(opt => opt.text === lineItem.dataset.description);
+            if (matchingOption) {
+                matchingOption.selected = true;
+                const price = matchingOption.getAttribute('data-price');
+                const priceInput = newItem.querySelector('input[name="item_price[]"]');
+                priceInput.value = price;
+            }
+            
+            const quantityInput = newItem.querySelector('input[name="quantity[]"]');
+            quantityInput.value = lineItem.dataset.quantity;
+            calculateItemTotal(newItem);
+            
+            lineItem.replaceWith(newItem);
         }
     };
 
     window.confirmEdit = function(button) {
         const itemDiv = button.closest('.item');
-        const laborSelect = itemDiv.querySelector('select[name="labor_item[]"]');
-        const dateInput = itemDiv.querySelector('input[name="item_date[]"]');
-        const hoursInput = itemDiv.querySelector('input[name="hours[]"]');
-        const minutesInput = itemDiv.querySelector('input[name="minutes[]"]');
-        const rateInput = itemDiv.querySelector('input[name="labor_rate[]"]');
-        const totalCost = itemDiv.querySelector('.total-cost');
+        const type = itemDiv.dataset.type;
         
-        if (!laborSelect.value || !dateInput.value || (!hoursInput.value && !minutesInput.value)) {
-            alert('Please fill in all required fields');
-            return;
-        }
-        
-        const selectedOption = laborSelect.options[laborSelect.selectedIndex];
-        const description = selectedOption.text;
-        const hours = parseInt(hoursInput.value) || 0;
-        const minutes = parseInt(minutesInput.value) || 0;
-        const rate = parseFloat(rateInput.value);
-        const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
-        
-        const lineItem = document.createElement('div');
-        lineItem.className = 'line-item confirmed';
-        lineItem.innerHTML = `
-            <div class="line-item-content">
-                <div class="detail-item">
-                    <span class="detail-label">Description:</span>
-                    <span class="detail-value">${description}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Date:</span>
-                    <span class="detail-value">${dateInput.value}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Time:</span>
-                    <span class="detail-value">${hours}h ${minutes}m</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Rate:</span>
-                    <span class="detail-value">$${rate.toFixed(2)}/hr</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Total:</span>
-                    <span class="detail-value">$${total.toFixed(2)}</span>
-                </div>
-            </div>
-            <div class="line-item-actions">
-                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
-                    <i class="fas fa-pencil-alt"></i>
-                </button>
-                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
-        
-        lineItem.dataset.type = 'labor';
-        lineItem.dataset.description = description;
-        lineItem.dataset.date = dateInput.value;
-        lineItem.dataset.hours = hours;
-        lineItem.dataset.minutes = minutes;
-        lineItem.dataset.rate = rate;
-        lineItem.dataset.total = total;
-        
-        itemDiv.replaceWith(lineItem);
-        updateInvoiceTotal();
-        saveInvoiceData();
-    };
-
-    window.cancelEdit = function(button) {
-        const itemDiv = button.closest('.item');
-        
-        if (itemDiv.dataset.description) {
+        if (type === 'labor') {
+            const laborSelect = itemDiv.querySelector('select[name="labor_item[]"]');
+            const dateInput = itemDiv.querySelector('input[name="item_date[]"]');
+            const hoursInput = itemDiv.querySelector('input[name="hours[]"]');
+            const minutesInput = itemDiv.querySelector('input[name="minutes[]"]');
+            const rateInput = itemDiv.querySelector('input[name="labor_rate[]"]');
+            const totalCost = itemDiv.querySelector('.total-cost');
+            
+            if (!laborSelect.value || !dateInput.value || (!hoursInput.value && !minutesInput.value)) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            const selectedOption = laborSelect.options[laborSelect.selectedIndex];
+            const description = selectedOption.text;
+            const hours = parseInt(hoursInput.value) || 0;
+            const minutes = parseInt(minutesInput.value) || 0;
+            const rate = parseFloat(rateInput.value);
+            const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
+            
             const lineItem = document.createElement('div');
             lineItem.className = 'line-item confirmed';
-            
-            const originalData = itemDiv.dataset;
-            
             lineItem.innerHTML = `
                 <div class="line-item-content">
                     <div class="detail-item">
                         <span class="detail-label">Description:</span>
-                        <span class="detail-value">${originalData.description}</span>
+                        <span class="detail-value">${description}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">Date:</span>
-                        <span class="detail-value">${originalData.date}</span>
+                        <span class="detail-value">${dateInput.value}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">Time:</span>
-                        <span class="detail-value">${originalData.hours}h ${originalData.minutes}m</span>
+                        <span class="detail-value">${hours}h ${minutes}m</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">Rate:</span>
-                        <span class="detail-value">$${parseFloat(originalData.rate).toFixed(2)}/hr</span>
+                        <span class="detail-value">$${rate.toFixed(2)}/hr</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">Total:</span>
-                        <span class="detail-value">$${parseFloat(originalData.total).toFixed(2)}</span>
+                        <span class="detail-value">$${total.toFixed(2)}</span>
                     </div>
                 </div>
                 <div class="line-item-actions">
@@ -950,17 +1254,73 @@
             `;
             
             lineItem.dataset.type = 'labor';
-            lineItem.dataset.description = originalData.description;
-            lineItem.dataset.date = originalData.date;
-            lineItem.dataset.hours = originalData.hours;
-            lineItem.dataset.minutes = originalData.minutes;
-            lineItem.dataset.rate = originalData.rate;
-            lineItem.dataset.total = originalData.total;
+            lineItem.dataset.description = description;
+            lineItem.dataset.date = dateInput.value;
+            lineItem.dataset.hours = hours;
+            lineItem.dataset.minutes = minutes;
+            lineItem.dataset.rate = rate;
+            lineItem.dataset.total = total;
             
             itemDiv.replaceWith(lineItem);
-        } else {
-            itemDiv.remove();
-            document.querySelector('.main-action-buttons').classList.remove('hidden');
+            updateInvoiceTotal();
+            saveInvoiceData();
+        } else if (type === 'item') {
+            const itemSelect = itemDiv.querySelector('select[name="item[]"]');
+            const quantityInput = itemDiv.querySelector('input[name="quantity[]"]');
+            const priceInput = itemDiv.querySelector('input[name="item_price[]"]');
+            const totalCost = itemDiv.querySelector('.total-cost');
+            
+            if (!itemSelect.value || !quantityInput.value) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            const selectedOption = itemSelect.options[itemSelect.selectedIndex];
+            const description = selectedOption.text;
+            const quantity = parseInt(quantityInput.value) || 0;
+            const price = parseFloat(priceInput.value);
+            const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
+            
+            const lineItem = document.createElement('div');
+            lineItem.className = 'line-item confirmed';
+            lineItem.innerHTML = `
+                <div class="line-item-content">
+                    <div class="detail-item">
+                        <span class="detail-label">Description:</span>
+                        <span class="detail-value">${description}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Quantity:</span>
+                        <span class="detail-value">${quantity}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Price:</span>
+                        <span class="detail-value">$${price.toFixed(2)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Total:</span>
+                        <span class="detail-value">$${total.toFixed(2)}</span>
+                    </div>
+                </div>
+                <div class="line-item-actions">
+                    <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
+                        <i class="fas fa-pencil-alt"></i>
+                    </button>
+                    <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            
+            lineItem.dataset.type = 'item';
+            lineItem.dataset.description = description;
+            lineItem.dataset.quantity = quantity;
+            lineItem.dataset.price = price;
+            lineItem.dataset.total = total;
+            
+            itemDiv.replaceWith(lineItem);
+            updateInvoiceTotal();
+            saveInvoiceData();
         }
     };
 
@@ -1026,106 +1386,6 @@
         invoiceHeader.classList.remove('confirmed');
         document.getElementById('confirmInvoiceBtn').style.display = 'inline-block';
         document.getElementById('editInvoiceBtn').style.display = 'none';
-    }
-
-    function handleCompanySelection(value) {
-        if (value.startsWith('/settings')) {
-            // If it's the "Create New Business" option, navigate to settings
-            window.location.href = value;
-        } else {
-            // Otherwise, update the company details on the page
-            fetch(`/get_company/${value}`)
-                .then(response => response.json())
-                .then(company => {
-                    // Update company details
-                    const nameElement = document.querySelector('.detail-value[data-placeholder="Business Name"]');
-                    const addressElement = document.querySelector('.detail-value[data-placeholder="Business Address"]');
-                    const emailElement = document.querySelector('.detail-value[data-placeholder="business@example.com"]');
-                    const phoneElement = document.querySelector('.detail-value[data-placeholder="(xxx) xxx-xxxx"]');
-                    
-                    if (nameElement) nameElement.textContent = company.name;
-                    if (addressElement) addressElement.textContent = company.address;
-                    if (emailElement) emailElement.textContent = company.email;
-                    if (phoneElement) phoneElement.textContent = company.phone;
-                    
-                    // Update logo if it exists
-                    const logoPlaceholder = document.querySelector('.logo-placeholder');
-                    if (logoPlaceholder) {
-                        if (company.logo_path) {
-                            logoPlaceholder.innerHTML = `<img src="{{ url_for('static', filename='logos/') }}${company.logo_path}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
-                        } else {
-                            logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
-                        }
-                    }
-
-                    // Enable the Edit Details button
-                    const editButton = document.querySelector('.settings-link');
-                    if (editButton) {
-                        editButton.classList.remove('disabled');
-                        editButton.href = `/settings?company_id=${value}`;
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching company details:', error);
-                });
-        }
-    }
-
-    function handleClientSelection(value) {
-        console.log('Client selection changed:', value);
-        if (value.startsWith('/client_details')) {
-            // If it's the "Create New Client" option, navigate to client details
-            console.log('Navigating to create new client page');
-            window.location.href = value;
-        } else {
-            // Otherwise, update the client details on the page
-            console.log('Fetching client details for ID:', value);
-            fetch(`/get_client/${value}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(client => {
-                    console.log('Received client details:', client);
-                    // Get the client details container
-                    const clientDetails = document.querySelector('.client-details .details-content');
-                    if (!clientDetails) {
-                        console.error('Could not find client details container');
-                        return;
-                    }
-                    
-                    // Update the content with the client details
-                    clientDetails.innerHTML = `
-                        <div style="position: relative;">
-                            <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else url_for('client_details') }}" class="settings-link {% if not selected_client %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
-                                Edit Client Details
-                            </a>
-                    <div class="detail-item">
-                                <span class="detail-label">Client Name:</span>
-                                <span class="detail-value">${client.name}</span>
-                        </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Address:</span>
-                                <span class="detail-value">${client.address}</span>
-                    </div>
-                    <div class="detail-item">
-                                <span class="detail-label">Email:</span>
-                                <span class="detail-value">${client.email}</span>
-                    </div>
-                    <div class="detail-item">
-                                <span class="detail-label">Phone Number:</span>
-                                <span class="detail-value">${client.phone}</span>
-                    </div>
-                </div>
-            `;
-                    console.log('Updated client details in the DOM');
-                })
-                .catch(error => {
-                    console.error('Error fetching or updating client details:', error);
-                });
-        }
     }
 </script>
 {% endblock %}

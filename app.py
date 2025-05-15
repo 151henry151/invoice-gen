@@ -154,6 +154,8 @@ def index():
                          (session['user_id'],)).fetchall()
     labor_items = conn.execute('SELECT * FROM labor_items WHERE user_id = ?',
                              (session['user_id'],)).fetchall()
+    items = conn.execute('SELECT * FROM items WHERE user_id = ?',
+                        (session['user_id'],)).fetchall()
     companies = conn.execute('SELECT * FROM companies WHERE user_id = ? AND name != ?',
                            (session['user_id'], 'Your Company Name')).fetchall()
     
@@ -173,7 +175,8 @@ def index():
     
     return render_template('index.html', 
                          clients=clients, 
-                         labor_items=labor_items, 
+                         labor_items=labor_items,
+                         items=items,
                          companies=companies,
                          selected_company=selected_company,
                          selected_client=selected_client,
@@ -714,6 +717,66 @@ def remove_labor_item():
     conn = get_db()
     try:
         conn.execute('DELETE FROM labor_items WHERE id = ? AND user_id = ?',
+                    (item_id, session['user_id']))
+        conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/item_details')
+@login_required
+def item_details():
+    item_id = request.args.get('item_id')
+    is_new = request.args.get('new') == 'true'
+    
+    conn = get_db()
+    items = conn.execute('SELECT * FROM items WHERE user_id = ?', 
+                        (session['user_id'],)).fetchall()
+    
+    selected_item = None
+    if item_id and not is_new:
+        selected_item = conn.execute('SELECT * FROM items WHERE id = ? AND user_id = ?',
+                                   (item_id, session['user_id'])).fetchone()
+    
+    return render_template('item_details.html', items=items, selected_item=selected_item, is_new=is_new)
+
+@app.route('/update_item', methods=['POST'])
+@login_required
+def update_item():
+    item_id = request.form.get('item_id')
+    description = request.form.get('description')
+    price = request.form.get('price')
+    
+    conn = get_db()
+    if item_id:
+        # Update existing item
+        conn.execute('''UPDATE items 
+                       SET description = ?, price = ?
+                       WHERE id = ? AND user_id = ?''',
+                    (description, price, item_id, session['user_id']))
+    else:
+        # Create new item
+        conn.execute('''INSERT INTO items (user_id, description, price)
+                       VALUES (?, ?, ?)''',
+                    (session['user_id'], description, price))
+    
+    conn.commit()
+    flash('Item saved successfully!')
+    return redirect(url_for('index'))
+
+@app.route('/remove_item', methods=['POST'])
+@login_required
+def remove_item():
+    data = request.get_json()
+    item_id = data.get('item_id')
+    
+    if not item_id:
+        return jsonify({'success': False, 'error': 'No item ID provided'})
+    
+    conn = get_db()
+    try:
+        conn.execute('DELETE FROM items WHERE id = ? AND user_id = ?',
                     (item_id, session['user_id']))
         conn.commit()
         return jsonify({'success': True})
