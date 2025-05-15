@@ -20,6 +20,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import time
 from flask_login import current_user
+from PIL import Image
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Generate a secure secret key
@@ -27,10 +28,34 @@ app.secret_key = os.urandom(24)  # Generate a secure secret key
 # Configure upload settings
 UPLOAD_FOLDER = 'static/logos'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+MAX_LOGO_SIZE = (200, 200)  # Maximum dimensions for logo
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def resize_logo(image_path):
+    """Resize the logo while maintaining aspect ratio"""
+    try:
+        with Image.open(image_path) as img:
+            # Convert to RGB if necessary
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
+            
+            # Calculate new dimensions while maintaining aspect ratio
+            width, height = img.size
+            ratio = min(MAX_LOGO_SIZE[0] / width, MAX_LOGO_SIZE[1] / height)
+            new_size = (int(width * ratio), int(height * ratio))
+            
+            # Resize image
+            resized_img = img.resize(new_size, Image.Resampling.LANCZOS)
+            
+            # Save the resized image
+            resized_img.save(image_path, quality=95, optimize=True)
+            return True
+    except Exception as e:
+        print(f"Error resizing logo: {str(e)}")
+        return False
 
 # Login required decorator
 def login_required(f):
@@ -555,13 +580,29 @@ def settings():
         if logo and logo.filename:
             filename = secure_filename(logo.filename)
             logo_path = f"{session['user_id']}_{int(time.time())}_{filename}"
-            logo.save(os.path.join(app.config['UPLOAD_FOLDER'], logo_path))
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], logo_path)
+            
+            # Create upload folder if it doesn't exist
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+            
+            # Save the file
+            logo.save(filepath)
+            
+            # Resize the logo
+            if not resize_logo(filepath):
+                flash('Error processing logo. Please try again.', 'error')
+                return redirect(url_for('settings'))
 
         if company_id:
             # Update existing company
             company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?', (company_id, session['user_id'])).fetchone()
             if company:
                 if logo_path:
+                    # Delete old logo if it exists
+                    if company['logo_path']:
+                        old_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], company['logo_path'])
+                        if os.path.exists(old_logo_path):
+                            os.remove(old_logo_path)
                     conn.execute('UPDATE companies SET name=?, address=?, email=?, phone=?, logo_path=? WHERE id=? AND user_id=?',
                         (name, address, email, phone, logo_path, company_id, session['user_id']))
                 else:

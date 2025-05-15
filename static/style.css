@@ -247,6 +247,37 @@ input[type="file"]::-webkit-file-upload-button,
     font-style: italic;
 }
 
+.logo-upload-info {
+    margin-bottom: 10px;
+}
+
+.logo-size-info {
+    font-size: 12px;
+    color: #666;
+    margin: 0 0 8px 0;
+    font-style: italic;
+}
+
+.current-logo {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+}
+
+.current-logo p {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    color: #666;
+}
+
+.current-logo img {
+    display: block;
+    margin: 0 auto;
+    object-fit: contain;
+}
+
 .company-logo {
     max-width: 100%;
     max-height: 100%;

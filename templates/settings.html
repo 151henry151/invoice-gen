@@ -29,15 +29,18 @@
             <input type="tel" id="phone" name="phone" placeholder="Phone Number" value="{{ selected_company.phone if selected_company else '' }}" required>
             
             <label for="logo">Logo:</label>
-            <input type="file" id="logo" name="logo" accept="image/*" onchange="previewLogo(this)">
+            <div class="logo-upload-info">
+                <p class="logo-size-info">Recommended size: 200x200 pixels. Images will be automatically resized while maintaining aspect ratio.</p>
+                <input type="file" id="logo" name="logo" accept="image/*" onchange="previewLogo(this)">
+            </div>
             <div id="logo-preview" class="current-logo" style="display: none;">
                 <p>Selected Logo:</p>
-                <img id="preview-image" src="" alt="Selected Logo" style="max-width: 200px;">
+                <img id="preview-image" src="" alt="Selected Logo" style="max-width: 200px; max-height: 200px;">
             </div>
             {% if selected_company and selected_company.logo_path %}
                 <div class="current-logo">
                     <p>Current Logo:</p>
-                    <img src="{{ url_for('static', filename='logos/' + selected_company.logo_path) }}" alt="Current Logo" style="max-width: 200px;">
+                    <img src="{{ url_for('static', filename='logos/' + selected_company.logo_path) }}" alt="Current Logo" style="max-width: 200px; max-height: 200px;">
                 </div>
             {% endif %}
 
