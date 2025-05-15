@@ -257,18 +257,6 @@
             margin-top: 0.25rem;  /* Reduced from 0.5rem */
             clear: both;
         }
-        .invoice-header {
-            display: grid;
-            grid-template-columns: 1fr 1fr 40px;
-            gap: 20px;
-            margin-bottom: 20px;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background-color: #f8f9fa;
-            align-items: start;
-        }
-        
         .invoice-fields {
             grid-column: 1 / 3;
             display: flex;
@@ -292,58 +280,13 @@
         }
         
         .invoice-header.confirmed {
-            background-color: #e9ecef;
+            background-color: var(--section-bg);
         }
         
         .invoice-header.confirmed input {
             background-color: transparent;
             border: none;
             pointer-events: none;
-        }
-        
-        .add-to-invoice-btn, .edit-button {
-            width: 32px;
-            height: 32px;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            position: absolute;
-            top: 0;
-            left: 0;
-            margin: 0;
-        }
-        
-        .add-to-invoice-btn {
-            background-color: #6c757d;
-            color: white;
-            border-radius: 4px;
-        }
-        
-        .add-to-invoice-btn:hover {
-            background-color: #5a6268;
-        }
-        
-        .edit-button {
-            background-color: #6c757d;
-            color: white;
-            border-radius: 4px;
-            display: none;
-        }
-        
-        .edit-button:hover {
-            background-color: #5a6268;
-        }
-        
-        .invoice-header.confirmed .add-to-invoice-btn {
-            display: none;
-        }
-        
-        .invoice-header.confirmed .edit-button {
-            display: flex;
         }
         .line-item {
             display: grid;
@@ -508,9 +451,12 @@
             document.getElementById('invoice_number').value = invoiceData.invoiceNumber;
             if (invoiceData.isConfirmed) {
                 const invoiceHeader = document.querySelector('.invoice-header');
+                const confirmBtn = document.getElementById('confirmInvoiceBtn');
                 invoiceHeader.classList.add('confirmed');
-                document.getElementById('confirmInvoiceBtn').style.display = 'none';
-                document.getElementById('editInvoiceBtn').style.display = 'inline-block';
+                document.getElementById('date').readOnly = true;
+                document.getElementById('invoice_number').readOnly = true;
+                confirmBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+                confirmBtn.title = 'Edit invoice';
             }
             
             // Restore line items
@@ -636,15 +582,39 @@
     // Function to save selected business and client
     function saveSelectedBusinessAndClient() {
         const userId = "{{ session.get('user_id') }}";
-        const selectedBusiness = document.querySelector('.company-selector').value;
-        const selectedClient = document.querySelector('.client-selector').value;
+        const businessSelect = document.querySelector('.company-selector');
+        const clientSelect = document.querySelector('.client-selector');
         
-        const selectionData = {
-            businessId: selectedBusiness,
-            clientId: selectedClient
-        };
-        
-        localStorage.setItem(`selectionData_${userId}`, JSON.stringify(selectionData));
+        if (businessSelect && clientSelect) {
+            const selectionData = {
+                businessId: businessSelect.value,
+                clientId: clientSelect.value
+            };
+            
+            // Save to localStorage
+            localStorage.setItem(`selectionData_${userId}`, JSON.stringify(selectionData));
+            
+            // Update URL with selected IDs
+            const url = new URL(window.location.href);
+            if (selectionData.businessId) {
+                url.searchParams.set('selected_company', selectionData.businessId);
+            }
+            if (selectionData.clientId) {
+                url.searchParams.set('selected_client', selectionData.clientId);
+            }
+            window.history.replaceState({}, '', url);
+            
+            // Save to session via AJAX
+            fetch('/save_selections', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(selectionData)
+            }).catch(error => {
+                console.error('Error saving selections:', error);
+            });
+        }
     }
 
     // Function to restore selected business and client
@@ -659,6 +629,7 @@
             const businessSelect = document.querySelector('.company-selector');
             if (businessSelect && selectionData.businessId) {
                 businessSelect.value = selectionData.businessId;
+                // Trigger the company selection handler to update the UI
                 handleCompanySelection(selectionData.businessId);
             }
             
@@ -666,6 +637,7 @@
             const clientSelect = document.querySelector('.client-selector');
             if (clientSelect && selectionData.clientId) {
                 clientSelect.value = selectionData.clientId;
+                // Trigger the client selection handler to update the UI
                 handleClientSelection(selectionData.clientId);
             }
         }
@@ -812,6 +784,85 @@
         return roundedCost.toFixed(2);
     };
 
+    // Function to add labor to invoice
+    window.addLaborToInvoice = function(button) {
+        const itemDiv = button.closest('.item');
+        const laborSelect = itemDiv.querySelector('select[name="labor_item[]"]');
+        const dateInput = itemDiv.querySelector('input[name="item_date[]"]');
+        const hoursInput = itemDiv.querySelector('input[name="hours[]"]');
+        const minutesInput = itemDiv.querySelector('input[name="minutes[]"]');
+        const rateInput = itemDiv.querySelector('input[name="labor_rate[]"]');
+        const totalCost = itemDiv.querySelector('.total-cost');
+        
+        if (!laborSelect.value || !dateInput.value || !hoursInput.value || !minutesInput.value) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        const selectedOption = laborSelect.options[laborSelect.selectedIndex];
+        const description = selectedOption.text;
+        const date = dateInput.value;
+        const hours = parseInt(hoursInput.value) || 0;
+        const minutes = parseInt(minutesInput.value) || 0;
+        const rate = parseFloat(rateInput.value);
+        const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
+        
+        const lineItem = document.createElement('div');
+        lineItem.className = 'line-item confirmed';
+        lineItem.innerHTML = `
+            <div class="line-item-content">
+                <div class="detail-item">
+                    <span class="detail-label">Description:</span>
+                    <span class="detail-value">${description}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Date:</span>
+                    <span class="detail-value">${date}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Time:</span>
+                    <span class="detail-value">${hours}h ${minutes}m</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Rate:</span>
+                    <span class="detail-value">$${rate.toFixed(2)}/hr</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Total:</span>
+                    <span class="detail-value">$${total.toFixed(2)}</span>
+                </div>
+            </div>
+            <div class="line-item-actions">
+                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        lineItem.dataset.type = 'labor';
+        lineItem.dataset.description = description;
+        lineItem.dataset.date = date;
+        lineItem.dataset.hours = hours;
+        lineItem.dataset.minutes = minutes;
+        lineItem.dataset.rate = rate;
+        lineItem.dataset.total = total;
+        
+        document.getElementById('items').appendChild(lineItem);
+        itemDiv.remove();
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+        saveInvoiceData();
+    };
+
+    // Function to remove labor item from invoice
+    window.removeLaborItemFromInvoice = function(button) {
+        const itemDiv = button.closest('.item');
+        itemDiv.remove();
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+    };
+
     // Function to add item to invoice
     window.addItemToInvoice = function(button) {
         const itemDiv = button.closest('.item');
@@ -881,473 +932,8 @@
         document.querySelector('.main-action-buttons').classList.remove('hidden');
     };
 
-    // Initialize everything when the DOM is loaded
-    document.addEventListener('DOMContentLoaded', function() {
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('date').value = today;
-
-        // Restore saved data
-        restoreInvoiceData();
-        restoreSelectedBusinessAndClient();
-
-        // Add Labor button
-        document.getElementById('addLaborBtn').addEventListener('click', function() {
-            const itemsDiv = document.getElementById('items');
-            const newItem = document.createElement('div');
-            newItem.className = 'item';
-            newItem.innerHTML = 
-                '<label>Labor Item:</label>' +
-                '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
-                '<option value="" disabled selected>Select Labor Item</option>' +
-                '<option value="new">Create New Labor Item</option>' +
-                '{% for item in labor_items %}' +
-                '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
-                '{% endfor %}' +
-                '</select>' +
-                '<label>Date labor performed:</label>' +
-                '<input type="date" name="item_date[]" required>' +
-                '<label>Hours:</label>' +
-                '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-                '<label>Minutes:</label>' +
-                '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-                '<input type="hidden" name="labor_rate[]" value="0.00">' +
-                '<div class="total-cost">' +
-                '<span>Total Cost: $0.00</span>' +
-                '</div>' +
-                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                '</div>';
-            itemsDiv.appendChild(newItem);
-            document.querySelector('.main-action-buttons').classList.add('hidden');
-        });
-
-        // Add Item button
-        document.getElementById('addItemBtn').addEventListener('click', function() {
-            const itemsDiv = document.getElementById('items');
-            const newItem = document.createElement('div');
-            newItem.className = 'item';
-            newItem.innerHTML = 
-                '<label>Item:</label>' +
-                '<select name="item[]" required onchange="handleItemSelection(this)">' +
-                '<option value="" disabled selected>Select Item</option>' +
-                '<option value="new">Create New Item</option>' +
-                '{% for item in items %}' +
-                '<option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.description }} - ${{ "%.2f"|format(item.price) }}</option>' +
-                '{% endfor %}' +
-                '</select>' +
-                '<label>Quantity:</label>' +
-                '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
-                '<input type="hidden" name="item_price[]" value="0.00">' +
-                '<div class="total-cost">' +
-                '<span>Total Cost: $0.00</span>' +
-                '</div>' +
-                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                '</div>';
-            itemsDiv.appendChild(newItem);
-            document.querySelector('.main-action-buttons').classList.add('hidden');
-        });
-
-        // Invoice header buttons
-        document.getElementById('confirmInvoiceBtn').addEventListener('click', function() {
-            confirmInvoiceHeader();
-            saveInvoiceData();
-        });
-        
-        document.getElementById('editInvoiceBtn').addEventListener('click', function() {
-            editInvoiceHeader();
-            saveInvoiceData();
-        });
-
-        // Form submission
-        document.querySelector('form').addEventListener('submit', function() {
-            clearInvoiceData();
-        });
-
-        // Add Note button
-        document.getElementById('addNoteBtn').addEventListener('click', function() {
-            const notesSection = document.getElementById('notesSection');
-            notesSection.style.display = 'block';
-            document.querySelector('.main-action-buttons').classList.add('hidden');
-        });
-    });
-
-    // Make all functions global
-    window.addLaborToInvoice = function(button) {
-        const itemDiv = button.closest('.item');
-        const laborSelect = itemDiv.querySelector('select[name="labor_item[]"]');
-        const dateInput = itemDiv.querySelector('input[name="item_date[]"]');
-        const hoursInput = itemDiv.querySelector('input[name="hours[]"]');
-        const minutesInput = itemDiv.querySelector('input[name="minutes[]"]');
-        const rateInput = itemDiv.querySelector('input[name="labor_rate[]"]');
-        const totalCost = itemDiv.querySelector('.total-cost');
-        
-        if (!laborSelect.value || !dateInput.value || (!hoursInput.value && !minutesInput.value)) {
-            alert('Please fill in all required fields');
-            return;
-        }
-        
-        const selectedOption = laborSelect.options[laborSelect.selectedIndex];
-        const description = selectedOption.text;
-        const hours = parseInt(hoursInput.value) || 0;
-        const minutes = parseInt(minutesInput.value) || 0;
-        const rate = parseFloat(rateInput.value);
-        const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
-        
-        const lineItem = document.createElement('div');
-        lineItem.className = 'line-item confirmed';
-        lineItem.innerHTML = `
-            <div class="line-item-content">
-                <div class="detail-item">
-                    <span class="detail-label">Description:</span>
-                    <span class="detail-value">${description}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Date:</span>
-                    <span class="detail-value">${dateInput.value}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Time:</span>
-                    <span class="detail-value">${hours}h ${minutes}m</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Rate:</span>
-                    <span class="detail-value">$${rate.toFixed(2)}/hr</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Total:</span>
-                    <span class="detail-value">$${total.toFixed(2)}</span>
-                </div>
-            </div>
-            <div class="line-item-actions">
-                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
-                    <i class="fas fa-pencil-alt"></i>
-                </button>
-                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
-        
-        lineItem.dataset.type = 'labor';
-        lineItem.dataset.description = description;
-        lineItem.dataset.date = dateInput.value;
-        lineItem.dataset.hours = hours;
-        lineItem.dataset.minutes = minutes;
-        lineItem.dataset.rate = rate;
-        lineItem.dataset.total = total;
-        
-        document.getElementById('items').appendChild(lineItem);
-        itemDiv.remove();
-        document.querySelector('.main-action-buttons').classList.remove('hidden');
-        saveInvoiceData();
-    };
-
-    window.removeLaborItemFromInvoice = function(button) {
-        const itemDiv = button.closest('.item');
-        itemDiv.remove();
-        document.querySelector('.main-action-buttons').classList.remove('hidden');
-    };
-
-    window.editLineItem = function(button) {
-        const lineItem = button.closest('.line-item');
-        const type = lineItem.dataset.type;
-        
-        if (type === 'labor') {
-            const newItem = document.createElement('div');
-            newItem.className = 'item';
-            
-            newItem.dataset.type = 'labor';
-            newItem.dataset.description = lineItem.dataset.description;
-            newItem.dataset.date = lineItem.dataset.date;
-            newItem.dataset.hours = lineItem.dataset.hours;
-            newItem.dataset.minutes = lineItem.dataset.minutes;
-            newItem.dataset.rate = lineItem.dataset.rate;
-            newItem.dataset.total = lineItem.dataset.total;
-            
-            newItem.innerHTML = 
-                '<label>Labor Item:</label>' +
-                '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
-                '<option value="" disabled>Select Labor Item</option>' +
-                '<option value="new">Create New Labor Item</option>' +
-                '{% for item in labor_items %}' +
-                '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
-                '{% endfor %}' +
-                '</select>' +
-                '<label>Date labor performed:</label>' +
-                '<input type="date" name="item_date[]" required>' +
-                '<label>Hours:</label>' +
-                '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-                '<label>Minutes:</label>' +
-                '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-                '<input type="hidden" name="labor_rate[]" value="0.00">' +
-                '<div class="total-cost">' +
-                '<span>Total Cost: $0.00</span>' +
-                '</div>' +
-                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                '<button type="button" class="add-to-invoice-btn" onclick="confirmEdit(this)" title="Update item"><i class="fas fa-check"></i></button>' +
-                '<button type="button" class="remove-item-btn" onclick="cancelEdit(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                '</div>';
-            
-            const select = newItem.querySelector('select');
-            const options = Array.from(select.options);
-            const matchingOption = options.find(opt => opt.text === lineItem.dataset.description);
-            if (matchingOption) {
-                matchingOption.selected = true;
-                handleLaborItemSelection(select);
-            }
-            
-            newItem.querySelector('input[name="item_date[]"]').value = lineItem.dataset.date;
-            newItem.querySelector('input[name="hours[]"]').value = lineItem.dataset.hours;
-            newItem.querySelector('input[name="minutes[]"]').value = lineItem.dataset.minutes;
-            calculateTotalCost(newItem);
-            
-            lineItem.replaceWith(newItem);
-        } else if (type === 'item') {
-            const newItem = document.createElement('div');
-            newItem.className = 'item';
-            
-            newItem.dataset.type = 'item';
-            newItem.dataset.description = lineItem.dataset.description;
-            newItem.dataset.quantity = lineItem.dataset.quantity;
-            newItem.dataset.price = lineItem.dataset.price;
-            newItem.dataset.total = lineItem.dataset.total;
-            
-            newItem.innerHTML = 
-                '<label>Item:</label>' +
-                '<select name="item[]" required onchange="handleItemSelection(this)">' +
-                '<option value="" disabled>Select Item</option>' +
-                '<option value="new">Create New Item</option>' +
-                '{% for item in items %}' +
-                '<option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.description }} - ${{ "%.2f"|format(item.price) }}</option>' +
-                '{% endfor %}' +
-                '</select>' +
-                '<label>Quantity:</label>' +
-                '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
-                '<input type="hidden" name="item_price[]" value="0.00">' +
-                '<div class="total-cost">' +
-                '<span>Total Cost: $0.00</span>' +
-                '</div>' +
-                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                '<button type="button" class="add-to-invoice-btn" onclick="confirmEdit(this)" title="Update item"><i class="fas fa-check"></i></button>' +
-                '<button type="button" class="remove-item-btn" onclick="cancelEdit(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                '</div>';
-            
-            const select = newItem.querySelector('select');
-            const options = Array.from(select.options);
-            const matchingOption = options.find(opt => opt.text === lineItem.dataset.description);
-            if (matchingOption) {
-                matchingOption.selected = true;
-                const price = matchingOption.getAttribute('data-price');
-                const priceInput = newItem.querySelector('input[name="item_price[]"]');
-                priceInput.value = price;
-            }
-            
-            const quantityInput = newItem.querySelector('input[name="quantity[]"]');
-            quantityInput.value = lineItem.dataset.quantity;
-            calculateItemTotal(newItem);
-            
-            lineItem.replaceWith(newItem);
-        }
-    };
-
-    window.confirmEdit = function(button) {
-        const itemDiv = button.closest('.item');
-        const type = itemDiv.dataset.type;
-        
-        if (type === 'labor') {
-            const laborSelect = itemDiv.querySelector('select[name="labor_item[]"]');
-            const dateInput = itemDiv.querySelector('input[name="item_date[]"]');
-            const hoursInput = itemDiv.querySelector('input[name="hours[]"]');
-            const minutesInput = itemDiv.querySelector('input[name="minutes[]"]');
-            const rateInput = itemDiv.querySelector('input[name="labor_rate[]"]');
-            const totalCost = itemDiv.querySelector('.total-cost');
-            
-            if (!laborSelect.value || !dateInput.value || (!hoursInput.value && !minutesInput.value)) {
-                alert('Please fill in all required fields');
-                return;
-            }
-            
-            const selectedOption = laborSelect.options[laborSelect.selectedIndex];
-            const description = selectedOption.text;
-            const hours = parseInt(hoursInput.value) || 0;
-            const minutes = parseInt(minutesInput.value) || 0;
-            const rate = parseFloat(rateInput.value);
-            const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
-            
-            const lineItem = document.createElement('div');
-            lineItem.className = 'line-item confirmed';
-            lineItem.innerHTML = `
-                <div class="line-item-content">
-                    <div class="detail-item">
-                        <span class="detail-label">Description:</span>
-                        <span class="detail-value">${description}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Date:</span>
-                        <span class="detail-value">${dateInput.value}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Time:</span>
-                        <span class="detail-value">${hours}h ${minutes}m</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Rate:</span>
-                        <span class="detail-value">$${rate.toFixed(2)}/hr</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Total:</span>
-                        <span class="detail-value">$${total.toFixed(2)}</span>
-                    </div>
-                </div>
-                <div class="line-item-actions">
-                    <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
-                        <i class="fas fa-pencil-alt"></i>
-                    </button>
-                    <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            `;
-            
-            lineItem.dataset.type = 'labor';
-            lineItem.dataset.description = description;
-            lineItem.dataset.date = dateInput.value;
-            lineItem.dataset.hours = hours;
-            lineItem.dataset.minutes = minutes;
-            lineItem.dataset.rate = rate;
-            lineItem.dataset.total = total;
-            
-            itemDiv.replaceWith(lineItem);
-            updateInvoiceTotal();
-            saveInvoiceData();
-        } else if (type === 'item') {
-            const itemSelect = itemDiv.querySelector('select[name="item[]"]');
-            const quantityInput = itemDiv.querySelector('input[name="quantity[]"]');
-            const priceInput = itemDiv.querySelector('input[name="item_price[]"]');
-            const totalCost = itemDiv.querySelector('.total-cost');
-            
-            if (!itemSelect.value || !quantityInput.value) {
-                alert('Please fill in all required fields');
-                return;
-            }
-            
-            const selectedOption = itemSelect.options[itemSelect.selectedIndex];
-            const description = selectedOption.text;
-            const quantity = parseInt(quantityInput.value) || 0;
-            const price = parseFloat(priceInput.value);
-            const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
-            
-            const lineItem = document.createElement('div');
-            lineItem.className = 'line-item confirmed';
-            lineItem.innerHTML = `
-                <div class="line-item-content">
-                    <div class="detail-item">
-                        <span class="detail-label">Description:</span>
-                        <span class="detail-value">${description}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Quantity:</span>
-                        <span class="detail-value">${quantity}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Price:</span>
-                        <span class="detail-value">$${price.toFixed(2)}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Total:</span>
-                        <span class="detail-value">$${total.toFixed(2)}</span>
-                    </div>
-                </div>
-                <div class="line-item-actions">
-                    <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
-                        <i class="fas fa-pencil-alt"></i>
-                    </button>
-                    <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            `;
-            
-            lineItem.dataset.type = 'item';
-            lineItem.dataset.description = description;
-            lineItem.dataset.quantity = quantity;
-            lineItem.dataset.price = price;
-            lineItem.dataset.total = total;
-            
-            itemDiv.replaceWith(lineItem);
-            updateInvoiceTotal();
-            saveInvoiceData();
-        }
-    };
-
-    window.removeLineItem = function(button) {
-        if (confirm('Are you sure you want to remove this item?')) {
-            const lineItem = button.closest('.line-item');
-            lineItem.remove();
-            updateInvoiceTotal();
-            saveInvoiceData();
-        }
-    };
-
-    function updateInvoiceTotal() {
-        const lineItems = document.querySelectorAll('.line-item.confirmed');
-        let total = 0;
-        
-        lineItems.forEach(item => {
-            const totalValue = parseFloat(item.dataset.total) || 0;
-            total += totalValue;
-        });
-        
-        const totalDisplay = document.querySelector('.invoice-total');
-        if (totalDisplay) {
-            totalDisplay.textContent = `Total: $${total.toFixed(2)}`;
-        }
-    }
-
-    function confirmInvoiceHeader() {
-        const invoiceHeader = document.querySelector('.invoice-header');
-        const dateInput = document.getElementById('date');
-        const invoiceNumberInput = document.getElementById('invoice_number');
-        
-        if (!dateInput.value) {
-            alert('Please enter an invoice date');
-            return;
-        }
-        if (!invoiceNumberInput.value) {
-            alert('Please enter an invoice number');
-            return;
-        }
-        
-        fetch(`/check_invoice_number/${invoiceNumberInput.value}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.exists) {
-                    if (!confirm('This invoice number already exists. Do you want to proceed anyway?')) {
-                        return;
-                    }
-                }
-                
-                invoiceHeader.classList.add('confirmed');
-                document.getElementById('confirmInvoiceBtn').style.display = 'none';
-                document.getElementById('editInvoiceBtn').style.display = 'inline-block';
-            })
-            .catch(error => {
-                console.error('Error checking invoice number:', error);
-                alert('Error checking invoice number. Please try again.');
-            });
-    }
-
-    function editInvoiceHeader() {
-        const invoiceHeader = document.querySelector('.invoice-header');
-        invoiceHeader.classList.remove('confirmed');
-        document.getElementById('confirmInvoiceBtn').style.display = 'inline-block';
-        document.getElementById('editInvoiceBtn').style.display = 'none';
-    }
-
-    function addNoteToInvoice(button) {
+    // Function to add note to invoice
+    window.addNoteToInvoice = function(button) {
         const notesSection = document.getElementById('notesSection');
         const notesText = document.getElementById('notes').value.trim();
         
@@ -1383,13 +969,252 @@
         document.getElementById('notes').value = '';
         document.querySelector('.main-action-buttons').classList.remove('hidden');
         saveInvoiceData();
-    }
+    };
 
+    // Function to remove note from invoice
     function removeNoteFromInvoice(button) {
         const notesSection = document.getElementById('notesSection');
         notesSection.style.display = 'none';
         document.getElementById('notes').value = '';
         document.querySelector('.main-action-buttons').classList.remove('hidden');
+    }
+
+    // Function to edit a line item
+    window.editLineItem = function(button) {
+        const lineItem = button.closest('.line-item');
+        const type = lineItem.dataset.type;
+        
+        if (type === 'labor') {
+            const itemsDiv = document.getElementById('items');
+            const newItem = document.createElement('div');
+            newItem.className = 'item';
+            newItem.innerHTML = 
+                '<label>Labor Item:</label>' +
+                '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
+                '<option value="" disabled selected>Select Labor Item</option>' +
+                '<option value="new">Create New Labor Item</option>' +
+                '{% for item in labor_items %}' +
+                '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
+                '{% endfor %}' +
+                '</select>' +
+                '<label>Date labor performed:</label>' +
+                '<input type="date" name="item_date[]" value="' + lineItem.dataset.date + '" required>' +
+                '<label>Hours:</label>' +
+                '<input type="number" name="hours[]" min="0" value="' + lineItem.dataset.hours + '" required oninput="calculateTotalCost(this.parentElement)">' +
+                '<label>Minutes:</label>' +
+                '<input type="number" name="minutes[]" min="0" max="59" value="' + lineItem.dataset.minutes + '" required oninput="calculateTotalCost(this.parentElement)">' +
+                '<input type="hidden" name="labor_rate[]" value="' + lineItem.dataset.rate + '">' +
+                '<div class="total-cost">' +
+                '<span>Total Cost: $' + lineItem.dataset.total + '</span>' +
+                '</div>' +
+                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                '</div>';
+            itemsDiv.appendChild(newItem);
+            lineItem.remove();
+            document.querySelector('.main-action-buttons').classList.add('hidden');
+        } else if (type === 'item') {
+            const itemsDiv = document.getElementById('items');
+            const newItem = document.createElement('div');
+            newItem.className = 'item';
+            newItem.innerHTML = 
+                '<label>Item:</label>' +
+                '<select name="item[]" required onchange="handleItemSelection(this)">' +
+                '<option value="" disabled selected>Select Item</option>' +
+                '<option value="new">Create New Item</option>' +
+                '{% for item in items %}' +
+                '<option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.description }} - ${{ "%.2f"|format(item.price) }}</option>' +
+                '{% endfor %}' +
+                '</select>' +
+                '<label>Quantity:</label>' +
+                '<input type="number" name="quantity[]" min="1" value="' + lineItem.dataset.quantity + '" required oninput="calculateItemTotal(this.parentElement)">' +
+                '<input type="hidden" name="item_price[]" value="' + lineItem.dataset.price + '">' +
+                '<div class="total-cost">' +
+                '<span>Total Cost: $' + lineItem.dataset.total + '</span>' +
+                '</div>' +
+                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                '</div>';
+            itemsDiv.appendChild(newItem);
+            lineItem.remove();
+            document.querySelector('.main-action-buttons').classList.add('hidden');
+        } else if (type === 'note') {
+            const notesSection = document.getElementById('notesSection');
+            const notesText = document.getElementById('notes');
+            notesText.value = lineItem.dataset.description;
+            notesSection.style.display = 'block';
+            lineItem.remove();
+            document.querySelector('.main-action-buttons').classList.add('hidden');
+        }
+    };
+
+    // Function to remove a line item
+    window.removeLineItem = function(button) {
+        const lineItem = button.closest('.line-item');
+        lineItem.remove();
+        saveInvoiceData();
+    };
+
+    // Initialize everything when the DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date').value = today;
+
+        // Initialize all event listeners
+        initializeEventListeners();
+
+        // Restore saved data
+        restoreInvoiceData();
+        restoreSelectedBusinessAndClient();
+
+        // Handle disabled edit buttons
+        const editButtons = document.querySelectorAll('.settings-link.disabled');
+        editButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                return false;
+            });
+        });
+    });
+
+    // Function to initialize all event listeners
+    function initializeEventListeners() {
+        // Add Labor button
+        const addLaborBtn = document.getElementById('addLaborBtn');
+        if (addLaborBtn) {
+            addLaborBtn.addEventListener('click', function() {
+                const itemsDiv = document.getElementById('items');
+                const newItem = document.createElement('div');
+                newItem.className = 'item';
+                newItem.innerHTML = 
+                    '<label>Labor Item:</label>' +
+                    '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
+                    '<option value="" disabled selected>Select Labor Item</option>' +
+                    '<option value="new">Create New Labor Item</option>' +
+                    '{% for item in labor_items %}' +
+                    '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
+                    '{% endfor %}' +
+                    '</select>' +
+                    '<label>Date labor performed:</label>' +
+                    '<input type="date" name="item_date[]" required>' +
+                    '<label>Hours:</label>' +
+                    '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+                    '<label>Minutes:</label>' +
+                    '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+                    '<input type="hidden" name="labor_rate[]" value="0.00">' +
+                    '<div class="total-cost">' +
+                    '<span>Total Cost: $0.00</span>' +
+                    '</div>' +
+                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                    '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '</div>';
+                itemsDiv.appendChild(newItem);
+                document.querySelector('.main-action-buttons').classList.add('hidden');
+            });
+        }
+
+        // Add Item button
+        const addItemBtn = document.getElementById('addItemBtn');
+        if (addItemBtn) {
+            addItemBtn.addEventListener('click', function() {
+                const itemsDiv = document.getElementById('items');
+                const newItem = document.createElement('div');
+                newItem.className = 'item';
+                newItem.innerHTML = 
+                    '<label>Item:</label>' +
+                    '<select name="item[]" required onchange="handleItemSelection(this)">' +
+                    '<option value="" disabled selected>Select Item</option>' +
+                    '<option value="new">Create New Item</option>' +
+                    '{% for item in items %}' +
+                    '<option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.description }} - ${{ "%.2f"|format(item.price) }}</option>' +
+                    '{% endfor %}' +
+                    '</select>' +
+                    '<label>Quantity:</label>' +
+                    '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
+                    '<input type="hidden" name="item_price[]" value="0.00">' +
+                    '<div class="total-cost">' +
+                    '<span>Total Cost: $0.00</span>' +
+                    '</div>' +
+                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                    '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '</div>';
+                itemsDiv.appendChild(newItem);
+                document.querySelector('.main-action-buttons').classList.add('hidden');
+            });
+        }
+
+        // Add Note button
+        const addNoteBtn = document.getElementById('addNoteBtn');
+        if (addNoteBtn) {
+            addNoteBtn.addEventListener('click', function() {
+                const notesSection = document.getElementById('notesSection');
+                notesSection.style.display = 'block';
+                document.querySelector('.main-action-buttons').classList.add('hidden');
+            });
+        }
+
+        // Confirm Invoice button
+        const confirmBtn = document.getElementById('confirmInvoiceBtn');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function() {
+                const invoiceHeader = document.querySelector('.invoice-header');
+                const dateInput = document.getElementById('date');
+                const invoiceNumberInput = document.getElementById('invoice_number');
+                
+                if (this.innerHTML.includes('fa-check')) {
+                    // Confirm mode
+                    if (!dateInput.value) {
+                        alert('Please enter an invoice date');
+                        return;
+                    }
+                    if (!invoiceNumberInput.value) {
+                        alert('Please enter an invoice number');
+                        return;
+                    }
+                    
+                    fetch(`/check_invoice_number/${invoiceNumberInput.value}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.exists) {
+                                if (!confirm('This invoice number already exists. Do you want to proceed anyway?')) {
+                                    return;
+                                }
+                            }
+                            
+                            invoiceHeader.classList.add('confirmed');
+                            dateInput.readOnly = true;
+                            invoiceNumberInput.readOnly = true;
+                            this.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+                            this.title = 'Edit invoice';
+                            saveInvoiceData();
+                        })
+                        .catch(error => {
+                            console.error('Error checking invoice number:', error);
+                            alert('Error checking invoice number. Please try again.');
+                        });
+                } else {
+                    // Edit mode
+                    invoiceHeader.classList.remove('confirmed');
+                    dateInput.readOnly = false;
+                    invoiceNumberInput.readOnly = false;
+                    this.innerHTML = '<i class="fas fa-check"></i>';
+                    this.title = 'Add to invoice';
+                    saveInvoiceData();
+                }
+            });
+        }
+
+        // Form submission
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function() {
+                clearInvoiceData();
+            });
+        }
     }
 </script>
 {% endblock %}
@@ -1407,7 +1232,7 @@
             <div class="details-content">
                 <div style="position: relative;">
                     <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else url_for('settings') }}" class="settings-link {% if not selected_company %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
-                        Edit Details
+                            Edit Details
                     </a>
                     <div class="detail-item">
                         <span class="detail-label">Name:</span>
@@ -1446,7 +1271,7 @@
             <div class="details-content">
                 <div style="position: relative;">
                     <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else url_for('client_details') }}" class="settings-link {% if not selected_client %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
-                        Edit Client Details
+                            Edit Client Details
                     </a>
                     {% if selected_client %}
                         <div class="detail-item">
@@ -1503,45 +1328,42 @@
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 <div class="flash-messages">
-                    {% for message in messages %}
+                {% for message in messages %}
                         <div class="flash-message">{{ message }}</div>
-                    {% endfor %}
+                {% endfor %}
                 </div>
             {% endif %}
         {% endwith %}
         
-        <form action="{{ url_for('create_invoice') }}" method="post">
-            <div class="invoice-header">
-                <div class="invoice-fields">
-                    <div class="form-group">
-                        <label for="date">Invoice Date:</label>
-                        <input type="date" id="date" name="date" required>
+            <form action="{{ url_for('create_invoice') }}" method="post">
+                <div class="invoice-header">
+                    <div class="invoice-fields">
+                        <div class="form-group">
+                            <label for="date">Invoice Date:</label>
+                            <input type="date" id="date" name="date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="invoice_number">Invoice Number:</label>
+                            <input type="text" id="invoice_number" name="invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
+                            <input type="hidden" id="auto_invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="invoice_number">Invoice Number:</label>
-                        <input type="text" id="invoice_number" name="invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
-                        <input type="hidden" id="auto_invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
+                    <div class="invoice-actions">
+                        <button type="button" id="confirmInvoiceBtn" class="add-to-invoice-btn" title="Add to invoice">
+                            <i class="fas fa-check"></i>
+                        </button>
                     </div>
                 </div>
-                <div class="invoice-actions">
-                    <button type="button" id="confirmInvoiceBtn" class="add-to-invoice-btn" title="Add to invoice">
-                        <i class="fas fa-check"></i>
-                    </button>
-                    <button type="button" id="editInvoiceBtn" class="edit-button" style="display: none;" title="Edit invoice">
-                        <i class="fas fa-pencil-alt"></i>
-                    </button>
+            
+                <div id="items">
                 </div>
-            </div>
-            
-            <div id="items">
-            </div>
-            
-            <div class="main-action-buttons">
-                <button type="button" id="addLaborBtn">Add Labor</button>
-                <button type="button" id="addItemBtn">Add Item</button>
+                
+                <div class="main-action-buttons">
+                    <button type="button" id="addLaborBtn">Add Labor</button>
+                    <button type="button" id="addItemBtn">Add Item</button>
                 <button type="button" id="addNoteBtn">Add Note</button>
-            </div>
-            
+                </div>
+                
             <div id="notesSection" style="display: none;">
                 <div class="notes-content">
                     <textarea id="notes" name="notes" rows="4" placeholder="Enter your notes here..."></textarea>
@@ -1555,11 +1377,11 @@
                     </div>
                 </div>
             </div>
-            
-            <button type="submit">Generate Invoice</button>
-        </form>
+                
+                <button type="submit">Generate Invoice</button>
+                </form>
     </div>
 {% endblock %}
 
 {% block extra_scripts %}
-{% endblock %}
+{% endblock %} 

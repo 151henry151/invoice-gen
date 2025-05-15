@@ -184,19 +184,23 @@ def index():
     companies = conn.execute('SELECT * FROM companies WHERE user_id = ? AND name != ?',
                            (session['user_id'], 'Your Company Name')).fetchall()
     
-    # Get selected company from query parameter
-    selected_company_id = request.args.get('selected_company')
+    # Get selected company from query parameter or session
+    selected_company_id = request.args.get('selected_company') or session.get('selected_company_id')
     selected_company = None
     if selected_company_id:
         selected_company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?',
                                       (selected_company_id, session['user_id'])).fetchone()
+        if selected_company:
+            session['selected_company_id'] = selected_company_id
     
-    # Get selected client from query parameter
-    selected_client_id = request.args.get('selected_client')
+    # Get selected client from query parameter or session
+    selected_client_id = request.args.get('selected_client') or session.get('selected_client_id')
     selected_client = None
     if selected_client_id:
         selected_client = conn.execute('SELECT * FROM clients WHERE id = ? AND user_id = ?',
                                      (selected_client_id, session['user_id'])).fetchone()
+        if selected_client:
+            session['selected_client_id'] = selected_client_id
     
     return render_template('index.html', 
                          clients=clients, 
@@ -864,6 +868,17 @@ def check_invoice_number(invoice_number):
     invoice = conn.execute('SELECT id FROM invoices WHERE invoice_number = ? AND user_id = ?',
                          (invoice_number, session['user_id'])).fetchone()
     return jsonify({'exists': invoice is not None})
+
+@app.route('/save_selections', methods=['POST'])
+@login_required
+def save_selections():
+    data = request.get_json()
+    if data:
+        if 'businessId' in data:
+            session['selected_company_id'] = data['businessId']
+        if 'clientId' in data:
+            session['selected_client_id'] = data['clientId']
+    return jsonify({'success': True})
 
 if __name__ == '__main__':
     # Create the database tables
