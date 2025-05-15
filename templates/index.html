@@ -69,8 +69,9 @@
         }
         .line-item-content {
             display: flex;
-            gap: 1rem;
-            align-items: center;
+            flex-direction: column;
+            gap: 4px;
+            width: 100%;
         }
         .preview-mode .line-item-content {
             flex-wrap: wrap;
@@ -91,26 +92,75 @@
             margin: 0;
         }
         .button-group {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 1rem;
-            align-items: center;
-        }
-        .add-to-invoice-btn, .remove-item-btn {
-            background-color: #6c757d;
-            color: white;
-            padding: 4px 8px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            height: 24px;
-            line-height: 24px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            white-space: nowrap;
+            display: flex !important;
+            gap: 8px;
             margin: 0;
+            align-items: center;
+            position: relative;
+            visibility: visible !important;
+            opacity: 1 !important;
+            width: auto !important;
+        }
+        
+        .add-to-invoice-btn, .remove-item-btn {
+            width: 32px !important;
+            height: 32px !important;
+            padding: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border: none !important;
+            cursor: pointer !important;
+            transition: background-color 0.2s !important;
+            color: white !important;
+            border-radius: 4px !important;
+            text-decoration: none !important;
+            margin: 0 !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+        }
+        
+        .add-to-invoice-btn {
+            background-color: #28a745 !important;
+        }
+        
+        .add-to-invoice-btn:hover {
+            background-color: #218838 !important;
+        }
+        
+        .remove-item-btn {
+            background-color: #dc3545 !important;
+        }
+        
+        .remove-item-btn:hover {
+            background-color: #c82333 !important;
+        }
+        
+        .item .button-group,
+        .item .add-to-invoice-btn,
+        .item .remove-item-btn {
+            display: inline-flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+        }
+
+        /* Override any conflicting styles */
+        .item .button-group {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            width: auto !important;
+            height: auto !important;
+        }
+
+        .item .button-group button {
+            display: inline-flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
         }
         .main-action-buttons {
             display: flex;
@@ -163,10 +213,40 @@
         .dollar-input input {
             padding-left: 20px;
         }
+        
+        /* Add styles for narrower input fields */
+        input[type="date"] {
+            width: 180px !important;  /* 1.5x wider than before */
+        }
+        
+        input[name="hours[]"],
+        input[name="minutes[]"] {
+            width: 60px !important;  /* 0.5x narrower than before */
+        }
+        
         .total-cost {
             font-weight: bold;
             margin-top: 5px;
             color: #4CAF50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .total-cost .button-group {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        .total-cost .add-to-invoice-btn,
+        .total-cost .remove-item-btn {
+            display: inline-flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            z-index: 1 !important;
         }
         button {
             background-color: #4CAF50;
@@ -227,38 +307,18 @@
             flex-direction: column;
         }
         .line-item.confirmed .detail-item {
-            margin-right: 0;
-            position: relative;
+            margin: 2px 0;
+            padding: 1px 0;
+            font-size: 0.9em;
         }
-        .line-item.confirmed .detail-item:first-child {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-            gap: 1rem;
-        }
-        .line-item.confirmed .detail-item:first-child > div {
-            flex: 1;
-        }
-        .line-item.confirmed .remove-item-btn {
-            margin: 0;
-            font-size: 12px;
-            padding: 4px 8px;
-            height: 20px;
-            line-height: 12px;
-            background-color: #6c757d;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
+        
         .line-item.confirmed .detail-label {
-            font-weight: bold;
-            color: #495057;
+            font-weight: 500;
+            margin-right: 5px;
         }
+        
         .line-item.confirmed .detail-value {
-            color: #212529;
+            color: #333;
         }
         .line-item.confirmed .total-cost {
             font-weight: bold;
@@ -354,6 +414,90 @@
         .invoice-header.confirmed .edit-button {
             display: flex;
         }
+        .line-item {
+            display: grid;
+            grid-template-columns: 1fr 40px;
+            gap: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            background-color: #fff;
+        }
+        
+        .line-item-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            width: 100%;
+        }
+        
+        .line-item-content .detail-item {
+            display: flex;
+            flex-direction: row;
+            width: 100%;
+            text-align: left;
+            align-items: baseline;
+            gap: 8px;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .line-item-content .detail-label {
+            font-weight: bold;
+            color: #495057;
+            text-align: left;
+            white-space: nowrap;
+            min-width: 80px;
+            flex-shrink: 0;
+        }
+        
+        .line-item-content .detail-value {
+            color: #212529;
+            text-align: left;
+            flex: 1;
+            word-break: break-word;
+        }
+        
+        .line-item-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .edit-item-btn, .remove-item-btn {
+            width: 32px !important;
+            height: 32px !important;
+            padding: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border: none !important;
+            cursor: pointer !important;
+            transition: background-color 0.2s !important;
+            color: white !important;
+            border-radius: 4px !important;
+            text-decoration: none !important;
+            margin: 0 !important;
+        }
+
+        .edit-item-btn {
+            background-color: #6c757d !important;
+        }
+
+        .edit-item-btn:hover {
+            background-color: #5a6268 !important;
+        }
+
+        .remove-item-btn {
+            background-color: #dc3545 !important;
+        }
+
+        .remove-item-btn:hover {
+            background-color: #c82333 !important;
+        }
     </style>
 <script>
     // Function to calculate total cost
@@ -368,38 +512,136 @@
         
         const totalCostElement = itemDiv.querySelector('.total-cost');
         if (totalCostElement) {
-            totalCostElement.textContent = `Total Cost: $${roundedCost.toFixed(2)}`;
+            const span = totalCostElement.querySelector('span');
+            if (span) {
+                span.textContent = `Total Cost: $${roundedCost.toFixed(2)}`;
+            }
         }
         return roundedCost.toFixed(2);
     };
 
-    // Set today's date as default for invoice date
+    // Function to handle labor item selection
+    window.handleLaborItemSelection = function(selectElement) {
+        const value = selectElement.value;
+        if (value === 'new') {
+            window.location.href = "{{ url_for('labor_details') }}?new=true";
+        } else {
+            const option = selectElement.options[selectElement.selectedIndex];
+            const rate = option.getAttribute('data-rate');
+            const itemDiv = selectElement.closest('.item');
+            const rateInput = itemDiv.querySelector('input[name="labor_rate[]"]');
+            rateInput.value = rate;
+            calculateTotalCost(itemDiv);
+        }
+    };
+
+    // Function to save invoice data to localStorage
+    function saveInvoiceData() {
+        const userId = "{{ session.get('user_id') }}";  // Get the current user's ID from session
+        const invoiceData = {
+            date: document.getElementById('date').value,
+            invoiceNumber: document.getElementById('invoice_number').value,
+            isConfirmed: document.querySelector('.invoice-header').classList.contains('confirmed'),
+            items: Array.from(document.querySelectorAll('.line-item.confirmed')).map(item => ({
+                type: item.dataset.type,
+                description: item.dataset.description,
+                date: item.dataset.date,
+                hours: item.dataset.hours,
+                minutes: item.dataset.minutes,
+                rate: item.dataset.rate,
+                total: item.dataset.total
+            }))
+        };
+        localStorage.setItem(`invoiceData_${userId}`, JSON.stringify(invoiceData));
+    }
+
+    // Function to restore invoice data from localStorage
+    function restoreInvoiceData() {
+        const userId = "{{ session.get('user_id') }}";  // Get the current user's ID from session
+        const savedData = localStorage.getItem(`invoiceData_${userId}`);
+        if (savedData) {
+            const invoiceData = JSON.parse(savedData);
+            
+            // Restore invoice header
+            document.getElementById('date').value = invoiceData.date;
+            document.getElementById('invoice_number').value = invoiceData.invoiceNumber;
+            if (invoiceData.isConfirmed) {
+                const invoiceHeader = document.querySelector('.invoice-header');
+                invoiceHeader.classList.add('confirmed');
+                document.getElementById('confirmInvoiceBtn').style.display = 'none';
+                document.getElementById('editInvoiceBtn').style.display = 'inline-block';
+            }
+            
+            // Restore line items
+            const itemsContainer = document.getElementById('items');
+            invoiceData.items.forEach(item => {
+                const lineItem = document.createElement('div');
+                lineItem.className = 'line-item confirmed';
+                lineItem.innerHTML = `
+                    <div class="line-item-content">
+                        <div class="detail-item">
+                            <span class="detail-label">Description:</span>
+                            <span class="detail-value">${item.description}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Date:</span>
+                            <span class="detail-value">${item.date}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Time:</span>
+                            <span class="detail-value">${item.hours}h ${item.minutes}m</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Rate:</span>
+                            <span class="detail-value">$${parseFloat(item.rate).toFixed(2)}/hr</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Total:</span>
+                            <span class="detail-value">$${parseFloat(item.total).toFixed(2)}</span>
+                        </div>
+                    </div>
+                    <div class="line-item-actions">
+                        <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
+                            <i class="fas fa-pencil-alt"></i>
+                        </button>
+                        <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                
+                lineItem.dataset.type = item.type;
+                lineItem.dataset.description = item.description;
+                lineItem.dataset.date = item.date;
+                lineItem.dataset.hours = item.hours;
+                lineItem.dataset.minutes = item.minutes;
+                lineItem.dataset.rate = item.rate;
+                lineItem.dataset.total = item.total;
+                
+                itemsContainer.appendChild(lineItem);
+            });
+            
+            updateInvoiceTotal();
+        }
+    }
+
+    // Function to clear invoice data from localStorage
+    function clearInvoiceData() {
+        const userId = "{{ session.get('user_id') }}";  // Get the current user's ID from session
+        localStorage.removeItem(`invoiceData_${userId}`);
+    }
+
+    // Initialize everything when the DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('date').value = today;
 
-        // Function to calculate total cost
-        function calculateTotalCost(itemDiv) {
-            const hours = parseFloat(itemDiv.querySelector('input[name="hours[]"]').value) || 0;
-            const minutes = parseFloat(itemDiv.querySelector('input[name="minutes[]"]').value) || 0;
-            const rate = parseFloat(itemDiv.querySelector('input[name="labor_rate[]"]').value) || 0;
-            
-            const totalHours = hours + (minutes / 60);
-            const totalCost = totalHours * rate;
-            const roundedCost = Math.floor(totalCost * 100) / 100;
-            
-            const totalCostElement = itemDiv.querySelector('.total-cost');
-            if (totalCostElement) {
-                totalCostElement.textContent = `Total Cost: $${roundedCost.toFixed(2)}`;
-            }
-            return roundedCost.toFixed(2);
-        }
+        // Restore saved data
+        restoreInvoiceData();
 
-        // Add event listener for the Add Labor button
+        // Add Labor button
         document.getElementById('addLaborBtn').addEventListener('click', function() {
-            console.log('Add Labor button clicked');
             const itemsDiv = document.getElementById('items');
-            console.log('itemsDiv:', itemsDiv);
             const newItem = document.createElement('div');
             newItem.className = 'item';
             newItem.innerHTML = 
@@ -418,45 +660,20 @@
                 '<label>Minutes:</label>' +
                 '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
                 '<input type="hidden" name="labor_rate[]" value="0.00">' +
-                '<div class="total-cost">Total Cost: $0.00</div>' +
-                '<div class="button-group">' +
+                '<div class="total-cost">' +
+                '<span>Total Cost: $0.00</span>' +
+                '</div>' +
+                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
                 '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)">Cancel</button>' +
+                '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
                 '</div>';
             itemsDiv.appendChild(newItem);
-            // Hide main action buttons
             document.querySelector('.main-action-buttons').classList.add('hidden');
-            console.log('New labor item added');
         });
 
-        // Function to handle labor item selection
-        window.handleLaborItemSelection = function(selectElement) {
-            const value = selectElement.value;
-            if (value === 'new') {
-                window.location.href = "{{ url_for('labor_details') }}?new=true";
-            } else {
-                const option = selectElement.options[selectElement.selectedIndex];
-                const rate = option.getAttribute('data-rate');
-                const itemDiv = selectElement.parentElement;
-                const rateInput = itemDiv.querySelector('input[name="labor_rate[]"]');
-                rateInput.value = rate;
-                calculateTotalCost(itemDiv);
-            }
-        };
-
-        // Function to remove labor item from invoice
-        window.removeLaborItemFromInvoice = function(button) {
-            const itemDiv = button.parentElement;
-            itemDiv.remove();
-            // Show main action buttons again
-            document.querySelector('.main-action-buttons').classList.remove('hidden');
-        };
-
-        // Add event listener for the Add Item button
+        // Add Item button
         document.getElementById('addItemBtn').addEventListener('click', function() {
-            console.log('Add Item button clicked');
             const itemsDiv = document.getElementById('items');
-            console.log('itemsDiv:', itemsDiv);
             const newItem = document.createElement('div');
             newItem.className = 'item';
             newItem.innerHTML = 
@@ -468,154 +685,348 @@
                 '<input type="number" name="price[]" min="0" step="0.01" value="0.00" required>' +
                 '<button type="button" onclick="this.parentElement.remove()">Remove</button>';
             itemsDiv.appendChild(newItem);
-            console.log('New item added');
         });
 
-        // Handle flash messages
-        const flashMessages = document.querySelectorAll('.flash-message');
-        if (flashMessages.length > 0) {
-            flashMessages.forEach(message => {
-                // Add initial animation
-                message.style.animation = 'slideIn 0.5s ease-out';
-                
-                // Set timeout for fade out
-                setTimeout(() => {
-                    message.style.animation = 'fadeOut 0.5s ease-out forwards';
-                    // Remove element after fade out animation completes
-                    setTimeout(() => {
-                        message.parentElement.remove();
-                    }, 500);
-                }, 3000);
-            });
-        }
-
-        // Handle invoice number auto-increment
-        const invoiceNumberInput = document.getElementById('invoice_number');
-        const autoInvoiceNumber = document.getElementById('auto_invoice_number');
+        // Invoice header buttons
+        document.getElementById('confirmInvoiceBtn').addEventListener('click', function() {
+            confirmInvoiceHeader();
+            saveInvoiceData();
+        });
         
-        // When form is submitted, if the invoice number hasn't been changed,
-        // increment the auto number for next time
-        document.querySelector('form').addEventListener('submit', function(e) {
-            if (invoiceNumberInput.value === autoInvoiceNumber.value) {
-                // User didn't change the number, so increment for next time
-                const nextNumber = (parseInt(autoInvoiceNumber.value) + 1).toString();
-                autoInvoiceNumber.value = nextNumber;
-            }
+        document.getElementById('editInvoiceBtn').addEventListener('click', function() {
+            editInvoiceHeader();
+            saveInvoiceData();
         });
 
-        // Function to add labor to invoice
-        window.addLaborToInvoice = function(button) {
-            const itemDiv = button.closest('.item');
-            const select = itemDiv.querySelector('select[name="labor_item[]"]');
-            const date = itemDiv.querySelector('input[name="item_date[]"]');
-            const hours = itemDiv.querySelector('input[name="hours[]"]');
-            const minutes = itemDiv.querySelector('input[name="minutes[]"]');
+        // Form submission
+        document.querySelector('form').addEventListener('submit', function() {
+            clearInvoiceData();
+        });
+    });
+
+    // Make all functions global
+    window.addLaborToInvoice = function(button) {
+        const itemDiv = button.closest('.item');
+        const laborSelect = itemDiv.querySelector('select[name="labor_item[]"]');
+        const dateInput = itemDiv.querySelector('input[name="item_date[]"]');
+        const hoursInput = itemDiv.querySelector('input[name="hours[]"]');
+        const minutesInput = itemDiv.querySelector('input[name="minutes[]"]');
+        const rateInput = itemDiv.querySelector('input[name="labor_rate[]"]');
+        const totalCost = itemDiv.querySelector('.total-cost');
+        
+        if (!laborSelect.value || !dateInput.value || (!hoursInput.value && !minutesInput.value)) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        const selectedOption = laborSelect.options[laborSelect.selectedIndex];
+        const description = selectedOption.text;
+        const hours = parseInt(hoursInput.value) || 0;
+        const minutes = parseInt(minutesInput.value) || 0;
+        const rate = parseFloat(rateInput.value);
+        const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
+        
+        const lineItem = document.createElement('div');
+        lineItem.className = 'line-item confirmed';
+        lineItem.innerHTML = `
+            <div class="line-item-content">
+                <div class="detail-item">
+                    <span class="detail-label">Description:</span>
+                    <span class="detail-value">${description}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Date:</span>
+                    <span class="detail-value">${dateInput.value}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Time:</span>
+                    <span class="detail-value">${hours}h ${minutes}m</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Rate:</span>
+                    <span class="detail-value">$${rate.toFixed(2)}/hr</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Total:</span>
+                    <span class="detail-value">$${total.toFixed(2)}</span>
+                </div>
+            </div>
+            <div class="line-item-actions">
+                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        lineItem.dataset.type = 'labor';
+        lineItem.dataset.description = description;
+        lineItem.dataset.date = dateInput.value;
+        lineItem.dataset.hours = hours;
+        lineItem.dataset.minutes = minutes;
+        lineItem.dataset.rate = rate;
+        lineItem.dataset.total = total;
+        
+        document.getElementById('items').appendChild(lineItem);
+        itemDiv.remove();
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+        saveInvoiceData();
+    };
+
+    window.removeLaborItemFromInvoice = function(button) {
+        const itemDiv = button.closest('.item');
+        itemDiv.remove();
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+    };
+
+    window.editLineItem = function(button) {
+        const lineItem = button.closest('.line-item');
+        const type = lineItem.dataset.type;
+        
+        if (type === 'labor') {
+            const newItem = document.createElement('div');
+            newItem.className = 'item';
             
-            if (!select.value || select.value === 'new') {
-                alert('Please select a labor item');
-                return;
-            }
-            if (!date.value) {
-                alert('Please select a date');
-                return;
-            }
-            if (hours.value === '0' && minutes.value === '0') {
-                alert('Please enter hours or minutes');
-                return;
+            newItem.dataset.type = 'labor';
+            newItem.dataset.description = lineItem.dataset.description;
+            newItem.dataset.date = lineItem.dataset.date;
+            newItem.dataset.hours = lineItem.dataset.hours;
+            newItem.dataset.minutes = lineItem.dataset.minutes;
+            newItem.dataset.rate = lineItem.dataset.rate;
+            newItem.dataset.total = lineItem.dataset.total;
+            
+            newItem.innerHTML = 
+                '<label>Labor Item:</label>' +
+                '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
+                '<option value="" disabled>Select Labor Item</option>' +
+                '<option value="new">Create New Labor Item</option>' +
+                '{% for item in labor_items %}' +
+                '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
+                '{% endfor %}' +
+                '</select>' +
+                '<label>Date labor performed:</label>' +
+                '<input type="date" name="item_date[]" required>' +
+                '<label>Hours:</label>' +
+                '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+                '<label>Minutes:</label>' +
+                '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+                '<input type="hidden" name="labor_rate[]" value="0.00">' +
+                '<div class="total-cost">' +
+                '<span>Total Cost: $0.00</span>' +
+                '</div>' +
+                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                '<button type="button" class="add-to-invoice-btn" onclick="confirmEdit(this)" title="Update item"><i class="fas fa-check"></i></button>' +
+                '<button type="button" class="remove-item-btn" onclick="cancelEdit(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                '</div>';
+            
+            const select = newItem.querySelector('select');
+            const options = Array.from(select.options);
+            const matchingOption = options.find(opt => opt.text === lineItem.dataset.description);
+            if (matchingOption) {
+                matchingOption.selected = true;
+                handleLaborItemSelection(select);
             }
             
-            // Get the selected option text
-            const selectedOption = select.options[select.selectedIndex];
-            const laborDescription = selectedOption.text;
+            newItem.querySelector('input[name="item_date[]"]').value = lineItem.dataset.date;
+            newItem.querySelector('input[name="hours[]"]').value = lineItem.dataset.hours;
+            newItem.querySelector('input[name="minutes[]"]').value = lineItem.dataset.minutes;
+            calculateTotalCost(newItem);
             
-            // Create the confirmed item display
-            itemDiv.className = 'item confirmed';
-            itemDiv.innerHTML = `
-                <div class="content-wrapper">
+            lineItem.replaceWith(newItem);
+        }
+    };
+
+    window.confirmEdit = function(button) {
+        const itemDiv = button.closest('.item');
+        const laborSelect = itemDiv.querySelector('select[name="labor_item[]"]');
+        const dateInput = itemDiv.querySelector('input[name="item_date[]"]');
+        const hoursInput = itemDiv.querySelector('input[name="hours[]"]');
+        const minutesInput = itemDiv.querySelector('input[name="minutes[]"]');
+        const rateInput = itemDiv.querySelector('input[name="labor_rate[]"]');
+        const totalCost = itemDiv.querySelector('.total-cost');
+        
+        if (!laborSelect.value || !dateInput.value || (!hoursInput.value && !minutesInput.value)) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        const selectedOption = laborSelect.options[laborSelect.selectedIndex];
+        const description = selectedOption.text;
+        const hours = parseInt(hoursInput.value) || 0;
+        const minutes = parseInt(minutesInput.value) || 0;
+        const rate = parseFloat(rateInput.value);
+        const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
+        
+        const lineItem = document.createElement('div');
+        lineItem.className = 'line-item confirmed';
+        lineItem.innerHTML = `
+            <div class="line-item-content">
+                <div class="detail-item">
+                    <span class="detail-label">Description:</span>
+                    <span class="detail-value">${description}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Date:</span>
+                    <span class="detail-value">${dateInput.value}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Time:</span>
+                    <span class="detail-value">${hours}h ${minutes}m</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Rate:</span>
+                    <span class="detail-value">$${rate.toFixed(2)}/hr</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Total:</span>
+                    <span class="detail-value">$${total.toFixed(2)}</span>
+                </div>
+            </div>
+            <div class="line-item-actions">
+                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        lineItem.dataset.type = 'labor';
+        lineItem.dataset.description = description;
+        lineItem.dataset.date = dateInput.value;
+        lineItem.dataset.hours = hours;
+        lineItem.dataset.minutes = minutes;
+        lineItem.dataset.rate = rate;
+        lineItem.dataset.total = total;
+        
+        itemDiv.replaceWith(lineItem);
+        updateInvoiceTotal();
+        saveInvoiceData();
+    };
+
+    window.cancelEdit = function(button) {
+        const itemDiv = button.closest('.item');
+        
+        if (itemDiv.dataset.description) {
+            const lineItem = document.createElement('div');
+            lineItem.className = 'line-item confirmed';
+            
+            const originalData = itemDiv.dataset;
+            
+            lineItem.innerHTML = `
+                <div class="line-item-content">
                     <div class="detail-item">
-                        <div>
-                            <span class="detail-label">Labor Item:</span>
-                            <span class="detail-value">${laborDescription}</span>
-                        </div>
-                        <button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)">Remove Item</button>
+                        <span class="detail-label">Description:</span>
+                        <span class="detail-value">${originalData.description}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label">Date labor performed:</span>
-                        <span class="detail-value">${date.value}</span>
+                        <span class="detail-label">Date:</span>
+                        <span class="detail-value">${originalData.date}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">Time:</span>
-                        <span class="detail-value">${hours.value} hours, ${minutes.value} minutes</span>
+                        <span class="detail-value">${originalData.hours}h ${originalData.minutes}m</span>
                     </div>
-                    <div class="total-cost">Total Cost: $${calculateTotalCost(itemDiv)}</div>
+                    <div class="detail-item">
+                        <span class="detail-label">Rate:</span>
+                        <span class="detail-value">$${parseFloat(originalData.rate).toFixed(2)}/hr</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Total:</span>
+                        <span class="detail-value">$${parseFloat(originalData.total).toFixed(2)}</span>
+                    </div>
+                </div>
+                <div class="line-item-actions">
+                    <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
+                        <i class="fas fa-pencil-alt"></i>
+                    </button>
+                    <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
             `;
             
-            // Add hidden inputs to preserve the data
-            const hiddenInputs = document.createElement('div');
-            hiddenInputs.style.display = 'none';
-            hiddenInputs.innerHTML = `
-                <input type="hidden" name="labor_item[]" value="${select.value}">
-                <input type="hidden" name="item_date[]" value="${date.value}">
-                <input type="hidden" name="hours[]" value="${hours.value}">
-                <input type="hidden" name="minutes[]" value="${minutes.value}">
-                <input type="hidden" name="labor_rate[]" value="${itemDiv.querySelector('input[name="labor_rate[]"]').value}">
-            `;
-            itemDiv.appendChild(hiddenInputs);
+            lineItem.dataset.type = 'labor';
+            lineItem.dataset.description = originalData.description;
+            lineItem.dataset.date = originalData.date;
+            lineItem.dataset.hours = originalData.hours;
+            lineItem.dataset.minutes = originalData.minutes;
+            lineItem.dataset.rate = originalData.rate;
+            lineItem.dataset.total = originalData.total;
             
-            // Show main action buttons again
+            itemDiv.replaceWith(lineItem);
+        } else {
+            itemDiv.remove();
             document.querySelector('.main-action-buttons').classList.remove('hidden');
-        };
+        }
+    };
 
-        // Function to handle invoice header confirmation
-        function confirmInvoiceHeader() {
-            const invoiceHeader = document.querySelector('.invoice-header');
-            const dateInput = document.getElementById('date');
-            const invoiceNumberInput = document.getElementById('invoice_number');
-            
-            // Validate inputs
-            if (!dateInput.value) {
-                alert('Please enter an invoice date');
-                return;
-            }
-            if (!invoiceNumberInput.value) {
-                alert('Please enter an invoice number');
-                return;
-            }
-            
-            // Check for duplicate invoice number
-            fetch(`/check_invoice_number/${invoiceNumberInput.value}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.exists) {
-                        if (!confirm('This invoice number already exists. Do you want to proceed anyway?')) {
-                            return;
-                        }
-                    }
-                    
-                    // Confirm the header
-                    invoiceHeader.classList.add('confirmed');
-                    document.getElementById('confirmInvoiceBtn').style.display = 'none';
-                    document.getElementById('editInvoiceBtn').style.display = 'inline-block';
-                })
-                .catch(error => {
-                    console.error('Error checking invoice number:', error);
-                    alert('Error checking invoice number. Please try again.');
-                });
+    window.removeLineItem = function(button) {
+        if (confirm('Are you sure you want to remove this item?')) {
+            const lineItem = button.closest('.line-item');
+            lineItem.remove();
+            updateInvoiceTotal();
+            saveInvoiceData();
+        }
+    };
+
+    function updateInvoiceTotal() {
+        const lineItems = document.querySelectorAll('.line-item.confirmed');
+        let total = 0;
+        
+        lineItems.forEach(item => {
+            const totalValue = parseFloat(item.dataset.total) || 0;
+            total += totalValue;
+        });
+        
+        const totalDisplay = document.querySelector('.invoice-total');
+        if (totalDisplay) {
+            totalDisplay.textContent = `Total: $${total.toFixed(2)}`;
+        }
+    }
+
+    function confirmInvoiceHeader() {
+        const invoiceHeader = document.querySelector('.invoice-header');
+        const dateInput = document.getElementById('date');
+        const invoiceNumberInput = document.getElementById('invoice_number');
+        
+        if (!dateInput.value) {
+            alert('Please enter an invoice date');
+            return;
+        }
+        if (!invoiceNumberInput.value) {
+            alert('Please enter an invoice number');
+            return;
         }
         
-        // Function to edit invoice header
-        function editInvoiceHeader() {
-            const invoiceHeader = document.querySelector('.invoice-header');
-            invoiceHeader.classList.remove('confirmed');
-            document.getElementById('confirmInvoiceBtn').style.display = 'inline-block';
-            document.getElementById('editInvoiceBtn').style.display = 'none';
-        }
+        fetch(`/check_invoice_number/${invoiceNumberInput.value}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.exists) {
+                    if (!confirm('This invoice number already exists. Do you want to proceed anyway?')) {
+                        return;
+                    }
+                }
+                
+                invoiceHeader.classList.add('confirmed');
+                document.getElementById('confirmInvoiceBtn').style.display = 'none';
+                document.getElementById('editInvoiceBtn').style.display = 'inline-block';
+            })
+            .catch(error => {
+                console.error('Error checking invoice number:', error);
+                alert('Error checking invoice number. Please try again.');
+            });
+    }
 
-        // Add event listeners for invoice header buttons
-        document.getElementById('confirmInvoiceBtn').addEventListener('click', confirmInvoiceHeader);
-        document.getElementById('editInvoiceBtn').addEventListener('click', editInvoiceHeader);
-    });
+    function editInvoiceHeader() {
+        const invoiceHeader = document.querySelector('.invoice-header');
+        invoiceHeader.classList.remove('confirmed');
+        document.getElementById('confirmInvoiceBtn').style.display = 'inline-block';
+        document.getElementById('editInvoiceBtn').style.display = 'none';
+    }
 
     function handleCompanySelection(value) {
         if (value.startsWith('/settings')) {
@@ -691,24 +1102,24 @@
                             <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else url_for('client_details') }}" class="settings-link {% if not selected_client %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
                                 Edit Client Details
                             </a>
-                            <div class="detail-item">
+                    <div class="detail-item">
                                 <span class="detail-label">Client Name:</span>
                                 <span class="detail-value">${client.name}</span>
-                            </div>
+                        </div>
                             <div class="detail-item">
                                 <span class="detail-label">Address:</span>
                                 <span class="detail-value">${client.address}</span>
-                            </div>
-                            <div class="detail-item">
+                    </div>
+                    <div class="detail-item">
                                 <span class="detail-label">Email:</span>
                                 <span class="detail-value">${client.email}</span>
-                            </div>
-                            <div class="detail-item">
+                    </div>
+                    <div class="detail-item">
                                 <span class="detail-label">Phone Number:</span>
                                 <span class="detail-value">${client.phone}</span>
-                            </div>
-                        </div>
-                    `;
+                    </div>
+                </div>
+            `;
                     console.log('Updated client details in the DOM');
                 })
                 .catch(error => {
@@ -828,54 +1239,51 @@
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 <div class="flash-messages">
-                {% for message in messages %}
+                    {% for message in messages %}
                         <div class="flash-message">{{ message }}</div>
-                {% endfor %}
+                    {% endfor %}
                 </div>
             {% endif %}
         {% endwith %}
         
-        <div class="form-group">
-            <form action="{{ url_for('create_invoice') }}" method="post">
-                <div class="invoice-header">
-                    <div class="invoice-fields">
-                        <div class="form-group">
-                            <label for="date">Invoice Date:</label>
-                            <input type="date" id="date" name="date" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="invoice_number">Invoice Number:</label>
-                            <input type="text" id="invoice_number" name="invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
-                            <input type="hidden" id="auto_invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
-                        </div>
+        <form action="{{ url_for('create_invoice') }}" method="post">
+            <div class="invoice-header">
+                <div class="invoice-fields">
+                    <div class="form-group">
+                        <label for="date">Invoice Date:</label>
+                        <input type="date" id="date" name="date" required>
                     </div>
-                    <div class="invoice-actions">
-                        <button type="button" id="confirmInvoiceBtn" class="add-to-invoice-btn" title="Add to invoice">
-                            <i class="fas fa-check"></i>
-                        </button>
-                        <button type="button" id="editInvoiceBtn" class="edit-button" style="display: none;" title="Edit invoice">
-                            <i class="fas fa-pencil-alt"></i>
-                        </button>
+                    <div class="form-group">
+                        <label for="invoice_number">Invoice Number:</label>
+                        <input type="text" id="invoice_number" name="invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
+                        <input type="hidden" id="auto_invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
                     </div>
                 </div>
-                
-                <div id="items">
+                <div class="invoice-actions">
+                    <button type="button" id="confirmInvoiceBtn" class="add-to-invoice-btn" title="Add to invoice">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button type="button" id="editInvoiceBtn" class="edit-button" style="display: none;" title="Edit invoice">
+                        <i class="fas fa-pencil-alt"></i>
+                    </button>
                 </div>
-                
-                <div class="main-action-buttons">
-                    <button type="button" id="addLaborBtn">Add Labor</button>
-                    <button type="button" id="addItemBtn">Add Item</button>
-                </div>
-                
-                <label for="notes">Notes:</label>
-                <textarea id="notes" name="notes" rows="4"></textarea>
-                
-                <button type="submit">Generate Invoice</button>
-                </form>
-        </div>
+            </div>
+            
+            <div id="items">
+            </div>
+            
+            <div class="main-action-buttons">
+                <button type="button" id="addLaborBtn">Add Labor</button>
+                <button type="button" id="addItemBtn">Add Item</button>
+            </div>
+            
+            <label for="notes">Notes:</label>
+            <textarea id="notes" name="notes" rows="4"></textarea>
+            
+            <button type="submit">Generate Invoice</button>
+        </form>
     </div>
 {% endblock %}
 
 {% block extra_scripts %}
-{% endblock %} 
+{% endblock %}
