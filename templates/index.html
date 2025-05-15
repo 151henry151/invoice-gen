@@ -34,8 +34,23 @@
             margin-top: 1rem;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 0.5rem;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border-radius: 50%;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
         }
+        
+        .add-to-invoice-btn:hover {
+            background-color: #218838;
+        }
+        
         .add-to-invoice-btn i {
             font-size: 1rem;
         }
@@ -251,6 +266,94 @@
             margin-top: 0.5rem;
             clear: both;
         }
+        .invoice-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 40px;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+            align-items: start;
+        }
+        
+        .invoice-fields {
+            grid-column: 1 / 3;
+            display: flex;
+            gap: 20px;
+        }
+        
+        .invoice-fields .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        
+        .invoice-actions {
+            grid-column: 3;
+            width: 32px;
+            height: 32px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 24px;  /* Match the label height */
+        }
+        
+        .invoice-header.confirmed {
+            background-color: #e9ecef;
+        }
+        
+        .invoice-header.confirmed input {
+            background-color: transparent;
+            border: none;
+            pointer-events: none;
+        }
+        
+        .add-to-invoice-btn, .edit-button {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            position: absolute;
+            top: 0;
+            left: 0;
+            margin: 0;
+        }
+        
+        .add-to-invoice-btn {
+            background-color: #6c757d;
+            color: white;
+            border-radius: 4px;
+        }
+        
+        .add-to-invoice-btn:hover {
+            background-color: #5a6268;
+        }
+        
+        .edit-button {
+            background-color: #6c757d;
+            color: white;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .edit-button:hover {
+            background-color: #5a6268;
+        }
+        
+        .invoice-header.confirmed .add-to-invoice-btn {
+            display: none;
+        }
+        
+        .invoice-header.confirmed .edit-button {
+            display: flex;
+        }
     </style>
 <script>
     // Function to calculate total cost
@@ -317,7 +420,7 @@
                 '<input type="hidden" name="labor_rate[]" value="0.00">' +
                 '<div class="total-cost">Total Cost: $0.00</div>' +
                 '<div class="button-group">' +
-                '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)">Add to invoice</button>' +
+                '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
                 '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)">Cancel</button>' +
                 '</div>';
             itemsDiv.appendChild(newItem);
@@ -463,6 +566,55 @@
             // Show main action buttons again
             document.querySelector('.main-action-buttons').classList.remove('hidden');
         };
+
+        // Function to handle invoice header confirmation
+        function confirmInvoiceHeader() {
+            const invoiceHeader = document.querySelector('.invoice-header');
+            const dateInput = document.getElementById('date');
+            const invoiceNumberInput = document.getElementById('invoice_number');
+            
+            // Validate inputs
+            if (!dateInput.value) {
+                alert('Please enter an invoice date');
+                return;
+            }
+            if (!invoiceNumberInput.value) {
+                alert('Please enter an invoice number');
+                return;
+            }
+            
+            // Check for duplicate invoice number
+            fetch(`/check_invoice_number/${invoiceNumberInput.value}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.exists) {
+                        if (!confirm('This invoice number already exists. Do you want to proceed anyway?')) {
+                            return;
+                        }
+                    }
+                    
+                    // Confirm the header
+                    invoiceHeader.classList.add('confirmed');
+                    document.getElementById('confirmInvoiceBtn').style.display = 'none';
+                    document.getElementById('editInvoiceBtn').style.display = 'inline-block';
+                })
+                .catch(error => {
+                    console.error('Error checking invoice number:', error);
+                    alert('Error checking invoice number. Please try again.');
+                });
+        }
+        
+        // Function to edit invoice header
+        function editInvoiceHeader() {
+            const invoiceHeader = document.querySelector('.invoice-header');
+            invoiceHeader.classList.remove('confirmed');
+            document.getElementById('confirmInvoiceBtn').style.display = 'inline-block';
+            document.getElementById('editInvoiceBtn').style.display = 'none';
+        }
+
+        // Add event listeners for invoice header buttons
+        document.getElementById('confirmInvoiceBtn').addEventListener('click', confirmInvoiceHeader);
+        document.getElementById('editInvoiceBtn').addEventListener('click', editInvoiceHeader);
     });
 
     function handleCompanySelection(value) {
@@ -536,7 +688,7 @@
                     // Update the content with the client details
                     clientDetails.innerHTML = `
                         <div style="position: relative;">
-                            <a href="/client_details?client_id=${value}" class="settings-link" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
+                            <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else url_for('client_details') }}" class="settings-link {% if not selected_client %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
                                 Edit Client Details
                             </a>
                             <div class="detail-item">
@@ -619,11 +771,7 @@
             <div class="details-content">
                 <div style="position: relative;">
                     <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else url_for('client_details') }}" class="settings-link {% if not selected_client %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
-                        {% if selected_client %}
-                            Edit Client Details
-                        {% else %}
-                            Edit Client Details
-                        {% endif %}
+                        Edit Client Details
                     </a>
                     {% if selected_client %}
                         <div class="detail-item">
@@ -689,13 +837,29 @@
         
         <div class="form-group">
             <form action="{{ url_for('create_invoice') }}" method="post">
-                <label for="date">Invoice Date:</label>
-                <input type="date" id="date" name="date" required>
+                <div class="invoice-header">
+                    <div class="invoice-fields">
+                        <div class="form-group">
+                            <label for="date">Invoice Date:</label>
+                            <input type="date" id="date" name="date" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="invoice_number">Invoice Number:</label>
+                            <input type="text" id="invoice_number" name="invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
+                            <input type="hidden" id="auto_invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
+                        </div>
+                    </div>
+                    <div class="invoice-actions">
+                        <button type="button" id="confirmInvoiceBtn" class="add-to-invoice-btn" title="Add to invoice">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button type="button" id="editInvoiceBtn" class="edit-button" style="display: none;" title="Edit invoice">
+                            <i class="fas fa-pencil-alt"></i>
+                        </button>
+                    </div>
+                </div>
                 
-                <label for="invoice_number">Invoice Number:</label>
-                <input type="text" id="invoice_number" name="invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
-                <input type="hidden" id="auto_invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
-            
                 <div id="items">
                 </div>
                 

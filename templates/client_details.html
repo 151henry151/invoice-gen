@@ -58,6 +58,55 @@
                 window.location.href = "{{ url_for('client_details') }}?client_id=" + clientId;
             }
         }
+
+        // Add form validation
+        document.getElementById('client-form').addEventListener('submit', function(event) {
+            const name = document.getElementById('name').value.trim();
+            const address = document.getElementById('address').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+
+            if (!name) {
+                event.preventDefault();
+                alert('Please enter a client name');
+                return;
+            }
+
+            if (!address) {
+                event.preventDefault();
+                alert('Please enter an address');
+                return;
+            }
+
+            if (email && !isValidEmail(email)) {
+                event.preventDefault();
+                alert('Please enter a valid email address');
+                return;
+            }
+
+            if (!phone) {
+                event.preventDefault();
+                alert('Please enter a phone number');
+                return;
+            }
+
+            if (!isValidPhone(phone)) {
+                event.preventDefault();
+                alert('Please enter a valid phone number');
+                return;
+            }
+        });
+
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        function isValidPhone(phone) {
+            // Allow various phone number formats
+            const phoneRegex = /^[\d\s\-\(\)\.]+$/;
+            return phoneRegex.test(phone);
+        }
     </script>
 </body>
 </html> 

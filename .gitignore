@@ -1,12 +1,40 @@
+# Python virtual environment
+venv/
+env/
+ENV/
+
+# Python bytecode
 __pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment variables
+.env
+
+# Database
+*.db
+*.sqlite3
+
+# Logs
+*.log
+
 *.pyc
 *.pyo
 *.pyd
 .Python
-env/
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -15,6 +43,5 @@ lib64/
 parts/
 sdist/
 var/
-*.egg-info/
 .installed.cfg
 *.egg 

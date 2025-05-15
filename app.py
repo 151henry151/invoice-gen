@@ -379,11 +379,13 @@ def upload_logo():
     return redirect(url_for('index'))
 
 @app.route('/create_invoice', methods=['POST'])
+@login_required
 def create_invoice():
     try:
         # Get form data
         client_id = request.form['client']
         date = request.form['date']
+        invoice_number = request.form['invoice_number']
         items = request.form.getlist('item[]')
         item_dates = request.form.getlist('item_date[]')
         hours = request.form.getlist('hours[]')
@@ -392,7 +394,8 @@ def create_invoice():
         
         # Get client information from database
         conn = get_db()
-        client = conn.execute('SELECT * FROM clients WHERE id = ?', (client_id,)).fetchone()
+        client = conn.execute('SELECT * FROM clients WHERE id = ? AND user_id = ?',
+                            (client_id, session['user_id'])).fetchone()
         
         if not client:
             flash('Client not found')
@@ -400,7 +403,6 @@ def create_invoice():
         
         # Get settings
         hourly_rate = float(get_setting('hourly_rate', '40.00'))
-        invoice_number = get_setting('next_invoice_number', '1001')
         
         # Get logo path if it exists
         logo_path = get_setting('logo_path')
@@ -437,6 +439,24 @@ def create_invoice():
             'notes': notes,
             'logo_path': logo_path
         }
+        
+        # Store invoice in database
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO invoices (user_id, client_id, invoice_number, date, total, notes)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (session['user_id'], client_id, invoice_number, date, total, notes))
+        invoice_id = cursor.lastrowid
+        
+        # Store line items in database
+        for item in line_items:
+            cursor.execute('''
+                INSERT INTO line_items (invoice_id, date, description, quantity, unit_price, total)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (invoice_id, item['date'], item['description'], item['quantity'],
+                 item['unit_price'], item['total']))
+        
+        conn.commit()
         
         # Create temporary Excel file
         with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as temp_excel:
@@ -731,6 +751,15 @@ def get_client(client_id):
             'phone': client['phone']
         })
     return jsonify({'error': 'Client not found'}), 404
+
+@app.route('/check_invoice_number/<invoice_number>')
+@login_required
+def check_invoice_number(invoice_number):
+    conn = get_db()
+    # Check if the invoice number exists in the database
+    invoice = conn.execute('SELECT id FROM invoices WHERE invoice_number = ? AND user_id = ?',
+                         (invoice_number, session['user_id'])).fetchone()
+    return jsonify({'exists': invoice is not None})
 
 if __name__ == '__main__':
     # Create the database tables
