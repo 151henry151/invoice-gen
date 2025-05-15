@@ -1,112 +1,99 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Client Details - Invoice Generator</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <div class="page-wrapper">
-        <div class="container">
-            <div class="header">
-                <h1>Invoice Generator</h1>
-                <div class="user-info">
-                    <span>{{ session.username }}</span>
-                    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
-                </div>
-            </div>
-        </div>
+{% extends "base.html" %}
 
-        <div class="container">
-            {% with messages = get_flashed_messages() %}
-                {% if messages %}
-                    <div class="flash-messages">
-                    {% for message in messages %}
-                        <div class="flash-message">{{ message }}</div>
-                    {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
+{% block title %}Client Details - Invoice Generator{% endblock %}
 
-            <div class="form-group">
-                <form action="{{ url_for('update_client') }}" method="post" id="client-form">
-                    {% if selected_client %}
-                        <input type="hidden" name="client_id" value="{{ selected_client.id }}">
-                    {% endif %}
-                    
-                    <input type="text" id="name" name="name" placeholder="Client Name" value="{{ selected_client.name if selected_client else '' }}" required>
-                    
-                    <input type="text" id="address" name="address" placeholder="Address" value="{{ selected_client.address if selected_client else '' }}" required>
-                    
-                    <input type="email" id="email" name="email" placeholder="Email" value="{{ selected_client.email if selected_client else '' }}">
-                    
-                    <input type="tel" id="phone" name="phone" placeholder="Phone Number" value="{{ selected_client.phone if selected_client else '' }}" required>
-                </form>
-                <div class="button-container">
-                    <input type="submit" value="Save Client Details" class="file-input-style" form="client-form">
-                    <a href="{{ url_for('index') }}" class="file-input-style">Cancel</a>
-                </div>
+{% block page_subtitle %}Client Details{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash-messages">
+            {% for message in messages %}
+                <div class="flash-message">{{ message }}</div>
+            {% endfor %}
             </div>
-        </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="form-group">
+        <form action="{{ url_for('update_client') }}" method="post" id="client-form">
+            {% if selected_client %}
+                <input type="hidden" name="client_id" value="{{ selected_client.id }}">
+            {% endif %}
+            
+            <input type="text" id="name" name="name" placeholder="Client Name" value="{{ selected_client.name if selected_client else '' }}" required>
+            
+            <input type="text" id="address" name="address" placeholder="Address" value="{{ selected_client.address if selected_client else '' }}" required>
+            
+            <input type="email" id="email" name="email" placeholder="Email" value="{{ selected_client.email if selected_client else '' }}">
+            
+            <input type="tel" id="phone" name="phone" placeholder="Phone Number" value="{{ selected_client.phone if selected_client else '' }}" required>
+            
+            <div class="button-container">
+                <input type="submit" value="Save Client Details" class="file-input-style">
+                <a href="{{ url_for('index') }}" class="file-input-style">Cancel</a>
+            </div>
+        </form>
     </div>
+</div>
+{% endblock %}
 
-    <script>
-        function updateFormAction(clientId) {
-            if (clientId) {
-                window.location.href = "{{ url_for('client_details') }}?client_id=" + clientId;
-            }
+{% block extra_scripts %}
+<script>
+    function updateFormAction(clientId) {
+        if (clientId) {
+            window.location.href = "{{ url_for('client_details') }}?client_id=" + clientId;
+        }
+    }
+
+    // Add form validation
+    document.getElementById('client-form').addEventListener('submit', function(event) {
+        const name = document.getElementById('name').value.trim();
+        const address = document.getElementById('address').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const phone = document.getElementById('phone').value.trim();
+
+        if (!name) {
+            event.preventDefault();
+            alert('Please enter a client name');
+            return;
         }
 
-        // Add form validation
-        document.getElementById('client-form').addEventListener('submit', function(event) {
-            const name = document.getElementById('name').value.trim();
-            const address = document.getElementById('address').value.trim();
-            const email = document.getElementById('email').value.trim();
-            const phone = document.getElementById('phone').value.trim();
-
-            if (!name) {
-                event.preventDefault();
-                alert('Please enter a client name');
-                return;
-            }
-
-            if (!address) {
-                event.preventDefault();
-                alert('Please enter an address');
-                return;
-            }
-
-            if (email && !isValidEmail(email)) {
-                event.preventDefault();
-                alert('Please enter a valid email address');
-                return;
-            }
-
-            if (!phone) {
-                event.preventDefault();
-                alert('Please enter a phone number');
-                return;
-            }
-
-            if (!isValidPhone(phone)) {
-                event.preventDefault();
-                alert('Please enter a valid phone number');
-                return;
-            }
-        });
-
-        function isValidEmail(email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return emailRegex.test(email);
+        if (!address) {
+            event.preventDefault();
+            alert('Please enter an address');
+            return;
         }
 
-        function isValidPhone(phone) {
-            // Allow various phone number formats
-            const phoneRegex = /^[\d\s\-\(\)\.]+$/;
-            return phoneRegex.test(phone);
+        if (email && !isValidEmail(email)) {
+            event.preventDefault();
+            alert('Please enter a valid email address');
+            return;
         }
-    </script>
-</body>
-</html> 
+
+        if (!phone) {
+            event.preventDefault();
+            alert('Please enter a phone number');
+            return;
+        }
+
+        if (!isValidPhone(phone)) {
+            event.preventDefault();
+            alert('Please enter a valid phone number');
+            return;
+        }
+    });
+
+    function isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    function isValidPhone(phone) {
+        // Allow various phone number formats
+        const phoneRegex = /^[\d\s\-\(\)\.]+$/;
+        return phoneRegex.test(phone);
+    }
+</script>
+{% endblock %} 

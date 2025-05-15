@@ -56,6 +56,10 @@ body {
     margin: 0;
 }
 
+[data-theme="dark"] .container {
+    background-color: var(--section-bg);
+}
+
 /* Header styles */
 .header {
     display: flex;
@@ -431,7 +435,9 @@ input:focus::placeholder {
 
 input[type="date"],
 input[type="number"],
-input[type="text"] {
+input[type="text"],
+input[type="tel"],
+input[type="email"] {
     width: 100%;
     padding: 4px 8px;
     margin-bottom: 6px;
@@ -616,4 +622,182 @@ form {
 
 .invoice-header.confirmed .add-to-invoice-btn:hover {
     background-color: #5a6268;
+}
+
+.line-item {
+    display: grid;
+    grid-template-columns: 1fr 40px;
+    gap: 20px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin-bottom: 10px;
+    background-color: var(--section-bg);
+}
+
+.line-item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    background-color: var(--section-bg);
+}
+
+.line-item-content .detail-item {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    text-align: left;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    background-color: var(--section-bg);
+}
+
+.line-item-content .detail-label {
+    font-weight: bold;
+    color: var(--text-color);
+    text-align: left;
+    white-space: nowrap;
+    min-width: 80px;
+    flex-shrink: 0;
+    background-color: var(--section-bg);
+}
+
+.line-item-content .detail-value {
+    color: var(--text-color);
+    text-align: left;
+    flex: 1;
+    word-break: break-word;
+    background-color: var(--section-bg);
+}
+
+/* Single definition for confirmed line items */
+.line-item.confirmed {
+    background-color: var(--section-bg);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.line-item.confirmed .content-wrapper {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--section-bg);
+}
+
+.line-item.confirmed .detail-item {
+    margin: 0;
+    padding: 0;
+    font-size: 0.9em;
+    line-height: 1.2;
+    background-color: var(--section-bg);
+}
+
+.line-item.confirmed .detail-label {
+    font-weight: 500;
+    margin-right: 5px;
+    color: var(--text-color);
+    background-color: var(--section-bg);
+}
+
+.line-item.confirmed .detail-value {
+    color: var(--text-color);
+    background-color: var(--section-bg);
+    opacity: 0.9;
+}
+
+.line-item.confirmed .total-cost {
+    font-weight: bold;
+    color: var(--text-color);
+    margin-top: 0.25rem;
+    clear: both;
+    background-color: var(--section-bg);
+}
+
+.line-item.confirmed .line-item-content {
+    background-color: var(--section-bg);
+}
+
+.line-item.confirmed .line-item-content .detail-item {
+    background-color: var(--section-bg);
+}
+
+.line-item.confirmed .line-item-content .detail-label {
+    background-color: var(--section-bg);
+}
+
+.line-item.confirmed .line-item-content .detail-value {
+    background-color: var(--section-bg);
+    color: var(--text-color);
+    opacity: 0.9;
+}
+
+/* Add styling for the items container */
+#items {
+    background-color: var(--section-bg);
+    padding: 10px;
+    border-radius: 4px;
+}
+
+/* Ensure all parent containers have the correct background */
+.container,
+.page-wrapper,
+.form-container,
+.invoice-form {
+    background-color: var(--section-bg);
+}
+
+.line-item-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    background-color: var(--section-bg);
+    padding: 0;
+    margin: 0;
+}
+
+.line-item-actions button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: white;
+    border-radius: 4px;
+    background-color: var(--button-bg);
+}
+
+.line-item-actions button:hover {
+    background-color: var(--button-hover);
+}
+
+.line-item-actions .edit-btn {
+    background-color: #007bff;
+}
+
+.line-item-actions .edit-btn:hover {
+    background-color: #0056b3;
+}
+
+.line-item-actions .remove-btn {
+    background-color: #dc3545;
+}
+
+.line-item-actions .remove-btn:hover {
+    background-color: #c82333;
+}
+
+[data-theme="dark"] .container,
+[data-theme="dark"] #items,
+[data-theme="dark"] .line-item,
+[data-theme="dark"] .line-item-content,
+[data-theme="dark"] .line-item.confirmed,
+[data-theme="dark"] .line-item-actions {
+    background-color: var(--section-bg) !important;
 } 
