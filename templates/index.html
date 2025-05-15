@@ -507,6 +507,63 @@
                 });
         }
     }
+
+    function handleClientSelection(value) {
+        console.log('Client selection changed:', value);
+        if (value.startsWith('/client_details')) {
+            // If it's the "Create New Client" option, navigate to client details
+            console.log('Navigating to create new client page');
+            window.location.href = value;
+        } else {
+            // Otherwise, update the client details on the page
+            console.log('Fetching client details for ID:', value);
+            fetch(`/get_client/${value}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(client => {
+                    console.log('Received client details:', client);
+                    // Get the client details container
+                    const clientDetails = document.querySelector('.client-details .details-content');
+                    if (!clientDetails) {
+                        console.error('Could not find client details container');
+                        return;
+                    }
+                    
+                    // Update the content with the client details
+                    clientDetails.innerHTML = `
+                        <div style="position: relative;">
+                            <a href="/client_details?client_id=${value}" class="settings-link" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
+                                Edit Client Details
+                            </a>
+                            <div class="detail-item">
+                                <span class="detail-label">Client Name:</span>
+                                <span class="detail-value">${client.name}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Address:</span>
+                                <span class="detail-value">${client.address}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Email:</span>
+                                <span class="detail-value">${client.email}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Phone Number:</span>
+                                <span class="detail-value">${client.phone}</span>
+                            </div>
+                        </div>
+                    `;
+                    console.log('Updated client details in the DOM');
+                })
+                .catch(error => {
+                    console.error('Error fetching or updating client details:', error);
+                });
+        }
+    }
 </script>
 {% endblock %}
 
@@ -561,32 +618,30 @@
         <div class="client-details">
             <div class="details-content">
                 <div style="position: relative;">
-                    <a href="{{ url_for('client_details') }}" class="settings-link {% if not clients %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
-                        {% if clients %}
+                    <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else url_for('client_details') }}" class="settings-link {% if not selected_client %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
+                        {% if selected_client %}
                             Edit Client Details
                         {% else %}
                             Edit Client Details
                         {% endif %}
                     </a>
-                    {% if clients %}
-                        {% for client in clients %}
+                    {% if selected_client %}
                         <div class="detail-item">
                             <span class="detail-label">Client Name:</span>
-                            <span class="detail-value">{{ client.name }}</span>
+                            <span class="detail-value">{{ selected_client.name }}</span>
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">Address:</span>
-                            <span class="detail-value">{{ client.address }}</span>
+                            <span class="detail-value">{{ selected_client.address }}</span>
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">Email:</span>
-                            <span class="detail-value">{{ client.email }}</span>
+                            <span class="detail-value">{{ selected_client.email }}</span>
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">Phone Number:</span>
-                            <span class="detail-value">{{ client.phone }}</span>
+                            <span class="detail-value">{{ selected_client.phone }}</span>
                         </div>
-                        {% endfor %}
                     {% else %}
                         <div class="detail-item">
                             <span class="detail-label">Client Name:</span>
@@ -610,11 +665,11 @@
         </div>
         <div class="navigation">
             <div class="selector-container">
-                <select class="client-selector" onchange="window.location.href=this.value">
+                <select class="client-selector" onchange="handleClientSelection(this.value)">
                     <option value="" disabled selected>Select Client</option>
                     <option value="{{ url_for('client_details') }}?new=true">Create New Client</option>
                     {% for client in clients %}
-                        <option value="{{ url_for('client_details', client_id=client.id) }}">{{ client.name }}</option>
+                        <option value="{{ client.id }}" {% if selected_client and selected_client.id == client.id %}selected{% endif %}>{{ client.name }}</option>
                     {% endfor %}
                 </select>
             </div>

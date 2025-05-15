@@ -164,11 +164,19 @@ def index():
         selected_company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?',
                                       (selected_company_id, session['user_id'])).fetchone()
     
+    # Get selected client from query parameter
+    selected_client_id = request.args.get('selected_client')
+    selected_client = None
+    if selected_client_id:
+        selected_client = conn.execute('SELECT * FROM clients WHERE id = ? AND user_id = ?',
+                                     (selected_client_id, session['user_id'])).fetchone()
+    
     return render_template('index.html', 
                          clients=clients, 
                          labor_items=labor_items, 
                          companies=companies,
                          selected_company=selected_company,
+                         selected_client=selected_client,
                          get_setting=get_setting)
 
 @app.route('/new_client', methods=['POST'])
@@ -177,11 +185,13 @@ def new_client():
     name = request.form['name']
     address = request.form['address']
     email = request.form['email']
+    phone = request.form['phone']
     
     conn = get_db()
-    conn.execute('INSERT INTO clients (user_id, name, address, email) VALUES (?, ?, ?, ?)',
-                (session['user_id'], name, address, email))
+    conn.execute('INSERT INTO clients (user_id, name, address, email, phone) VALUES (?, ?, ?, ?, ?)',
+                (session['user_id'], name, address, email, phone))
     conn.commit()
+    flash('New client created successfully!', 'success')
     return redirect(url_for('index'))
 
 def edit_excel_invoice(template_path, output_path, invoice_data):
@@ -590,13 +600,17 @@ def update_client():
                        SET name = ?, address = ?, email = ?, phone = ?
                        WHERE id = ? AND user_id = ?''',
                     (name, address, email, phone, client_id, session['user_id']))
+        selected_client_id = client_id
     else:
         # Create new client
-        conn.execute('''INSERT INTO clients (user_id, name, address, email, phone)
+        cursor = conn.execute('''INSERT INTO clients (user_id, name, address, email, phone)
                        VALUES (?, ?, ?, ?, ?)''',
                     (session['user_id'], name, address, email, phone))
+        selected_client_id = cursor.lastrowid
     
-    return redirect(url_for('client_details'))
+    conn.commit()
+    flash('Client details saved successfully!', 'success')
+    return redirect(url_for('index', selected_client=selected_client_id))
 
 @app.route('/update_company', methods=['POST'])
 @login_required
@@ -702,6 +716,21 @@ def get_company(company_id):
             'logo_path': company['logo_path']
         })
     return jsonify({'error': 'Company not found'}), 404
+
+@app.route('/get_client/<int:client_id>')
+@login_required
+def get_client(client_id):
+    conn = get_db()
+    client = conn.execute('SELECT * FROM clients WHERE id = ? AND user_id = ?',
+                         (client_id, session['user_id'])).fetchone()
+    if client:
+        return jsonify({
+            'name': client['name'],
+            'address': client['address'],
+            'email': client['email'],
+            'phone': client['phone']
+        })
+    return jsonify({'error': 'Client not found'}), 404
 
 if __name__ == '__main__':
     # Create the database tables

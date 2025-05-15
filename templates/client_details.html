@@ -31,18 +31,6 @@
             {% endwith %}
 
             <div class="form-group">
-                <div class="selector-container">
-                    <select class="client-selector" name="client" id="client" onchange="updateFormAction(this.value)">
-                        <option value="" disabled selected>Select a Client</option>
-                        <option value="{{ url_for('client_details') }}?new=true">Create New Client</option>
-                        {% for client in clients %}
-                            <option value="{{ client.id }}" {% if selected_client and selected_client.id == client.id %}selected{% endif %}>
-                                {{ client.name }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-
                 <form action="{{ url_for('update_client') }}" method="post" id="client-form">
                     {% if selected_client %}
                         <input type="hidden" name="client_id" value="{{ selected_client.id }}">
@@ -56,7 +44,10 @@
                     
                     <input type="tel" id="phone" name="phone" placeholder="Phone Number" value="{{ selected_client.phone if selected_client else '' }}" required>
                 </form>
-                <input type="submit" value="Save Client Details" class="file-input-style" form="client-form">
+                <div class="button-container">
+                    <input type="submit" value="Save Client Details" class="file-input-style" form="client-form">
+                    <a href="{{ url_for('index') }}" class="file-input-style">Cancel</a>
+                </div>
             </div>
         </div>
     </div>
