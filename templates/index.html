@@ -464,6 +464,48 @@
             document.querySelector('.main-action-buttons').classList.remove('hidden');
         };
     });
+
+    function handleCompanySelection(value) {
+        if (value.startsWith('/settings')) {
+            // If it's the "Create New Business" option, navigate to settings
+            window.location.href = value;
+        } else {
+            // Otherwise, update the company details on the page
+            fetch(`/get_company/${value}`)
+                .then(response => response.json())
+                .then(company => {
+                    // Update company details
+                    const nameElement = document.querySelector('.detail-value[data-placeholder="Business Name"]');
+                    const addressElement = document.querySelector('.detail-value[data-placeholder="Business Address"]');
+                    const emailElement = document.querySelector('.detail-value[data-placeholder="business@example.com"]');
+                    const phoneElement = document.querySelector('.detail-value[data-placeholder="(xxx) xxx-xxxx"]');
+                    
+                    if (nameElement) nameElement.textContent = company.name;
+                    if (addressElement) addressElement.textContent = company.address;
+                    if (emailElement) emailElement.textContent = company.email;
+                    if (phoneElement) phoneElement.textContent = company.phone;
+                    
+                    // Update logo if it exists
+                    const logoPlaceholder = document.querySelector('.logo-placeholder');
+                    if (logoPlaceholder) {
+                        if (company.logo_path) {
+                            logoPlaceholder.innerHTML = `<img src="{{ url_for('static', filename='logos/') }}${company.logo_path}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
+                        } else {
+                            logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
+                        }
+                    }
+
+                    // Enable the Edit Details button
+                    const editButton = document.querySelector('.settings-link');
+                    if (editButton) {
+                        editButton.classList.remove('disabled');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching company details:', error);
+                });
+        }
+    }
 </script>
 {% endblock %}
 
@@ -471,48 +513,44 @@
     <div class="container">
         <div class="company-details">
             <div class="logo-placeholder">
-                {% if get_setting('logo_path') %}
-                    <img src="{{ url_for('static', filename='logos/' + get_setting('logo_path')) }}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">
+                {% if selected_company and selected_company.logo_path %}
+                    <img src="{{ url_for('static', filename='logos/' + selected_company.logo_path) }}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">
                 {% else %}
                     <span class="logo-placeholder-text">Company Logo</span>
                 {% endif %}
             </div>
             <div class="details-content">
                 <div style="position: relative;">
-                    <a href="{{ url_for('settings') }}" class="settings-link {% if not get_setting('company_name') or get_setting('company_name') == 'Your Company Name' %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
-                        {% if get_setting('company_name') and get_setting('company_name') != 'Your Company Name' %}
-                            Edit Details
-                        {% else %}
-                            Edit Details
-                        {% endif %}
+                    <a href="{{ url_for('settings') }}" class="settings-link {% if not selected_company %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
+                        Edit Details
                     </a>
                     <div class="detail-item">
                         <span class="detail-label">Name:</span>
-                        <span class="detail-value" data-placeholder="Business Name">{{ get_setting('company_name', '') }}</span>
+                        <span class="detail-value" data-placeholder="Business Name">{{ selected_company.name if selected_company else '' }}</span>
                     </div>
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Address:</span>
-                    <span class="detail-value" data-placeholder="Business Address">{{ get_setting('company_address', '') }}</span>
+                    <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address if selected_company else '' }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Email:</span>
-                    <span class="detail-value" data-placeholder="business@example.com">{{ get_setting('company_email', '') }}</span>
+                    <span class="detail-value" data-placeholder="business@example.com">{{ selected_company.email if selected_company else '' }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Phone:</span>
-                    <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ get_setting('company_phone', '') }}</span>
+                    <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone if selected_company else '' }}</span>
                 </div>
             </div>
         </div>
         <div class="navigation">
             <div class="selector-container">
-                <select class="company-selector" onchange="window.location.href=this.value">
+                <select class="company-selector" onchange="handleCompanySelection(this.value)">
                     <option value="" disabled selected>Select Your Business</option>
                     <option value="{{ url_for('settings') }}?new=true">Create New Business</option>
-                    {% if get_setting('company_name') != 'Your Company Name' %}
-                        <option value="{{ url_for('settings') }}" selected>{{ get_setting('company_name') }}</option>
-                    {% endif %}
+                    {% for company in companies %}
+                        <option value="{{ company.id }}" {% if selected_company and selected_company.id == company.id %}selected{% endif %}>{{ company.name }}</option>
+                    {% endfor %}
                 </select>
             </div>
         </div>
