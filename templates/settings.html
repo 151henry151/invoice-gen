@@ -16,14 +16,17 @@
             {% endif %}
         {% endwith %}
 
-        <form method="POST" action="{{ url_for('settings', company_id=selected_company_id) if selected_company_id else url_for('settings') }}" enctype="multipart/form-data" id="company-form">
-            <input type="text" id="company_name" name="company_name" placeholder="Name" value="{{ company.name if company else '' }}" required>
+        <form method="POST" action="{{ url_for('settings') }}" enctype="multipart/form-data" id="company-form">
+            {% if selected_company %}
+                <input type="hidden" name="company_id" value="{{ selected_company.id }}">
+            {% endif %}
+            <input type="text" id="name" name="name" placeholder="Name" value="{{ selected_company.name if selected_company else '' }}" required>
             
-            <input type="text" id="company_address" name="company_address" placeholder="Address" value="{{ company.address if company else '' }}" required>
+            <input type="text" id="address" name="address" placeholder="Address" value="{{ selected_company.address if selected_company else '' }}" required>
             
-            <input type="email" id="company_email" name="company_email" placeholder="Email" value="{{ company.email if company else '' }}" required>
+            <input type="email" id="email" name="email" placeholder="Email" value="{{ selected_company.email if selected_company else '' }}" required>
             
-            <input type="tel" id="company_phone" name="company_phone" placeholder="Phone Number" value="{{ company.phone if company else '' }}" required>
+            <input type="tel" id="phone" name="phone" placeholder="Phone Number" value="{{ selected_company.phone if selected_company else '' }}" required>
             
             <label for="logo">Logo:</label>
             <input type="file" id="logo" name="logo" accept="image/*" onchange="previewLogo(this)">
@@ -31,10 +34,10 @@
                 <p>Selected Logo:</p>
                 <img id="preview-image" src="" alt="Selected Logo" style="max-width: 200px;">
             </div>
-            {% if company and company.logo_path %}
+            {% if selected_company and selected_company.logo_path %}
                 <div class="current-logo">
                     <p>Current Logo:</p>
-                    <img src="{{ url_for('static', filename='logos/' + company.logo_path) }}" alt="Current Logo" style="max-width: 200px;">
+                    <img src="{{ url_for('static', filename='logos/' + selected_company.logo_path) }}" alt="Current Logo" style="max-width: 200px;">
                 </div>
             {% endif %}
 

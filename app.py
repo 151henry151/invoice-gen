@@ -18,6 +18,8 @@ import tempfile
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+import time
+from flask_login import current_user
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Generate a secure secret key
@@ -152,7 +154,22 @@ def index():
                          (session['user_id'],)).fetchall()
     labor_items = conn.execute('SELECT * FROM labor_items WHERE user_id = ?',
                              (session['user_id'],)).fetchall()
-    return render_template('index.html', clients=clients, labor_items=labor_items, get_setting=get_setting)
+    companies = conn.execute('SELECT * FROM companies WHERE user_id = ? AND name != ?',
+                           (session['user_id'], 'Your Company Name')).fetchall()
+    
+    # Get selected company from query parameter
+    selected_company_id = request.args.get('selected_company')
+    selected_company = None
+    if selected_company_id:
+        selected_company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?',
+                                      (selected_company_id, session['user_id'])).fetchone()
+    
+    return render_template('index.html', 
+                         clients=clients, 
+                         labor_items=labor_items, 
+                         companies=companies,
+                         selected_company=selected_company,
+                         get_setting=get_setting)
 
 @app.route('/new_client', methods=['POST'])
 @login_required
@@ -492,64 +509,53 @@ def migrate_settings_to_companies():
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings():
+    conn = get_db()
     if request.method == 'POST':
-        try:
-            db = get_db()
-            company_name = request.form['company_name']
-            company_address = request.form['company_address']
-            company_email = request.form['company_email']
-            company_phone = request.form['company_phone']
-            company_id = request.args.get('company_id')
-            
-            # Handle logo upload
-            logo_path = None
-            if 'logo' in request.files:
-                logo = request.files['logo']
-                if logo and logo.filename:
-                    # Generate a unique filename
-                    filename = secure_filename(logo.filename)
-                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                    filename = f"{timestamp}_{filename}"
-                    
-                    # Save the file
-                    logo.save(os.path.join('static/logos', filename))
-                    logo_path = filename
+        company_id = request.form.get('company_id')
+        name = request.form.get('name')
+        address = request.form.get('address')
+        email = request.form.get('email')
+        phone = request.form.get('phone')
+        logo = request.files.get('logo')
+        logo_path = None
 
-            if company_id:
-                # Update existing company
+        if logo and logo.filename:
+            filename = secure_filename(logo.filename)
+            logo_path = f"{session['user_id']}_{int(time.time())}_{filename}"
+            logo.save(os.path.join(app.config['UPLOAD_FOLDER'], logo_path))
+
+        if company_id:
+            # Update existing company
+            company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?', (company_id, session['user_id'])).fetchone()
+            if company:
                 if logo_path:
-                    db.execute('UPDATE companies SET name=?, address=?, email=?, phone=?, logo_path=? WHERE id=? AND user_id=?',
-                             (company_name, company_address, company_email, company_phone, logo_path, company_id, session['user_id']))
+                    conn.execute('UPDATE companies SET name=?, address=?, email=?, phone=?, logo_path=? WHERE id=? AND user_id=?',
+                        (name, address, email, phone, logo_path, company_id, session['user_id']))
                 else:
-                    db.execute('UPDATE companies SET name=?, address=?, email=?, phone=? WHERE id=? AND user_id=?',
-                             (company_name, company_address, company_email, company_phone, company_id, session['user_id']))
-            else:
-                # Create new company
-                db.execute('INSERT INTO companies (name, address, email, phone, logo_path, user_id) VALUES (?, ?, ?, ?, ?, ?)',
-                         (company_name, company_address, company_email, company_phone, logo_path, session['user_id']))
-            
-            db.commit()
-            flash('Company details saved successfully!')
-            return redirect(url_for('index'))
-        except Exception as e:
-            db.rollback()
-            flash(f'Error saving company details: {str(e)}')
-            return redirect(url_for('settings'))
+                    conn.execute('UPDATE companies SET name=?, address=?, email=?, phone=? WHERE id=? AND user_id=?',
+                        (name, address, email, phone, company_id, session['user_id']))
+                conn.commit()
+                flash('Company details updated successfully!', 'success')
+                return redirect(url_for('index', selected_company=company_id))
+        else:
+            # Create new company
+            cursor = conn.execute('INSERT INTO companies (user_id, name, address, email, phone, logo_path) VALUES (?, ?, ?, ?, ?, ?)',
+                (session['user_id'], name, address, email, phone, logo_path))
+            conn.commit()
+            new_company_id = cursor.lastrowid
+            flash('New company created successfully!', 'success')
+            return redirect(url_for('index', selected_company=new_company_id))
 
-    # GET request handling
-    db = get_db()
-    companies = db.execute('SELECT * FROM companies WHERE user_id = ?', (session['user_id'],)).fetchall()
-    selected_company_id = request.args.get('company_id')
-    company = None
-    
-    if selected_company_id:
-        company = db.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?', 
-                           (selected_company_id, session['user_id'])).fetchone()
-    
-    return render_template('settings.html', 
-                         companies=companies,
-                         company=company,
-                         selected_company_id=selected_company_id)
+    # For GET requests, get the company_id from URL parameters
+    company_id = request.args.get('company_id')
+    selected_company = None
+    if company_id:
+        selected_company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?', (company_id, session['user_id'])).fetchone()
+        if not selected_company:
+            flash('Company not found', 'error')
+            return redirect(url_for('index'))
+
+    return render_template('settings.html', selected_company=selected_company)
 
 @app.route('/client_details')
 @login_required
@@ -680,6 +686,22 @@ def remove_labor_item():
     except Exception as e:
         conn.rollback()
         return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/get_company/<int:company_id>')
+@login_required
+def get_company(company_id):
+    conn = get_db()
+    company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?',
+                         (company_id, session['user_id'])).fetchone()
+    if company:
+        return jsonify({
+            'name': company['name'],
+            'address': company['address'],
+            'email': company['email'],
+            'phone': company['phone'],
+            'logo_path': company['logo_path']
+        })
+    return jsonify({'error': 'Company not found'}), 404
 
 if __name__ == '__main__':
     # Create the database tables

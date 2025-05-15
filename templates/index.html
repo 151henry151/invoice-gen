@@ -499,6 +499,7 @@
                     const editButton = document.querySelector('.settings-link');
                     if (editButton) {
                         editButton.classList.remove('disabled');
+                        editButton.href = `/settings?company_id=${value}`;
                     }
                 })
                 .catch(error => {
