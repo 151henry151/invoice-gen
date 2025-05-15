@@ -170,95 +170,24 @@
         .main-action-buttons.hidden {
             display: none;
         }
-        .add-to-invoice-btn:hover, .remove-item-btn:hover {
-            background-color: #5a6268;
-        }
-        .notes-content {
-            margin-bottom: 1rem;
-        }
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        input[type="text"],
-        input[type="email"],
-        input[type="date"],
-        textarea {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .dollar-input {
-            position: relative;
-        }
-        .dollar-input::before {
-            content: "$";
-            position: absolute;
-            left: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #666;
-        }
-        .dollar-input input {
-            padding-left: 20px;
-        }
-        
-        /* Add styles for narrower input fields */
-        input[type="date"] {
-            width: 150px !important;  /* Reduced from 180px */
-        }
-        
-        input[name="hours[]"],
-        input[name="minutes[]"],
-        input[name="quantity[]"] {
-            width: 60px !important;  /* 0.5x narrower than before */
-        }
-        
-        .total-cost {
-            font-weight: bold;
-            margin-top: 5px;
-            color: #4CAF50;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-        }
-        .total-cost .button-group {
-            display: flex !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-        .total-cost .add-to-invoice-btn,
-        .total-cost .remove-item-btn {
-            display: inline-flex !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-        button {
-            background-color: #4CAF50;
+        .main-action-buttons button {
+            background-color: #6c757d;
             color: white;
-            padding: 10px 15px;
+            padding: 6px 12px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            font-size: 14px;
+            min-width: 80px;
         }
-        button:hover {
-            background-color: #45a049;
+        .main-action-buttons button:hover {
+            background-color: #5a6268;
+        }
+        .main-action-buttons button:hover {
+            background-color: #5a6268;
+        }
+        button[type="submit"] {
+            margin-top: 2rem;
         }
         .flash-messages {
         position: fixed;
@@ -586,11 +515,34 @@
             
             // Restore line items
             const itemsContainer = document.getElementById('items');
+            itemsContainer.innerHTML = ''; // Clear existing items
+            
             invoiceData.items.forEach(item => {
+                if (!item.type || !item.description) return; // Skip invalid items
+                
                 const lineItem = document.createElement('div');
                 lineItem.className = 'line-item confirmed';
                 
-                if (item.type === 'labor') {
+                if (item.type === 'note') {
+                    lineItem.innerHTML = `
+                        <div class="line-item-content">
+                            <div class="detail-item">
+                                <span class="detail-label">Notes:</span>
+                                <span class="detail-value">${item.description}</span>
+                            </div>
+                        </div>
+                        <div class="line-item-actions">
+                            <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit note">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                            <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove note">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    lineItem.dataset.type = 'note';
+                    lineItem.dataset.description = item.description;
+                } else if (item.type === 'labor') {
                     lineItem.innerHTML = `
                         <div class="line-item-content">
                             <div class="detail-item">
@@ -1013,6 +965,13 @@
         document.querySelector('form').addEventListener('submit', function() {
             clearInvoiceData();
         });
+
+        // Add Note button
+        document.getElementById('addNoteBtn').addEventListener('click', function() {
+            const notesSection = document.getElementById('notesSection');
+            notesSection.style.display = 'block';
+            document.querySelector('.main-action-buttons').classList.add('hidden');
+        });
     });
 
     // Make all functions global
@@ -1387,6 +1346,51 @@
         document.getElementById('confirmInvoiceBtn').style.display = 'inline-block';
         document.getElementById('editInvoiceBtn').style.display = 'none';
     }
+
+    function addNoteToInvoice(button) {
+        const notesSection = document.getElementById('notesSection');
+        const notesText = document.getElementById('notes').value.trim();
+        
+        if (!notesText) {
+            alert('Please enter some notes');
+            return;
+        }
+        
+        const lineItem = document.createElement('div');
+        lineItem.className = 'line-item confirmed';
+        lineItem.innerHTML = `
+            <div class="line-item-content">
+                <div class="detail-item">
+                    <span class="detail-label">Notes:</span>
+                    <span class="detail-value">${notesText}</span>
+                </div>
+            </div>
+            <div class="line-item-actions">
+                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit note">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove note">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        lineItem.dataset.type = 'note';
+        lineItem.dataset.description = notesText;
+        
+        document.getElementById('items').appendChild(lineItem);
+        notesSection.style.display = 'none';
+        document.getElementById('notes').value = '';
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+        saveInvoiceData();
+    }
+
+    function removeNoteFromInvoice(button) {
+        const notesSection = document.getElementById('notesSection');
+        notesSection.style.display = 'none';
+        document.getElementById('notes').value = '';
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+    }
 </script>
 {% endblock %}
 
@@ -1535,10 +1539,22 @@
             <div class="main-action-buttons">
                 <button type="button" id="addLaborBtn">Add Labor</button>
                 <button type="button" id="addItemBtn">Add Item</button>
+                <button type="button" id="addNoteBtn">Add Note</button>
             </div>
             
-            <label for="notes">Notes:</label>
-            <textarea id="notes" name="notes" rows="4"></textarea>
+            <div id="notesSection" style="display: none;">
+                <div class="notes-content">
+                    <textarea id="notes" name="notes" rows="4" placeholder="Enter your notes here..."></textarea>
+                    <div class="button-group" style="margin-top: 10px;">
+                        <button type="button" class="add-to-invoice-btn" onclick="addNoteToInvoice(this)" title="Add note to invoice">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button type="button" class="remove-item-btn" onclick="removeNoteFromInvoice(this)" title="Cancel">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
             
             <button type="submit">Generate Invoice</button>
         </form>
