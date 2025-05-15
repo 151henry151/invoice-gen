@@ -521,7 +521,7 @@
             </div>
             <div class="details-content">
                 <div style="position: relative;">
-                    <a href="{{ url_for('settings') }}" class="settings-link {% if not selected_company %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
+                    <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else url_for('settings') }}" class="settings-link {% if not selected_company %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
                         Edit Details
                     </a>
                     <div class="detail-item">

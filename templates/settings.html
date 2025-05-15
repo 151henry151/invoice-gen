@@ -16,16 +16,6 @@
             {% endif %}
         {% endwith %}
 
-        <div class="selector-container">
-            <select class="company-selector" onchange="updateFormAction(this.value)">
-                <option value="" disabled selected>Select Your Business</option>
-                <option value="{{ url_for('settings') }}?new=true">Create New Business</option>
-                {% for company in companies %}
-                    <option value="{{ url_for('settings', company_id=company.id) }}" {% if company.id == selected_company_id %}selected{% endif %}>{{ company.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
         <form method="POST" action="{{ url_for('settings', company_id=selected_company_id) if selected_company_id else url_for('settings') }}" enctype="multipart/form-data" id="company-form">
             <input type="text" id="company_name" name="company_name" placeholder="Name" value="{{ company.name if company else '' }}" required>
             
@@ -58,12 +48,6 @@
 
 {% block scripts %}
 <script>
-    function updateFormAction(companyId) {
-        if (companyId) {
-            window.location.href = companyId;
-        }
-    }
-
     function previewLogo(input) {
         const preview = document.getElementById('logo-preview');
         const previewImage = document.getElementById('preview-image');
