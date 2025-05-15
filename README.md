@@ -1,6 +1,8 @@
 # Invoice Generator
 
-A web-based invoice generator for small businesses and freelancers. This app allows you to manage company and client details, add labor and itemized costs, and generate professional invoices.
+> **Pre-Release Notice**: This project is currently under development and not yet fully functional. This is a pre-release version with ongoing development and improvements.
+
+A professional invoice generator for small businesses and freelancers, built with Flask and modern web technologies. This app allows you to manage company and client details, add labor and itemized costs, and generate professional invoices.
 
 ## Project Structure
 
