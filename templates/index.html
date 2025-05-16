@@ -431,6 +431,10 @@
                 } else if (item.dataset.type === 'item') {
                     data.quantity = item.dataset.quantity;
                     data.price = item.dataset.price;
+                } else if (item.dataset.type === 'tax') {
+                    data.rate = item.dataset.rate;
+                    data.appliesTo = item.dataset.appliesTo;
+                    data.taxId = item.dataset.taxId;
                 }
                 
                 return data;
@@ -463,8 +467,10 @@
             const itemsContainer = document.getElementById('items');
             itemsContainer.innerHTML = ''; // Clear existing items
             
+            // First, restore non-tax items
             invoiceData.items.forEach(item => {
                 if (!item.type || !item.description) return; // Skip invalid items
+                if (item.type === 'tax') return; // Skip tax items for now
                 
                 const lineItem = document.createElement('div');
                 lineItem.className = 'line-item confirmed';
@@ -567,6 +573,67 @@
                 }
                 
                 itemsContainer.appendChild(lineItem);
+            });
+            
+            // Then restore tax items
+            invoiceData.items.forEach(item => {
+                if (item.type === 'tax') {
+                    const lineItem = document.createElement('div');
+                    lineItem.className = 'line-item confirmed';
+                    lineItem.dataset.type = 'tax';
+                    lineItem.dataset.rate = item.rate;
+                    lineItem.dataset.total = item.total;
+                    lineItem.dataset.appliesTo = item.appliesTo;
+                    lineItem.dataset.taxId = item.taxId;
+                    
+                    // Fetch the tax rate details to get the description
+                    fetch('/api/sales-tax')
+                        .then(response => response.json())
+                        .then(rates => {
+                            const taxRate = rates.find(r => r.id === parseInt(item.taxId));
+                            if (taxRate) {
+                                lineItem.innerHTML = `
+                                    <div class="line-item-content">
+                                        <div class="detail-item">
+                                            <span class="detail-label">Sales Tax:</span>
+                                            <span class="detail-value">${taxRate.description} (${taxRate.rate}%)</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Applied to:</span>
+                                            <span class="detail-value">${item.appliesTo === 'both' ? 'Both items and labor' : item.appliesTo === 'items' ? 'Items only' : 'Labor only'}</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Total:</span>
+                                            <span class="detail-value">$${parseFloat(item.total).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                    <div class="line-item-actions">
+                                        <button type="button" class="edit-item-btn" onclick="editSalesTax(this)" title="Edit tax">
+                                            <i class="fas fa-pencil-alt"></i>
+                                        </button>
+                                        <button type="button" class="remove-item-btn" onclick="removeSalesTax(this)" title="Remove tax">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                `;
+                                
+                                // Insert tax line before the totals
+                                const totalsDiv = document.getElementById('invoice-totals');
+                                if (totalsDiv) {
+                                    totalsDiv.parentNode.insertBefore(lineItem, totalsDiv);
+                                } else {
+                                    itemsContainer.appendChild(lineItem);
+                                }
+                                
+                                // Update the sales tax button text
+                                const salesTaxButton = document.getElementById('salesTaxButton');
+                                salesTaxButton.innerHTML = '<i class="fas fa-percentage"></i> Edit Sales Tax';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error loading tax rate:', error);
+                        });
+                }
             });
             
             updateInvoiceTotals();
@@ -784,6 +851,51 @@
         return roundedCost.toFixed(2);
     };
 
+    // Function to update invoice subtotal and grand total
+    function updateInvoiceTotals() {
+        let subtotal = 0;
+        let taxAmount = 0;
+        
+        // Calculate subtotal from all line items
+        document.querySelectorAll('.line-item').forEach(item => {
+            if (item.dataset.type === 'labor' || item.dataset.type === 'item') {
+                subtotal += parseFloat(item.dataset.total);
+            }
+        });
+        
+        // Calculate tax if present
+        const taxLine = document.querySelector('.line-item[data-type="tax"]');
+        if (taxLine) {
+            const taxRate = parseFloat(taxLine.dataset.rate);
+            const appliesTo = taxLine.dataset.appliesTo;
+            
+            // Recalculate taxable amount based on current line items
+            let taxableAmount = 0;
+            document.querySelectorAll('.line-item').forEach(item => {
+                if (item.dataset.type === 'labor' && (appliesTo === 'labor' || appliesTo === 'both')) {
+                    taxableAmount += parseFloat(item.dataset.total);
+                } else if (item.dataset.type === 'item' && (appliesTo === 'items' || appliesTo === 'both')) {
+                    taxableAmount += parseFloat(item.dataset.total);
+                }
+            });
+            
+            // Calculate new tax amount
+            taxAmount = (taxableAmount * taxRate / 100);
+            
+            // Update the tax line item's total
+            taxLine.dataset.total = taxAmount;
+            const taxTotalElement = taxLine.querySelector('.detail-value:last-child');
+            if (taxTotalElement) {
+                taxTotalElement.textContent = `$${taxAmount.toFixed(2)}`;
+            }
+        }
+        
+        // Update displays
+        document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+        document.getElementById('taxTotal').textContent = `$${taxAmount.toFixed(2)}`;
+        document.getElementById('grandTotal').textContent = `$${(subtotal + taxAmount).toFixed(2)}`;
+    }
+
     // Function to add labor to invoice
     window.addLaborToInvoice = function(button) {
         const itemDiv = button.closest('.item');
@@ -857,13 +969,6 @@
         updateInvoiceTotals();
     };
 
-    // Function to remove labor item from invoice
-    window.removeLaborItemFromInvoice = function(button) {
-        const itemDiv = button.closest('.item');
-        itemDiv.remove();
-        document.querySelector('.main-action-buttons').classList.remove('hidden');
-    };
-
     // Function to add item to invoice
     window.addItemToInvoice = function(button) {
         const itemDiv = button.closest('.item');
@@ -908,9 +1013,7 @@
                 <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
                     <i class="fas fa-pencil-alt"></i>
                 </button>
-                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
-                    <i class="fas fa-trash"></i>
-                </button>
+                <button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>
             </div>
         `;
         
@@ -927,59 +1030,13 @@
         updateInvoiceTotals();
     };
 
-    // Function to remove item from invoice
-    window.removeItemFromInvoice = function(button) {
-        const itemDiv = button.closest('.item');
-        itemDiv.remove();
-        document.querySelector('.main-action-buttons').classList.remove('hidden');
-    };
-
-    // Function to add note to invoice
-    window.addNoteToInvoice = function(button) {
-        const notesSection = document.getElementById('notesSection');
-        const notesText = document.getElementById('notes').value.trim();
-        
-        if (!notesText) {
-            alert('Please enter some notes');
-            return;
-        }
-        
-        const lineItem = document.createElement('div');
-        lineItem.className = 'line-item confirmed';
-        lineItem.innerHTML = `
-            <div class="line-item-content">
-                <div class="detail-item">
-                    <span class="detail-label">Notes:</span>
-                    <span class="detail-value">${notesText}</span>
-                </div>
-            </div>
-            <div class="line-item-actions">
-                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit note">
-                    <i class="fas fa-pencil-alt"></i>
-                </button>
-                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove note">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
-        
-        lineItem.dataset.type = 'note';
-        lineItem.dataset.description = notesText;
-        
-        document.getElementById('items').appendChild(lineItem);
-        notesSection.style.display = 'none';
-        document.getElementById('notes').value = '';
-        document.querySelector('.main-action-buttons').classList.remove('hidden');
+    // Function to remove a line item
+    window.removeLineItem = function(button) {
+        const lineItem = button.closest('.line-item');
+        lineItem.remove();
         saveInvoiceData();
+        updateInvoiceTotals();
     };
-
-    // Function to remove note from invoice
-    function removeNoteFromInvoice(button) {
-        const notesSection = document.getElementById('notesSection');
-        notesSection.style.display = 'none';
-        document.getElementById('notes').value = '';
-        document.querySelector('.main-action-buttons').classList.remove('hidden');
-    }
 
     // Function to edit a line item
     window.editLineItem = function(button) {
@@ -1055,14 +1112,6 @@
         }
     };
 
-    // Function to remove a line item
-    window.removeLineItem = function(button) {
-        const lineItem = button.closest('.line-item');
-        lineItem.remove();
-        saveInvoiceData();
-        updateInvoiceTotals();
-    };
-
     // Initialize everything when the DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
         const today = new Date().toISOString().split('T')[0];
@@ -1090,77 +1139,19 @@
         // Add Labor button
         const addLaborBtn = document.getElementById('addLaborBtn');
         if (addLaborBtn) {
-            addLaborBtn.addEventListener('click', function() {
-                const itemsDiv = document.getElementById('items');
-                const newItem = document.createElement('div');
-                newItem.className = 'item';
-                newItem.innerHTML = 
-                    '<label>Labor Item:</label>' +
-                    '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
-                    '<option value="" disabled selected>Select Labor Item</option>' +
-                    '<option value="new">Create New Labor Item</option>' +
-                    '{% for item in labor_items %}' +
-                    '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
-                    '{% endfor %}' +
-                    '</select>' +
-                    '<label>Date labor performed:</label>' +
-                    '<input type="date" name="item_date[]" required>' +
-                    '<label>Hours:</label>' +
-                    '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-                    '<label>Minutes:</label>' +
-                    '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-                    '<input type="hidden" name="labor_rate[]" value="0.00">' +
-                    '<div class="total-cost">' +
-                    '<span>Total Cost: $0.00</span>' +
-                    '</div>' +
-                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                    '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                    '</div>';
-                itemsDiv.appendChild(newItem);
-                document.querySelector('.main-action-buttons').classList.add('hidden');
-            });
+            addLaborBtn.addEventListener('click', showAddLaborDialog);
         }
 
         // Add Item button
         const addItemBtn = document.getElementById('addItemBtn');
         if (addItemBtn) {
-            addItemBtn.addEventListener('click', function() {
-                const itemsDiv = document.getElementById('items');
-                const newItem = document.createElement('div');
-                newItem.className = 'item';
-                newItem.innerHTML = 
-                    '<label>Item:</label>' +
-                    '<select name="item[]" required onchange="handleItemSelection(this)">' +
-                    '<option value="" disabled selected>Select Item</option>' +
-                    '<option value="new">Create New Item</option>' +
-                    '{% for item in items %}' +
-                    '<option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.description }} - ${{ "%.2f"|format(item.price) }}</option>' +
-                    '{% endfor %}' +
-                    '</select>' +
-                    '<label>Quantity:</label>' +
-                    '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
-                    '<input type="hidden" name="item_price[]" value="0.00">' +
-                    '<div class="total-cost">' +
-                    '<span>Total Cost: $0.00</span>' +
-                    '</div>' +
-                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                    '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                    '</div>';
-                itemsDiv.appendChild(newItem);
-                document.querySelector('.main-action-buttons').classList.add('hidden');
-            });
+            addItemBtn.addEventListener('click', showAddItemDialog);
         }
 
         // Add Note button
         const addNoteBtn = document.getElementById('addNoteBtn');
         if (addNoteBtn) {
-            addNoteBtn.addEventListener('click', function() {
-                const notesSection = document.getElementById('notesSection');
-                notesSection.style.display = 'block';
-                document.querySelector('.main-action-buttons').classList.add('hidden');
-            });
+            addNoteBtn.addEventListener('click', showAddNoteDialog);
         }
 
         // Confirm Invoice button
@@ -1217,33 +1208,370 @@
         // Form submission
         const form = document.querySelector('form');
         if (form) {
-            form.addEventListener('submit', function() {
+            form.addEventListener('submit', function(e) {
+                // Add sales tax information to form if present
+                const taxLine = document.querySelector('.line-item[data-type="tax"]');
+                if (taxLine) {
+                    const salesTaxIdInput = document.createElement('input');
+                    salesTaxIdInput.type = 'hidden';
+                    salesTaxIdInput.name = 'sales_tax_id';
+                    salesTaxIdInput.value = taxLine.dataset.taxId;
+                    form.appendChild(salesTaxIdInput);
+
+                    const taxAppliesToInput = document.createElement('input');
+                    taxAppliesToInput.type = 'hidden';
+                    taxAppliesToInput.name = 'tax_applies_to';
+                    taxAppliesToInput.value = taxLine.dataset.appliesTo;
+                    form.appendChild(taxAppliesToInput);
+                }
+                
                 clearInvoiceData();
             });
         }
     }
 
-    // Function to update invoice subtotal and grand total
-    function updateInvoiceTotals() {
-        let subtotal = 0;
-        document.querySelectorAll('.line-item.confirmed').forEach(item => {
-            // Only sum labor and item types, not notes
-            if (item.dataset.type === 'labor' || item.dataset.type === 'item') {
-                subtotal += parseFloat(item.dataset.total) || 0;
+    function showAddSalesTaxDialog() {
+        const dialog = document.getElementById('salesTaxDialog');
+        dialog.style.display = 'block';
+        
+        // Load existing tax rates
+        fetch('/api/sales-tax')
+            .then(response => response.json())
+            .then(rates => {
+                const select = document.getElementById('salesTaxSelect');
+                // Clear existing options except the first two
+                while (select.options.length > 2) {
+                    select.remove(2);
+                }
+                
+                // Add existing rates
+                rates.forEach(rate => {
+                    const option = document.createElement('option');
+                    option.value = rate.id;
+                    option.textContent = `${rate.description} (${rate.rate}%)`;
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading tax rates:', error));
+
+        // Add event listener to taxAppliesTo select
+        const taxAppliesTo = document.getElementById('taxAppliesTo');
+        taxAppliesTo.addEventListener('change', function() {
+            const select = document.getElementById('salesTaxSelect');
+            if (select.value && select.value !== 'new') {
+                handleSalesTaxSelection(select);
             }
         });
-        subtotal = Math.round(subtotal * 100) / 100;
-        document.getElementById('invoice-subtotal').textContent = `$${subtotal.toFixed(2)}`;
-        // For now, grand total = subtotal (until sales tax/fees are implemented)
-        document.getElementById('invoice-grand-total').textContent = `$${subtotal.toFixed(2)}`;
+    }
+    
+    function handleSalesTaxSelection(select) {
+        if (select.value === 'clear') {
+            if (confirm('Are you sure you want to clear all saved tax rates? This action cannot be undone.')) {
+                fetch('/api/sales-tax', {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Clear the select options except the first three
+                        while (select.options.length > 3) {
+                            select.remove(3);
+                        }
+                        // Reset to default selection
+                        select.value = '';
+                        alert('All tax rates have been cleared.');
+                    } else {
+                        throw new Error('Failed to clear tax rates');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error clearing tax rates:', error);
+                    alert('Error clearing tax rates. Please try again.');
+                });
+            } else {
+                // Reset to default selection if user cancels
+                select.value = '';
+            }
+            return;
+        }
+        
+        const newTaxFields = document.getElementById('newTaxRateFields');
+        newTaxFields.style.display = select.value === 'new' ? 'block' : 'none';
+
+        // Calculate and display tax amount in real-time when a rate is selected
+        if (select.value && select.value !== 'new') {
+            const appliesTo = document.getElementById('taxAppliesTo').value;
+            fetch('/api/sales-tax')
+                .then(response => response.json())
+                .then(rates => {
+                    const selectedRate = rates.find(r => r.id === parseInt(select.value));
+                    if (selectedRate) {
+                        // Calculate taxable amount based on appliesTo
+                        let taxableAmount = 0;
+                        document.querySelectorAll('.line-item').forEach(item => {
+                            if (item.dataset.type === 'labor' && (appliesTo === 'labor' || appliesTo === 'both')) {
+                                taxableAmount += parseFloat(item.dataset.total);
+                            } else if (item.dataset.type === 'item' && (appliesTo === 'items' || appliesTo === 'both')) {
+                                taxableAmount += parseFloat(item.dataset.total);
+                            }
+                        });
+                        
+                        const taxAmount = (taxableAmount * selectedRate.rate / 100);
+                        
+                        // Update the tax total display
+                        document.getElementById('taxTotal').textContent = `$${taxAmount.toFixed(2)}`;
+                        
+                        // Update the grand total
+                        const subtotal = parseFloat(document.getElementById('subtotal').textContent.replace('$', ''));
+                        document.getElementById('grandTotal').textContent = `$${(subtotal + taxAmount).toFixed(2)}`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading tax rate:', error);
+                });
+        } else {
+            // Reset tax total to 0 if no rate is selected
+            document.getElementById('taxTotal').textContent = '$0.00';
+            const subtotal = parseFloat(document.getElementById('subtotal').textContent.replace('$', ''));
+            document.getElementById('grandTotal').textContent = `$${subtotal.toFixed(2)}`;
+        }
+    }
+    
+    function closeSalesTaxDialog() {
+        document.getElementById('salesTaxDialog').style.display = 'none';
+        document.getElementById('newTaxRateFields').style.display = 'none';
+        document.getElementById('salesTaxSelect').value = '';
+        document.getElementById('taxDescription').value = '';
+        document.getElementById('taxRate').value = '';
+    }
+    
+    async function addSalesTaxToInvoice() {
+        const select = document.getElementById('salesTaxSelect');
+        const appliesTo = document.getElementById('taxAppliesTo').value;
+        
+        if (select.value === 'new') {
+            // Create new tax rate
+            const description = document.getElementById('taxDescription').value;
+            const rate = document.getElementById('taxRate').value;
+            
+            if (!description || !rate) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            try {
+                console.log('Creating tax rate:', { rate, description });  // Debug log
+                const response = await fetch('/api/sales-tax', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ rate, description })
+                });
+                
+                console.log('Response status:', response.status);  // Debug log
+                const data = await response.json();
+                console.log('Response data:', data);  // Debug log
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to create tax rate');
+                }
+                
+                addTaxToInvoice(data, appliesTo);
+            } catch (error) {
+                console.error('Error creating tax rate:', error);  // Debug log
+                alert(error.message || 'Error creating tax rate. Please try again.');
+            }
+        } else if (select.value) {
+            // Use existing tax rate
+            fetch('/api/sales-tax')
+                .then(response => response.json())
+                .then(rates => {
+                    const selectedRate = rates.find(r => r.id === parseInt(select.value));
+                    if (selectedRate) {
+                        addTaxToInvoice(selectedRate, appliesTo);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading tax rate:', error);
+                    alert('Error loading tax rate. Please try again.');
+                });
+        } else {
+            alert('Please select a tax rate');
+        }
+    }
+    
+    function addTaxToInvoice(taxRate, appliesTo) {
+        // Calculate taxable amount based on appliesTo
+        let taxableAmount = 0;
+        document.querySelectorAll('.line-item').forEach(item => {
+            if (item.dataset.type === 'labor' && (appliesTo === 'labor' || appliesTo === 'both')) {
+                taxableAmount += parseFloat(item.dataset.total);
+            } else if (item.dataset.type === 'item' && (appliesTo === 'items' || appliesTo === 'both')) {
+                taxableAmount += parseFloat(item.dataset.total);
+            }
+        });
+        
+        const taxAmount = (taxableAmount * taxRate.rate / 100);
+        
+        // Remove existing tax line if present
+        const existingTax = document.querySelector('.line-item[data-type="tax"]');
+        if (existingTax) {
+            existingTax.remove();
+        }
+        
+        // Create new tax line
+        const taxLine = document.createElement('div');
+        taxLine.className = 'line-item confirmed';
+        taxLine.dataset.type = 'tax';
+        taxLine.dataset.rate = taxRate.rate;
+        taxLine.dataset.total = taxAmount;
+        taxLine.dataset.appliesTo = appliesTo;
+        taxLine.dataset.taxId = taxRate.id;
+        
+        taxLine.innerHTML = `
+            <div class="line-item-content">
+                <div class="detail-item">
+                    <span class="detail-label">Sales Tax:</span>
+                    <span class="detail-value">${taxRate.description} (${taxRate.rate}%)</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Applied to:</span>
+                    <span class="detail-value">${appliesTo === 'both' ? 'Both items and labor' : appliesTo === 'items' ? 'Items only' : 'Labor only'}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Total:</span>
+                    <span class="detail-value">$${taxAmount.toFixed(2)}</span>
+                </div>
+            </div>
+            <div class="line-item-actions">
+                <button type="button" class="edit-item-btn" onclick="editSalesTax(this)" title="Edit tax">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button type="button" class="remove-item-btn" onclick="removeSalesTax(this)" title="Remove tax">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        // Remove any inline styles that might be causing the size difference
+        taxLine.removeAttribute('style');
+        
+        // Insert tax line before the totals
+        const totalsDiv = document.getElementById('invoice-totals');
+        if (totalsDiv) {
+            totalsDiv.parentNode.insertBefore(taxLine, totalsDiv);
+        } else {
+            // Fallback: append to items container if totals div not found
+            document.getElementById('items').appendChild(taxLine);
+        }
+        
+        // Update the sales tax button text
+        const salesTaxButton = document.getElementById('salesTaxButton');
+        salesTaxButton.innerHTML = '<i class="fas fa-percentage"></i> Edit Sales Tax';
+        
+        // Save the tax information to localStorage
+        saveInvoiceData();
+        updateInvoiceTotals();
+        closeSalesTaxDialog();
+    }
+    
+    function editSalesTax(button) {
+        const taxLine = button.closest('.line-item');
+        const rate = taxLine.dataset.rate;
+        const appliesTo = taxLine.dataset.appliesTo;
+        
+        showAddSalesTaxDialog();
+        
+        // Pre-select the tax rate
+        const select = document.getElementById('salesTaxSelect');
+        fetch('/api/sales-tax')
+            .then(response => response.json())
+            .then(rates => {
+                const matchingRate = rates.find(r => r.rate === parseFloat(rate));
+                if (matchingRate) {
+                    select.value = matchingRate.id;
+                }
+            });
+        
+        // Pre-select the applies to option
+        document.getElementById('taxAppliesTo').value = appliesTo;
+    }
+    
+    function removeSalesTax(button) {
+        const taxLine = button.closest('.line-item');
+        taxLine.remove();
+        
+        // Update the sales tax button text back to "Add Sales Tax"
+        const salesTaxButton = document.getElementById('salesTaxButton');
+        salesTaxButton.innerHTML = '<i class="fas fa-percentage"></i> Add Sales Tax';
+        
+        saveInvoiceData();
+        updateInvoiceTotals();
     }
 
-    // Call updateInvoiceTotals whenever line items change
-    const itemsContainer = document.getElementById('items');
-    const observer = new MutationObserver(updateInvoiceTotals);
-    observer.observe(itemsContainer, { childList: true, subtree: true });
-    // Also call on DOMContentLoaded
-    updateInvoiceTotals();
+    function showAddLaborDialog() {
+        const itemsDiv = document.getElementById('items');
+        const newItem = document.createElement('div');
+        newItem.className = 'item';
+        newItem.innerHTML = 
+            '<label>Labor Item:</label>' +
+            '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
+            '<option value="" disabled selected>Select Labor Item</option>' +
+            '<option value="new">Create New Labor Item</option>' +
+            '{% for item in labor_items %}' +
+            '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
+            '{% endfor %}' +
+            '</select>' +
+            '<label>Date labor performed:</label>' +
+            '<input type="date" name="item_date[]" required>' +
+            '<label>Hours:</label>' +
+            '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+            '<label>Minutes:</label>' +
+            '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+            '<input type="hidden" name="labor_rate[]" value="0.00">' +
+            '<div class="total-cost">' +
+            '<span>Total Cost: $0.00</span>' +
+            '</div>' +
+            '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+            '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+            '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+            '</div>';
+        itemsDiv.appendChild(newItem);
+        document.querySelector('.main-action-buttons').classList.add('hidden');
+    }
+
+    function showAddItemDialog() {
+        const itemsDiv = document.getElementById('items');
+        const newItem = document.createElement('div');
+        newItem.className = 'item';
+        newItem.innerHTML = 
+            '<label>Item:</label>' +
+            '<select name="item[]" required onchange="handleItemSelection(this)">' +
+            '<option value="" disabled selected>Select Item</option>' +
+            '<option value="new">Create New Item</option>' +
+            '{% for item in items %}' +
+            '<option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.description }} - ${{ "%.2f"|format(item.price) }}</option>' +
+            '{% endfor %}' +
+            '</select>' +
+            '<label>Quantity:</label>' +
+            '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
+            '<input type="hidden" name="item_price[]" value="0.00">' +
+            '<div class="total-cost">' +
+            '<span>Total Cost: $0.00</span>' +
+            '</div>' +
+            '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+            '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+            '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+            '</div>';
+        itemsDiv.appendChild(newItem);
+        document.querySelector('.main-action-buttons').classList.add('hidden');
+    }
+
+    function showAddNoteDialog() {
+        const notesSection = document.getElementById('notesSection');
+        notesSection.style.display = 'block';
+        document.querySelector('.main-action-buttons').classList.add('hidden');
+    }
 </script>
 {% endblock %}
 
@@ -1386,22 +1714,76 @@
                 <div id="items">
                 </div>
                 
+                <!-- Sales Tax Dialog -->
+                <div id="salesTaxDialog" class="dialog" style="display: none; margin: 1rem 0;">
+                    <div class="dialog-content" style="background: var(--section-bg); padding: 1rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">Sales Tax</h2>
+                        <div class="form-group">
+                            <label style="color: var(--text-color);">Select Tax Rate:</label>
+                            <select id="salesTaxSelect" onchange="handleSalesTaxSelection(this)" style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color);">
+                                <option value="" disabled selected>Select Tax Rate</option>
+                                <option value="new">Add New Tax Rate</option>
+                                <option value="clear">Clear saved tax rates</option>
+                            </select>
+                        </div>
+                        <div id="newTaxRateFields" style="display: none;">
+                            <div class="form-group">
+                                <label style="color: var(--text-color);">Description:</label>
+                                <input type="text" id="taxDescription" placeholder="e.g., State Sales Tax" style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color);">
+                            </div>
+                            <div class="form-group">
+                                <label style="color: var(--text-color);">Rate (%):</label>
+                                <input type="number" id="taxRate" min="0" step="0.01" placeholder="e.g., 8.5" style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color);">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label style="color: var(--text-color);">Apply Tax To:</label>
+                            <select id="taxAppliesTo" style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color);">
+                                <option value="items">Items Only</option>
+                                <option value="labor">Labor Only</option>
+                                <option value="both" selected>Both Items and Labor</option>
+                            </select>
+                        </div>
+                        <div class="button-group" style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                            <button type="button" class="add-to-invoice-btn" onclick="addSalesTaxToInvoice()" title="Add to invoice">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button type="button" class="remove-item-btn" onclick="closeSalesTaxDialog()" title="Cancel">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Invoice Totals Section -->
                 <div id="invoice-totals" style="margin-top: 1.5rem; margin-bottom: 1.5rem;">
                     <div class="totals-row" style="display: flex; justify-content: flex-end; gap: 2rem;">
                         <span class="totals-label" style="font-weight: 600;">Subtotal:</span>
-                        <span id="invoice-subtotal" class="totals-value" style="font-weight: 600;">$0.00</span>
+                        <span id="subtotal" class="totals-value" style="font-weight: 600;">$0.00</span>
+                    </div>
+                    <div class="totals-row" style="display: flex; justify-content: flex-end; gap: 2rem; margin-top: 0.5rem;">
+                        <span class="totals-label" style="font-weight: 600;">Sales Tax:</span>
+                        <span id="taxTotal" class="totals-value" style="font-weight: 600;">$0.00</span>
                     </div>
                     <div class="totals-row" style="display: flex; justify-content: flex-end; gap: 2rem; margin-top: 0.5rem;">
                         <span class="totals-label" style="font-weight: 700; font-size: 1.1em;">Grand Total:</span>
-                        <span id="invoice-grand-total" class="totals-value" style="font-weight: 700; font-size: 1.1em;">$0.00</span>
+                        <span id="grandTotal" class="totals-value" style="font-weight: 700; font-size: 1.1em;">$0.00</span>
                     </div>
                 </div>
                 
                 <div class="main-action-buttons">
-                    <button type="button" id="addLaborBtn">Add Labor</button>
-                    <button type="button" id="addItemBtn">Add Item</button>
-                <button type="button" id="addNoteBtn">Add Note</button>
+                    <button type="button" class="action-button" onclick="showAddLaborDialog()">
+                        <i class="fas fa-tools"></i> Add Labor
+                    </button>
+                    <button type="button" class="action-button" onclick="showAddItemDialog()">
+                        <i class="fas fa-box"></i> Add Item
+                    </button>
+                    <button type="button" class="action-button" onclick="showAddNoteDialog()">
+                        <i class="fas fa-sticky-note"></i> Add Note
+                    </button>
+                    <button type="button" class="action-button" id="salesTaxButton" onclick="showAddSalesTaxDialog()">
+                        <i class="fas fa-percentage"></i> Add Sales Tax
+                    </button>
                 </div>
                 
             <div id="notesSection" style="display: none;">

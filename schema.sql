@@ -80,4 +80,11 @@ CREATE TABLE IF NOT EXISTS items (
     description TEXT NOT NULL,
     price REAL NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+-- Create sales_tax table
+CREATE TABLE IF NOT EXISTS sales_tax (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rate REAL NOT NULL,
+    description TEXT NOT NULL UNIQUE
 ); 

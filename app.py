@@ -488,6 +488,39 @@ def create_invoice():
             ''', (invoice_id, item['date'], item['description'], item['quantity'],
                  item['unit_price'], item['total']))
         
+        # Get sales tax information from localStorage (passed in form data)
+        sales_tax_id = request.form.get('sales_tax_id')
+        tax_applies_to = request.form.get('tax_applies_to')
+        
+        if sales_tax_id and tax_applies_to:
+            # Update invoice with sales tax information
+            cursor.execute('''
+                UPDATE invoices 
+                SET sales_tax_id = ?, tax_applies_to = ?
+                WHERE id = ?
+            ''', (sales_tax_id, tax_applies_to, invoice_id))
+            
+            # Get tax rate
+            tax_rate = conn.execute('SELECT rate FROM sales_tax WHERE id = ?', (sales_tax_id,)).fetchone()
+            if tax_rate:
+                # Calculate tax amount based on what it applies to
+                taxable_amount = 0
+                for item in line_items:
+                    if tax_applies_to in ['both', 'labor']:
+                        taxable_amount += item['total']
+                
+                tax_amount = taxable_amount * (tax_rate['rate'] / 100)
+                
+                # Add tax line item
+                cursor.execute('''
+                    INSERT INTO line_items (invoice_id, description, quantity, unit_price, total)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (invoice_id, f'Sales Tax ({tax_rate["rate"]}%)', '1', tax_amount, tax_amount))
+                
+                # Update total
+                total += tax_amount
+                cursor.execute('UPDATE invoices SET total = ? WHERE id = ?', (total, invoice_id))
+        
         conn.commit()
         
         # Create temporary Excel file
@@ -879,6 +912,120 @@ def save_selections():
         if 'clientId' in data:
             session['selected_client_id'] = data['clientId']
     return jsonify({'success': True})
+
+@app.route('/api/sales-tax', methods=['GET'])
+@login_required
+def get_sales_tax_rates():
+    conn = get_db()
+    rates = conn.execute('SELECT * FROM sales_tax ORDER BY description').fetchall()
+    return jsonify([{
+        'id': rate['id'],
+        'rate': rate['rate'],
+        'description': rate['description']
+    } for rate in rates])
+
+@app.route('/api/sales-tax', methods=['POST'])
+@login_required
+def create_sales_tax_rate():
+    data = request.get_json()
+    print("Received data:", data)  # Debug log
+    
+    if not data or 'rate' not in data or 'description' not in data:
+        print("Missing required fields. Data:", data)  # Debug log
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    try:
+        rate = float(data['rate'])
+        if rate < 0:
+            print("Invalid rate value (negative):", rate)  # Debug log
+            return jsonify({'error': 'Rate must be positive'}), 400
+    except ValueError as e:
+        print("Invalid rate value:", data['rate'], "Error:", str(e))  # Debug log
+        return jsonify({'error': 'Invalid rate value'}), 400
+    
+    conn = get_db()
+    try:
+        # Check for duplicate description
+        existing = conn.execute('SELECT id FROM sales_tax WHERE description = ?', 
+                              (data['description'],)).fetchone()
+        if existing:
+            print("Duplicate description found:", data['description'])  # Debug log
+            return jsonify({'error': 'A tax rate with this description already exists'}), 400
+        
+        # Insert new tax rate
+        cursor = conn.execute('INSERT INTO sales_tax (rate, description) VALUES (?, ?)',
+                            (rate, data['description']))
+        conn.commit()
+        
+        # Get the newly created tax rate
+        new_rate = conn.execute('SELECT * FROM sales_tax WHERE id = ?', 
+                              (cursor.lastrowid,)).fetchone()
+        
+        print("Successfully created tax rate:", new_rate)  # Debug log
+        return jsonify({
+            'id': new_rate['id'],
+            'rate': new_rate['rate'],
+            'description': new_rate['description']
+        }), 201
+        
+    except sqlite3.Error as e:
+        print("Database error:", str(e))  # Debug log
+        conn.rollback()
+        return jsonify({'error': 'Database error occurred'}), 500
+
+@app.route('/api/invoice/<int:invoice_id>/sales-tax', methods=['PUT'])
+@login_required
+def update_invoice_sales_tax(invoice_id):
+    data = request.get_json()
+    
+    if not data or 'sales_tax_id' not in data or 'tax_applies_to' not in data:
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    if data['tax_applies_to'] not in ['items', 'labor', 'both']:
+        return jsonify({'error': 'Invalid tax_applies_to value'}), 400
+    
+    conn = get_db()
+    try:
+        # Check if invoice exists and belongs to user
+        invoice = conn.execute('SELECT id FROM invoices WHERE id = ? AND user_id = ?',
+                             (invoice_id, session['user_id'])).fetchone()
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+        
+        # Check if sales tax rate exists
+        tax_rate = conn.execute('SELECT id FROM sales_tax WHERE id = ?',
+                              (data['sales_tax_id'],)).fetchone()
+        if not tax_rate:
+            return jsonify({'error': 'Sales tax rate not found'}), 404
+        
+        # Update invoice with sales tax information
+        conn.execute('''
+            UPDATE invoices 
+            SET sales_tax_id = ?, tax_applies_to = ?
+            WHERE id = ? AND user_id = ?
+        ''', (data['sales_tax_id'], data['tax_applies_to'], invoice_id, session['user_id']))
+        
+        conn.commit()
+        
+        # Get updated invoice data
+        updated_invoice = conn.execute('''
+            SELECT i.*, st.rate as tax_rate, st.description as tax_description
+            FROM invoices i
+            LEFT JOIN sales_tax st ON i.sales_tax_id = st.id
+            WHERE i.id = ? AND i.user_id = ?
+        ''', (invoice_id, session['user_id'])).fetchone()
+        
+        return jsonify({
+            'id': updated_invoice['id'],
+            'sales_tax_id': updated_invoice['sales_tax_id'],
+            'tax_applies_to': updated_invoice['tax_applies_to'],
+            'tax_rate': updated_invoice['tax_rate'],
+            'tax_description': updated_invoice['tax_description']
+        })
+        
+    except sqlite3.Error as e:
+        conn.rollback()
+        return jsonify({'error': 'Database error occurred'}), 500
 
 if __name__ == '__main__':
     # Create the database tables
