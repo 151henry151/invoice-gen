@@ -1013,7 +1013,9 @@
                 <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
                     <i class="fas fa-pencil-alt"></i>
                 </button>
-                <button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>
+                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                    <i class="fas fa-trash"></i>
+                </button>
             </div>
         `;
         
@@ -1028,6 +1030,53 @@
         document.querySelector('.main-action-buttons').classList.remove('hidden');
         saveInvoiceData();
         updateInvoiceTotals();
+    };
+
+    // Function to add note to invoice
+    window.addNoteToInvoice = function(button) {
+        const notesSection = document.getElementById('notesSection');
+        const notesText = document.getElementById('notes').value.trim();
+        
+        if (!notesText) {
+            alert('Please enter some notes');
+            return;
+        }
+        
+        const lineItem = document.createElement('div');
+        lineItem.className = 'line-item confirmed';
+        lineItem.innerHTML = `
+            <div class="line-item-content">
+                <div class="detail-item">
+                    <span class="detail-label">Notes:</span>
+                    <span class="detail-value">${notesText}</span>
+                </div>
+            </div>
+            <div class="line-item-actions">
+                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit note">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove note">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        lineItem.dataset.type = 'note';
+        lineItem.dataset.description = notesText;
+        
+        document.getElementById('items').appendChild(lineItem);
+        notesSection.style.display = 'none';
+        document.getElementById('notes').value = '';
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+        saveInvoiceData();
+    };
+
+    // Function to remove note from invoice
+    window.removeNoteFromInvoice = function(button) {
+        const notesSection = document.getElementById('notesSection');
+        notesSection.style.display = 'none';
+        document.getElementById('notes').value = '';
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
     };
 
     // Function to remove a line item
