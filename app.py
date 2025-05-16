@@ -434,7 +434,7 @@ def create_invoice():
         client_id = request.form['client']
         date = request.form['date']
         invoice_number = request.form['invoice_number']
-        output_format = request.form.get('output_format', 'pdf')
+        output_format = 'pdf'  # Always use PDF now
         items = request.form.getlist('item[]')
         item_dates = request.form.getlist('item_date[]')
         hours = request.form.getlist('hours[]')
@@ -613,72 +613,6 @@ def create_invoice():
                 print(f"Error in PDF generation block: {str(e)}")
                 print(f"Error type: {type(e)}")
                 raise
-        else:
-            # Generate Excel
-            template_path = os.path.join(app.root_path, 'templates', 'Invoice.xlsx')
-            if not os.path.exists(template_path):
-                # Create the template if it doesn't exist
-                wb = Workbook()
-                ws = wb.active
-                
-                # Add headers and basic structure
-                ws['B3'] = 'Business Name'
-                ws['B4'] = 'Business Address'
-                ws['B5'] = 'Business Email'
-                ws['B6'] = 'Business Phone'
-                ws['G8'] = 'Invoice Number'
-                ws['G9'] = 'Date'
-                ws['B14'] = 'Client Name'
-                ws['B15'] = 'Client Address'
-                ws['B16'] = 'Client Email'
-                ws['B17'] = 'Client Phone'
-                
-                # Save the template
-                wb.save(template_path)
-            
-            try:
-                wb = load_workbook(template_path)
-                ws = wb.active
-                
-                # Fill in company info
-                ws['B3'] = business_name
-                ws['B4'] = business_address
-                ws['B5'] = business_email
-                ws['B6'] = business_phone
-                
-                # Fill in invoice info
-                ws['G8'] = invoice_number
-                ws['G9'] = date
-                
-                # Fill in client info
-                ws['B14'] = client['name']
-                ws['B15'] = client['address']
-                ws['B16'] = client['email']
-                ws['B17'] = client['phone']
-                
-                # Fill in line items
-                row = 23
-                for item in line_items:
-                    ws[f'B{row}'] = item['date']
-                    ws[f'C{row}'] = item['description']
-                    ws[f'D{row}'] = item['quantity']
-                    ws[f'E{row}'] = item['unit_price']
-                    ws[f'F{row}'] = item['total']
-                    row += 1
-                
-                # Fill in totals
-                ws['F39'] = subtotal
-                if sales_tax > 0:
-                    ws['F38'] = sales_tax
-                    ws['C38'] = 'Sales Tax'
-                
-                # Save the file
-                filename = f"static/{client['name'].lower().replace(' ', '_')}_invoice_{invoice_number}.xlsx"
-                wb.save(filename)
-                return send_file(filename, as_attachment=True)
-            except Exception as e:
-                flash(f'Error generating Excel file: {str(e)}', 'danger')
-                return redirect(url_for('index'))
 
     except Exception as e:
         flash('An error occurred while generating the invoice: {}'.format(str(e)), 'danger')
