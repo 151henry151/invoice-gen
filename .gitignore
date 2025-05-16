@@ -7,6 +7,8 @@ ENV/
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
 
 # Distribution / packaging
 dist/
@@ -32,16 +34,20 @@ build/
 *.pyc
 *.pyo
 *.pyd
-.Python
-build/
-develop-eggs/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-.installed.cfg
-*.egg 
+
+# Virtual Environment
+venv/
+ENV/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Application specific
+*.log
+.env
+instance/
+.webassets-cache
+
+# Issue tracking files
+issue*.md 
