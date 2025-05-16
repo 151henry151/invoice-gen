@@ -451,16 +451,30 @@ def create_invoice():
             flash('Client not found', 'danger')
             return redirect(url_for('index'))
 
-        # Get business info from settings
-        business_name = get_setting('business_name', 'Business Name')
-        business_address = get_setting('business_address', 'Business Address')
-        business_phone = get_setting('business_phone', 'Business Phone')
-        business_email = get_setting('business_email', 'Business Email')
-        logo_path = get_setting('logo_path')
-        if logo_path and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], logo_path)):
-            logo_url = url_for('static', filename=f'logos/{logo_path}')
+        # Get business info from selected company
+        company_id = session.get('selected_company_id')
+        if company_id:
+            company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?', (company_id, session['user_id'])).fetchone()
+            if company:
+                business_name = company['name']
+                business_address = company['address']
+                business_phone = company['phone']
+                business_email = company['email']
+                logo_path = company['logo_path']
+                if logo_path and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], logo_path)):
+                    logo_url = url_for('static', filename=f'logos/{logo_path}')
+                else:
+                    logo_url = url_for('static', filename='default_logo.png')
         else:
-            logo_url = url_for('static', filename='default_logo.png')
+            business_name = get_setting('business_name', 'Business Name')
+            business_address = get_setting('business_address', 'Business Address')
+            business_phone = get_setting('business_phone', 'Business Phone')
+            business_email = get_setting('business_email', 'Business Email')
+            logo_path = get_setting('logo_path')
+            if logo_path and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], logo_path)):
+                logo_url = url_for('static', filename=f'logos/{logo_path}')
+            else:
+                logo_url = url_for('static', filename='default_logo.png')
 
         # Calculate totals
         subtotal = 0
@@ -561,6 +575,8 @@ def create_invoice():
             'notes': notes
         }
 
+        print("INVOICE DATA FOR PDF:", invoice_data)
+
         if output_format == 'pdf':
             try:
                 # Render HTML
@@ -577,7 +593,7 @@ def create_invoice():
                     pdf_path = temp_pdf.name
                     try:
                         # Create HTML object with the rendered content
-                        html = HTML(string=html_content)
+                        html = HTML(string=html_content, base_url=request.host_url)
                         # Write PDF
                         html.write_pdf(pdf_path)
                         return send_file(

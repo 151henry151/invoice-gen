@@ -978,6 +978,12 @@
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
+            <input type="hidden" name="item[]" value="${description}">
+            <input type="hidden" name="item_date[]" value="${date}">
+            <input type="hidden" name="hours[]" value="${hours}">
+            <input type="hidden" name="minutes[]" value="${minutes}">
+            <input type="hidden" name="item_price[]" value="${rate}">
+            <input type="hidden" name="total[]" value="${total}">
         `;
         
         lineItem.dataset.type = 'labor';
@@ -1043,6 +1049,10 @@
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
+            <input type="hidden" name="item[]" value="${description}">
+            <input type="hidden" name="quantity[]" value="${quantity}">
+            <input type="hidden" name="item_price[]" value="${price}">
+            <input type="hidden" name="total[]" value="${total}">
         `;
         
         lineItem.dataset.type = 'item';
