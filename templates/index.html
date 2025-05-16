@@ -569,7 +569,7 @@
                 itemsContainer.appendChild(lineItem);
             });
             
-            updateInvoiceTotal();
+            updateInvoiceTotals();
         }
     }
 
@@ -854,6 +854,7 @@
         itemDiv.remove();
         document.querySelector('.main-action-buttons').classList.remove('hidden');
         saveInvoiceData();
+        updateInvoiceTotals();
     };
 
     // Function to remove labor item from invoice
@@ -923,6 +924,7 @@
         itemDiv.remove();
         document.querySelector('.main-action-buttons').classList.remove('hidden');
         saveInvoiceData();
+        updateInvoiceTotals();
     };
 
     // Function to remove item from invoice
@@ -1014,6 +1016,7 @@
             itemsDiv.appendChild(newItem);
             lineItem.remove();
             document.querySelector('.main-action-buttons').classList.add('hidden');
+            updateInvoiceTotals();
         } else if (type === 'item') {
             const itemsDiv = document.getElementById('items');
             const newItem = document.createElement('div');
@@ -1040,6 +1043,7 @@
             itemsDiv.appendChild(newItem);
             lineItem.remove();
             document.querySelector('.main-action-buttons').classList.add('hidden');
+            updateInvoiceTotals();
         } else if (type === 'note') {
             const notesSection = document.getElementById('notesSection');
             const notesText = document.getElementById('notes');
@@ -1047,6 +1051,7 @@
             notesSection.style.display = 'block';
             lineItem.remove();
             document.querySelector('.main-action-buttons').classList.add('hidden');
+            updateInvoiceTotals();
         }
     };
 
@@ -1055,6 +1060,7 @@
         const lineItem = button.closest('.line-item');
         lineItem.remove();
         saveInvoiceData();
+        updateInvoiceTotals();
     };
 
     // Initialize everything when the DOM is loaded
@@ -1216,6 +1222,28 @@
             });
         }
     }
+
+    // Function to update invoice subtotal and grand total
+    function updateInvoiceTotals() {
+        let subtotal = 0;
+        document.querySelectorAll('.line-item.confirmed').forEach(item => {
+            // Only sum labor and item types, not notes
+            if (item.dataset.type === 'labor' || item.dataset.type === 'item') {
+                subtotal += parseFloat(item.dataset.total) || 0;
+            }
+        });
+        subtotal = Math.round(subtotal * 100) / 100;
+        document.getElementById('invoice-subtotal').textContent = `$${subtotal.toFixed(2)}`;
+        // For now, grand total = subtotal (until sales tax/fees are implemented)
+        document.getElementById('invoice-grand-total').textContent = `$${subtotal.toFixed(2)}`;
+    }
+
+    // Call updateInvoiceTotals whenever line items change
+    const itemsContainer = document.getElementById('items');
+    const observer = new MutationObserver(updateInvoiceTotals);
+    observer.observe(itemsContainer, { childList: true, subtree: true });
+    // Also call on DOMContentLoaded
+    updateInvoiceTotals();
 </script>
 {% endblock %}
 
@@ -1356,6 +1384,18 @@
                 </div>
             
                 <div id="items">
+                </div>
+                
+                <!-- Invoice Totals Section -->
+                <div id="invoice-totals" style="margin-top: 1.5rem; margin-bottom: 1.5rem;">
+                    <div class="totals-row" style="display: flex; justify-content: flex-end; gap: 2rem;">
+                        <span class="totals-label" style="font-weight: 600;">Subtotal:</span>
+                        <span id="invoice-subtotal" class="totals-value" style="font-weight: 600;">$0.00</span>
+                    </div>
+                    <div class="totals-row" style="display: flex; justify-content: flex-end; gap: 2rem; margin-top: 0.5rem;">
+                        <span class="totals-label" style="font-weight: 700; font-size: 1.1em;">Grand Total:</span>
+                        <span id="invoice-grand-total" class="totals-value" style="font-weight: 700; font-size: 1.1em;">$0.00</span>
+                    </div>
                 </div>
                 
                 <div class="main-action-buttons">
