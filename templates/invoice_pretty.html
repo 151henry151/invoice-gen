@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice</title>
+    <style>
+        :root {
+            --primary-color: #388e3c;
+            --secondary-color: #f5f5f5;
+            --accent-color: #2e7d32;
+            --font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        body {
+            font-family: var(--font-family);
+            background: #fff;
+            color: #222;
+            margin: 0;
+            padding: 0;
+        }
+        .invoice-container {
+            max-width: 800px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 32px 40px 40px 40px;
+        }
+        .header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            border-bottom: 4px solid var(--primary-color);
+            padding-bottom: 24px;
+        }
+        .logo {
+            width: 120px;
+            height: 120px;
+            object-fit: contain;
+            border-radius: 8px;
+            background: var(--secondary-color);
+        }
+        .business-info {
+            text-align: right;
+        }
+        .business-info h2 {
+            margin: 0 0 8px 0;
+            color: var(--primary-color);
+            font-size: 2em;
+        }
+        .business-info div {
+            margin-bottom: 4px;
+        }
+        .invoice-details {
+            margin-top: 32px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .bill-to {
+            font-size: 1em;
+        }
+        .bill-to strong {
+            color: var(--primary-color);
+        }
+        .invoice-meta {
+            text-align: right;
+        }
+        .invoice-meta div {
+            margin-bottom: 6px;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 32px;
+            background: var(--secondary-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .items-table th {
+            background: var(--primary-color);
+            color: #fff;
+            font-weight: 600;
+            padding: 12px 8px;
+            text-align: left;
+        }
+        .items-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .items-table tr:last-child td {
+            border-bottom: none;
+        }
+        .summary {
+            margin-top: 32px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .summary-table {
+            min-width: 300px;
+        }
+        .summary-table td {
+            padding: 8px 0;
+        }
+        .summary-table .label {
+            color: #555;
+        }
+        .summary-table .value {
+            text-align: right;
+            font-weight: 600;
+        }
+        .notes {
+            margin-top: 24px;
+            color: #555;
+            font-size: 0.95em;
+        }
+    </style>
+</head>
+<body>
+<div class="invoice-container">
+    <div class="header">
+        <img src="{{ logo_url }}" alt="Business Logo" class="logo">
+        <div class="business-info">
+            <h2>{{ business_name }}</h2>
+            <div>{{ business_address }}</div>
+            <div>{{ business_phone }}</div>
+            <div>{{ business_email }}</div>
+        </div>
+    </div>
+    <div class="invoice-details">
+        <div class="bill-to">
+            <strong>BILL TO</strong><br>
+            {{ client_name }}<br>
+            {{ client_address }}<br>
+            {{ client_phone }}<br>
+            {{ client_email }}
+        </div>
+        <div class="invoice-meta">
+            <div><strong>Invoice Date:</strong> {{ invoice_date }}</div>
+            <div><strong>Invoice Number:</strong> {{ invoice_number }}</div>
+        </div>
+    </div>
+    <table class="items-table">
+        <thead>
+        <tr>
+            <th>DATE</th>
+            <th>DESCRIPTION</th>
+            <th>QTY</th>
+            <th>PRICE</th>
+            <th>TOTAL</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for item in line_items %}
+        <tr>
+            <td>{{ item.date }}</td>
+            <td>{{ item.description }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>${{ '%.2f'|format(item.unit_price) }}</td>
+            <td>${{ '%.2f'|format(item.total) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <div class="summary">
+        <table class="summary-table">
+            <tr>
+                <td class="label">Subtotal:</td>
+                <td class="value">${{ '%.2f'|format(subtotal) }}</td>
+            </tr>
+            <tr>
+                <td class="label">Sales Tax:</td>
+                <td class="value">${{ '%.2f'|format(sales_tax) }}</td>
+            </tr>
+            <tr>
+                <td class="label"><strong>Grand Total:</strong></td>
+                <td class="value"><strong>${{ '%.2f'|format(grand_total) }}</strong></td>
+            </tr>
+        </table>
+    </div>
+    {% if notes %}
+    <div class="notes">
+        <strong>Notes:</strong> {{ notes }}
+    </div>
+    {% endif %}
+</div>
+</body>
+</html> 

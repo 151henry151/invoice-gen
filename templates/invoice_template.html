@@ -258,6 +258,18 @@
                     <td class="s28">TOTAL</td>
                     <td class="s30"></td>
                 </tr>
+                {% for item in items %}
+                <tr style="height: 23px">
+                    <td class="s31"></td>
+                    <td class="s32" dir="ltr">{{ item.date or '' }}</td>
+                    <td class="s33" dir="ltr">{{ item.description }}</td>
+                    <td class="s34"></td>
+                    <td class="s35" dir="ltr">{{ item.quantity or item.hours or '' }}</td>
+                    <td class="s36" dir="ltr">{{ item.price or item.rate or '' }}</td>
+                    <td class="s37">{{ item.total }}</td>
+                    <td class="s38"></td>
+                </tr>
+                {% endfor %}
                 <tr style="height: 23px">
                     <th id="1194874101R21" style="height: 23px;" class="row-headers-background"><div class="row-header-wrapper" style="line-height: 23px">22</div></th>
                     <td class="s31"></td>

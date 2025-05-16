@@ -48,8 +48,12 @@ CREATE TABLE IF NOT EXISTS invoices (
     client_id INTEGER NOT NULL,
     date TEXT NOT NULL,
     notes TEXT,
+    total REAL,
+    sales_tax_id INTEGER,
+    tax_applies_to TEXT,
     FOREIGN KEY (user_id) REFERENCES users (id),
-    FOREIGN KEY (client_id) REFERENCES clients (id)
+    FOREIGN KEY (client_id) REFERENCES clients (id),
+    FOREIGN KEY (sales_tax_id) REFERENCES sales_tax (id)
 );
 
 -- Line items table
@@ -60,7 +64,7 @@ CREATE TABLE IF NOT EXISTS line_items (
     quantity REAL NOT NULL,
     unit_price REAL,
     total REAL,
-    date TEXT NOT NULL,
+    date TEXT,
     FOREIGN KEY (invoice_id) REFERENCES invoices (id)
 );
 

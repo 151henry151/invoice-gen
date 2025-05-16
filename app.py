@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, render_template_string, session, g, current_app, jsonify
-from datetime import datetime
+from datetime import datetime, timedelta
 import sqlite3
 import os
 from reportlab.pdfgen import canvas
@@ -9,7 +9,7 @@ from reportlab.platypus import Table, TableStyle
 import pandas as pd
 from weasyprint import HTML, CSS
 import re
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
 import openpyxl
 import shutil
 from openpyxl.styles import PatternFill, Border, Side
@@ -21,6 +21,7 @@ from functools import wraps
 import time
 from flask_login import current_user
 from PIL import Image
+import subprocess
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Generate a secure secret key
@@ -37,22 +38,23 @@ def allowed_file(filename):
 def resize_logo(image_path):
     """Resize the logo while maintaining aspect ratio"""
     try:
-        with Image.open(image_path) as img:
-            # Convert to RGB if necessary
-            if img.mode in ('RGBA', 'P'):
-                img = img.convert('RGB')
-            
-            # Calculate new dimensions while maintaining aspect ratio
-            width, height = img.size
-            ratio = min(MAX_LOGO_SIZE[0] / width, MAX_LOGO_SIZE[1] / height)
-            new_size = (int(width * ratio), int(height * ratio))
-            
-            # Resize image
-            resized_img = img.resize(new_size, Image.Resampling.LANCZOS)
-            
-            # Save the resized image
-            resized_img.save(image_path, quality=95, optimize=True)
-            return True
+        from PIL import Image
+        img = Image.open(image_path)
+        # Calculate new dimensions while maintaining aspect ratio
+        width, height = img.size
+        max_size = 200  # Maximum dimension
+        
+        if width > height:
+            new_width = min(width, max_size)
+            new_height = int(height * (new_width / width))
+        else:
+            new_height = min(height, max_size)
+            new_width = int(width * (new_height / height))
+        
+        # Resize image
+        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        img.save(image_path)
+        return True
     except Exception as e:
         print(f"Error resizing logo: {str(e)}")
         return False
@@ -374,20 +376,34 @@ def edit_excel_invoice(template_path, output_path, invoice_data):
     wb.save(output_path)
 
 def convert_to_pdf(excel_path, pdf_path):
-    """Convert Excel file to PDF using wkhtmltopdf"""
-    # Create a temporary HTML file
-    with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as temp_html:
-        html_path = temp_html.name
-    
-    # Convert Excel to HTML (you might need to adjust this based on your needs)
-    os.system(f'libreoffice --headless --convert-to html --outdir {os.path.dirname(html_path)} {excel_path}')
-    
-    # Convert HTML to PDF
-    pdfkit.from_file(html_path, pdf_path, configuration=config)
-    
-    # Clean up temporary files
-    os.unlink(html_path)
-    os.unlink(excel_path)
+    """Convert Excel file to PDF using LibreOffice"""
+    try:
+        # Convert Excel to PDF using LibreOffice
+        cmd = [
+            'libreoffice',
+            '--headless',
+            '--convert-to', 'pdf',
+            '--outdir', os.path.dirname(pdf_path),
+            excel_path
+        ]
+        
+        # Run the conversion command
+        process = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if process.returncode != 0:
+            raise Exception(f'LibreOffice conversion failed: {process.stderr}')
+        
+        # Get the generated PDF path (LibreOffice adds .pdf extension)
+        generated_pdf = os.path.splitext(excel_path)[0] + '.pdf'
+        
+        # Move the generated PDF to the desired location
+        if os.path.exists(generated_pdf):
+            shutil.move(generated_pdf, pdf_path)
+        else:
+            raise Exception('PDF file was not generated')
+            
+    except Exception as e:
+        raise Exception(f'Error converting to PDF: {str(e)}')
 
 @app.route('/upload_logo', methods=['POST'])
 def upload_logo():
@@ -418,132 +434,238 @@ def create_invoice():
         client_id = request.form['client']
         date = request.form['date']
         invoice_number = request.form['invoice_number']
+        output_format = request.form.get('output_format', 'pdf')
         items = request.form.getlist('item[]')
         item_dates = request.form.getlist('item_date[]')
         hours = request.form.getlist('hours[]')
         minutes = request.form.getlist('minutes[]')
         notes = request.form.get('notes', '')
-        
+        sales_tax_id = request.form.get('sales_tax_id')
+        tax_applies_to = request.form.get('tax_applies_to')
+
         # Get client information from database
         conn = get_db()
         client = conn.execute('SELECT * FROM clients WHERE id = ? AND user_id = ?',
                             (client_id, session['user_id'])).fetchone()
-        
         if not client:
-            flash('Client not found')
+            flash('Client not found', 'danger')
             return redirect(url_for('index'))
-        
-        # Get settings
-        hourly_rate = float(get_setting('hourly_rate', '40.00'))
-        
-        # Get logo path if it exists
+
+        # Get business info from settings
+        business_name = get_setting('business_name', 'Business Name')
+        business_address = get_setting('business_address', 'Business Address')
+        business_phone = get_setting('business_phone', 'Business Phone')
+        business_email = get_setting('business_email', 'Business Email')
         logo_path = get_setting('logo_path')
         if logo_path and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], logo_path)):
-            logo_path = os.path.join(app.config['UPLOAD_FOLDER'], logo_path)
+            logo_url = url_for('static', filename=f'logos/{logo_path}')
         else:
-            logo_path = None
-        
-        # Calculate total
-        total = 0
+            logo_url = url_for('static', filename='default_logo.png')
+
+        # Calculate totals
+        subtotal = 0
         line_items = []
         for i in range(len(items)):
-            if items[i].strip():  # Only process non-empty items
-                hours_float = float(hours[i]) + (float(minutes[i]) / 60)
-                item_total = hours_float * hourly_rate
-                total += item_total
-                
+            if items[i].strip():
+                if i < len(item_dates) and item_dates[i]:
+                    item_date = item_dates[i]
+                else:
+                    item_date = date
+                if i < len(hours) and i < len(minutes) and hours[i] and minutes[i]:
+                    hours_float = float(hours[i]) + (float(minutes[i]) / 60)
+                    item_total = hours_float * float(get_setting('hourly_rate', '40.00'))
+                    quantity = f"{hours[i]}h {minutes[i]}m"
+                    unit_price = float(get_setting('hourly_rate', '40.00'))
+                else:
+                    item_total = float(items[i].split(' - $')[1]) if ' - $' in items[i] else 0
+                    quantity = '1'
+                    unit_price = item_total
+                subtotal += item_total
                 line_items.append({
-                    'date': item_dates[i],
-                    'description': items[i],
-                    'quantity': f"{hours[i]}h {minutes[i]}m",
-                    'unit_price': hourly_rate,
+                    'date': item_date,
+                    'description': items[i].split(' - $')[0] if ' - $' in items[i] else items[i],
+                    'quantity': quantity,
+                    'unit_price': unit_price,
                     'total': item_total
                 })
-        
-        # Create invoice data
-        invoice_data = {
-            'invoice_number': invoice_number,
-            'date': date,
-            'client_name': client['name'],
-            'client_address': client['address'],
-            'line_items': line_items,
-            'total': total,
-            'notes': notes,
-            'logo_path': logo_path
-        }
-        
-        # Store invoice in database
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO invoices (user_id, client_id, invoice_number, date, total, notes)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (session['user_id'], client_id, invoice_number, date, total, notes))
-        invoice_id = cursor.lastrowid
-        
-        # Store line items in database
-        for item in line_items:
-            cursor.execute('''
-                INSERT INTO line_items (invoice_id, date, description, quantity, unit_price, total)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (invoice_id, item['date'], item['description'], item['quantity'],
-                 item['unit_price'], item['total']))
-        
-        # Get sales tax information from localStorage (passed in form data)
-        sales_tax_id = request.form.get('sales_tax_id')
-        tax_applies_to = request.form.get('tax_applies_to')
-        
+
+        # Calculate sales tax if applicable
+        sales_tax = 0
         if sales_tax_id and tax_applies_to:
-            # Update invoice with sales tax information
-            cursor.execute('''
-                UPDATE invoices 
-                SET sales_tax_id = ?, tax_applies_to = ?
-                WHERE id = ?
-            ''', (sales_tax_id, tax_applies_to, invoice_id))
-            
-            # Get tax rate
             tax_rate = conn.execute('SELECT rate FROM sales_tax WHERE id = ?', (sales_tax_id,)).fetchone()
             if tax_rate:
-                # Calculate tax amount based on what it applies to
                 taxable_amount = 0
                 for item in line_items:
-                    if tax_applies_to in ['both', 'labor']:
+                    if (tax_applies_to == 'items' and 'h' not in str(item['quantity'])) or \
+                       (tax_applies_to == 'labor' and 'h' in str(item['quantity'])) or \
+                       tax_applies_to == 'both':
                         taxable_amount += item['total']
-                
-                tax_amount = taxable_amount * (tax_rate['rate'] / 100)
-                
-                # Add tax line item
-                cursor.execute('''
-                    INSERT INTO line_items (invoice_id, description, quantity, unit_price, total)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (invoice_id, f'Sales Tax ({tax_rate["rate"]}%)', '1', tax_amount, tax_amount))
-                
-                # Update total
-                total += tax_amount
-                cursor.execute('UPDATE invoices SET total = ? WHERE id = ?', (total, invoice_id))
-        
+                sales_tax = taxable_amount * (tax_rate['rate'] / 100)
+
+        grand_total = subtotal + sales_tax
+
+        # Create invoice record
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO invoices (
+                user_id, invoice_number, client_id, date, notes, total,
+                sales_tax_id, tax_applies_to
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            session['user_id'],
+            invoice_number,
+            client_id,
+            date,
+            notes,
+            grand_total,
+            sales_tax_id,
+            tax_applies_to
+        ))
+        invoice_id = cursor.lastrowid
+
+        # Insert line items
+        for item in line_items:
+            cursor.execute('''
+                INSERT INTO line_items (
+                    invoice_id, description, quantity, unit_price,
+                    total, date
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                invoice_id,
+                item['description'],
+                item['quantity'],
+                item['unit_price'],
+                item['total'],
+                item['date']
+            ))
+
         conn.commit()
-        
-        # Create temporary Excel file
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as temp_excel:
-            excel_path = temp_excel.name
-        
-        # Generate Excel file
-        edit_excel_invoice('static/Invoice.xlsx', excel_path, invoice_data)
-        
-        # Increment invoice number for next time
-        next_number = str(int(invoice_number) + 1)
-        update_setting('next_invoice_number', next_number)
-        
-        # Send the Excel file
-        return send_file(
-            excel_path,
-            as_attachment=True,
-            download_name=f'invoice_{invoice_data["invoice_number"]}.xlsx',
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        
+
+        # Prepare data for template
+        invoice_data = {
+            'logo_url': logo_url,
+            'business_name': business_name,
+            'business_address': business_address,
+            'business_phone': business_phone,
+            'business_email': business_email,
+            'client_name': client['name'],
+            'client_address': client['address'],
+            'client_phone': client['phone'],
+            'client_email': client['email'],
+            'invoice_date': date,
+            'invoice_number': invoice_number,
+            'line_items': line_items,
+            'subtotal': subtotal,
+            'sales_tax': sales_tax,
+            'grand_total': grand_total,
+            'notes': notes
+        }
+
+        if output_format == 'pdf':
+            try:
+                # Render HTML
+                html_content = render_template('invoice_pretty.html', **invoice_data)
+
+                # Debug: Print module paths
+                import weasyprint
+                from weasyprint import HTML
+                print("WeasyPrint module path:", weasyprint.__file__)
+                print("HTML class path:", HTML.__module__)
+
+                # Generate PDF
+                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_pdf:
+                    pdf_path = temp_pdf.name
+                    try:
+                        # Create HTML object with the rendered content
+                        html = HTML(string=html_content)
+                        # Write PDF
+                        html.write_pdf(pdf_path)
+                        return send_file(
+                            pdf_path,
+                            as_attachment=True,
+                            download_name=f'invoice_{invoice_number}.pdf',
+                            mimetype='application/pdf'
+                        )
+                    except Exception as e:
+                        print(f"Error during PDF generation: {str(e)}")
+                        print(f"Error type: {type(e)}")
+                        print(f"HTML content type: {type(html_content)}")
+                        print(f"HTML content length: {len(str(html_content))}")
+                        print(f"HTML content preview: {str(html_content)[:200]}")  # Print first 200 chars
+                        raise
+            except Exception as e:
+                print(f"Error in PDF generation block: {str(e)}")
+                print(f"Error type: {type(e)}")
+                raise
+        else:
+            # Generate Excel
+            template_path = os.path.join(app.root_path, 'templates', 'Invoice.xlsx')
+            if not os.path.exists(template_path):
+                # Create the template if it doesn't exist
+                wb = Workbook()
+                ws = wb.active
+                
+                # Add headers and basic structure
+                ws['B3'] = 'Business Name'
+                ws['B4'] = 'Business Address'
+                ws['B5'] = 'Business Email'
+                ws['B6'] = 'Business Phone'
+                ws['G8'] = 'Invoice Number'
+                ws['G9'] = 'Date'
+                ws['B14'] = 'Client Name'
+                ws['B15'] = 'Client Address'
+                ws['B16'] = 'Client Email'
+                ws['B17'] = 'Client Phone'
+                
+                # Save the template
+                wb.save(template_path)
+            
+            try:
+                wb = load_workbook(template_path)
+                ws = wb.active
+                
+                # Fill in company info
+                ws['B3'] = business_name
+                ws['B4'] = business_address
+                ws['B5'] = business_email
+                ws['B6'] = business_phone
+                
+                # Fill in invoice info
+                ws['G8'] = invoice_number
+                ws['G9'] = date
+                
+                # Fill in client info
+                ws['B14'] = client['name']
+                ws['B15'] = client['address']
+                ws['B16'] = client['email']
+                ws['B17'] = client['phone']
+                
+                # Fill in line items
+                row = 23
+                for item in line_items:
+                    ws[f'B{row}'] = item['date']
+                    ws[f'C{row}'] = item['description']
+                    ws[f'D{row}'] = item['quantity']
+                    ws[f'E{row}'] = item['unit_price']
+                    ws[f'F{row}'] = item['total']
+                    row += 1
+                
+                # Fill in totals
+                ws['F39'] = subtotal
+                if sales_tax > 0:
+                    ws['F38'] = sales_tax
+                    ws['C38'] = 'Sales Tax'
+                
+                # Save the file
+                filename = f"static/{client['name'].lower().replace(' ', '_')}_invoice_{invoice_number}.xlsx"
+                wb.save(filename)
+                return send_file(filename, as_attachment=True)
+            except Exception as e:
+                flash(f'Error generating Excel file: {str(e)}', 'danger')
+                return redirect(url_for('index'))
+
     except Exception as e:
-        flash(f'An error occurred while generating the invoice: {str(e)}')
+        flash('An error occurred while generating the invoice: {}'.format(str(e)), 'danger')
         return redirect(url_for('index'))
 
 @app.route('/preview/<invoice_number>')
@@ -627,7 +749,10 @@ def settings():
             
             # Resize the logo
             if not resize_logo(filepath):
-                flash('Error processing logo. Please try again.', 'error')
+                # If resize fails, delete the uploaded file
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                flash('Error processing logo. Please try again.', 'danger')
                 return redirect(url_for('settings'))
 
         if company_id:
@@ -663,7 +788,7 @@ def settings():
     if company_id:
         selected_company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?', (company_id, session['user_id'])).fetchone()
         if not selected_company:
-            flash('Company not found', 'error')
+            flash('Company not found', 'danger')
             return redirect(url_for('index'))
 
     return render_template('settings.html', selected_company=selected_company)

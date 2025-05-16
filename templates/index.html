@@ -764,6 +764,8 @@
                     if (editButton) {
                         editButton.classList.remove('disabled');
                         editButton.href = `/settings?company_id=${value}`;
+                        editButton.style.pointerEvents = 'auto';
+                        editButton.style.opacity = '1';
                     }
                     
                     // Save the selection
@@ -783,6 +785,12 @@
             console.log('Navigating to create new client page');
             window.location.href = value;
         } else {
+            // Update the hidden client input field
+            const clientInput = document.querySelector('input[name="client"]');
+            if (clientInput) {
+                clientInput.value = value;
+            }
+            
             // Otherwise, update the client details on the page
             console.log('Fetching client details for ID:', value);
             fetch(`/get_client/${value}`)
@@ -1199,6 +1207,18 @@
                 return false;
             });
         });
+
+        // Initialize the Edit Details button state
+        const editButton = document.querySelector('.settings-link');
+        const companySelect = document.querySelector('.company-selector');
+        if (editButton && companySelect) {
+            if (!companySelect.value || companySelect.value.startsWith('/settings')) {
+                editButton.classList.add('disabled');
+                editButton.href = '#';
+                editButton.style.pointerEvents = 'none';
+                editButton.style.opacity = '0.5';
+            }
+        }
     });
 
     // Function to initialize all event listeners
@@ -1278,6 +1298,38 @@
             form.addEventListener('submit', function(e) {
                 try {
                     console.log('Form submit handler triggered');
+                    
+                    // Check if client is selected
+                    const clientSelector = document.querySelector('.client-selector');
+                    if (!clientSelector.value || clientSelector.value.startsWith('/client_details')) {
+                e.preventDefault();
+                        alert('Please select a client first');
+                        return;
+                    }
+                    
+                    // Check if invoice is confirmed
+                    const invoiceHeader = document.querySelector('.invoice-header');
+                    if (!invoiceHeader.classList.contains('confirmed')) {
+                        e.preventDefault();
+                        alert('Please confirm invoice date and invoice number');
+                        return;
+                    }
+                    
+                    // Check if there are any line items
+                    const lineItems = document.querySelectorAll('.line-item.confirmed');
+                    if (lineItems.length === 0) {
+                        e.preventDefault();
+                        alert('Please add at least one line item to the invoice');
+                        return;
+                    }
+
+                    // Log form data for debugging
+                    const formData = new FormData(form);
+                    console.log('Form data being submitted:');
+                    for (let [key, value] of formData.entries()) {
+                        console.log(`${key}: ${value}`);
+                    }
+                    
                     // Add sales tax information to form if present
                     const taxLine = document.querySelector('.line-item[data-type="tax"]');
                     if (taxLine) {
@@ -1293,10 +1345,14 @@
                         taxAppliesToInput.value = taxLine.dataset.appliesTo;
                         form.appendChild(taxAppliesToInput);
                     }
+                    
+                    // Clear invoice data from localStorage
                     clearInvoiceData();
                     console.log('Form submit handler completed');
                 } catch (err) {
                     console.error('Error in form submit handler:', err);
+                    e.preventDefault();
+                    alert('An error occurred while submitting the form. Please try again.');
                 }
             });
         }
@@ -1431,26 +1487,26 @@
             }
             
             try {
-                console.log('Creating tax rate:', { rate, description });  // Debug log
                 const response = await fetch('/api/sales-tax', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ rate, description })
+                    body: JSON.stringify({
+                        rate: parseFloat(rate),
+                        description: description
+                    })
                 });
                 
-                console.log('Response status:', response.status);  // Debug log
-                const data = await response.json();
-                console.log('Response data:', data);  // Debug log
-                
                 if (!response.ok) {
-                    throw new Error(data.error || 'Failed to create tax rate');
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to create tax rate');
                 }
                 
+                const data = await response.json();
                 addTaxToInvoice(data, appliesTo);
             } catch (error) {
-                console.error('Error creating tax rate:', error);  // Debug log
+                console.error('Error creating tax rate:', error);
                 alert(error.message || 'Error creating tax rate. Please try again.');
             }
         } else if (select.value) {
@@ -1644,6 +1700,40 @@
                 notesSection.style.display = 'block';
                 document.querySelector('.main-action-buttons').classList.add('hidden');
     }
+
+    // Add note button click handler
+    document.getElementById('addNoteBtn').addEventListener('click', function() {
+        const noteText = document.getElementById('noteText').value.trim();
+        if (noteText) {
+            const noteItem = document.createElement('div');
+            noteItem.className = 'line-item confirmed';
+            noteItem.dataset.type = 'note';
+            noteItem.dataset.description = noteText;
+            
+            noteItem.innerHTML = `
+            <div class="line-item-content">
+                <div class="detail-item">
+                        <span class="detail-label">Note:</span>
+                        <span class="detail-value">${noteText}</span>
+                        </div>
+                    </div>
+            <div class="line-item-actions">
+                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit note">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove note">
+                    <i class="fas fa-trash"></i>
+                </button>
+                </div>
+            `;
+        
+            document.getElementById('items').appendChild(noteItem);
+            document.getElementById('noteText').value = '';
+            document.getElementById('notesSection').style.display = 'none';
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+        saveInvoiceData();
+    }
+    });
 </script>
 {% endblock %}
 
@@ -1659,8 +1749,10 @@
             </div>
             <div class="details-content">
                 <div style="position: relative;">
-                    <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else url_for('settings') }}" class="settings-link {% if not selected_company %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
-                            Edit Details
+                    <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else '#' }}" 
+                       class="settings-link {% if not selected_company %}disabled{% endif %}" 
+                       style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;{% if not selected_company %} pointer-events: none; opacity: 0.5;{% endif %}">
+                        Edit Details
                     </a>
                     <div class="detail-item">
                         <span class="detail-label">Name:</span>
@@ -1764,6 +1856,7 @@
         {% endwith %}
         
             <form action="{{ url_for('create_invoice') }}" method="post">
+                <input type="hidden" name="client" value="{{ selected_client.id if selected_client else '' }}">
                 <div class="invoice-header">
                     <div class="invoice-fields">
                         <div class="form-group">
@@ -1864,8 +1957,8 @@
                 <div class="form-group" style="margin: 1rem 0;">
                     <label for="output_format" style="color: var(--text-color);">Output Format:</label>
                     <select id="output_format" name="output_format" required>
-                        <option value="xlsx" selected>Excel (XLSX)</option>
-                        <option value="pdf">PDF</option>
+                        <option value="pdf" selected>PDF</option>
+                        <option value="xlsx">Excel (XLSX)</option>
                     </select>
                 </div>
                 
