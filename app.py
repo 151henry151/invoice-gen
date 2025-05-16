@@ -924,6 +924,19 @@ def get_sales_tax_rates():
         'description': rate['description']
     } for rate in rates])
 
+@app.route('/api/sales-tax', methods=['DELETE'])
+@login_required
+def delete_all_sales_tax_rates():
+    conn = get_db()
+    try:
+        # Delete all tax rates
+        conn.execute('DELETE FROM sales_tax')
+        conn.commit()
+        return jsonify({'message': 'All tax rates have been cleared'}), 200
+    except sqlite3.Error as e:
+        conn.rollback()
+        return jsonify({'error': 'Database error occurred'}), 500
+
 @app.route('/api/sales-tax', methods=['POST'])
 @login_required
 def create_sales_tax_rate():

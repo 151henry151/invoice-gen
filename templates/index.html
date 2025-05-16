@@ -1288,9 +1288,9 @@
             .then(response => response.json())
             .then(rates => {
                 const select = document.getElementById('salesTaxSelect');
-                // Clear existing options except the first two
-                while (select.options.length > 2) {
-                    select.remove(2);
+                // Clear existing options except the first three (including "Clear saved tax rates")
+                while (select.options.length > 3) {
+                    select.remove(3);
                 }
                 
                 // Add existing rates
@@ -1769,10 +1769,13 @@
                         <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">Sales Tax</h2>
                         <div class="form-group">
                             <label style="color: var(--text-color);">Select Tax Rate:</label>
-                            <select id="salesTaxSelect" onchange="handleSalesTaxSelection(this)" style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color);">
+                            <select id="salesTaxSelect" name="sales_tax_id" onchange="handleSalesTaxSelection(this)" required>
                                 <option value="" disabled selected>Select Tax Rate</option>
-                                <option value="new">Add New Tax Rate</option>
+                                <option value="new">Create New Tax Rate</option>
                                 <option value="clear">Clear saved tax rates</option>
+                                {% for rate in tax_rates %}
+                                <option value="{{ rate.id }}" data-rate="{{ rate.rate }}">{{ rate.description }} ({{ rate.rate }}%)</option>
+                                {% endfor %}
                             </select>
                         </div>
                         <div id="newTaxRateFields" style="display: none;">
@@ -1787,10 +1790,10 @@
                         </div>
                         <div class="form-group">
                             <label style="color: var(--text-color);">Apply Tax To:</label>
-                            <select id="taxAppliesTo" style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color);">
-                                <option value="items">Items Only</option>
-                                <option value="labor">Labor Only</option>
-                                <option value="both" selected>Both Items and Labor</option>
+                            <select id="taxAppliesTo" name="tax_applies_to" required>
+                                <option value="items" selected>Items only</option>
+                                <option value="labor">Labor only</option>
+                                <option value="both">Both items and labor</option>
                             </select>
                         </div>
                         <div class="button-group" style="display: flex; gap: 0.5rem; justify-content: flex-end;">
