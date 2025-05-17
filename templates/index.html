@@ -1228,6 +1228,51 @@
                 editButton.style.opacity = '0.5';
             }
         }
+
+        // --- Auto-open dialog and pre-select new item/labor if redirected with query params ---
+        function getQueryParam(name) {
+            const url = new URL(window.location.href);
+            return url.searchParams.get(name);
+        }
+        function observeAndSetSelect(selector, value) {
+            const observer = new MutationObserver(function() {
+                const select = document.querySelector(selector);
+                if (select) {
+                    select.value = value;
+                    select.dispatchEvent(new Event('change'));
+                    observer.disconnect();
+                }
+            });
+            observer.observe(document.getElementById('items'), { childList: true, subtree: true });
+            // In case the select is already present
+            const select = document.querySelector(selector);
+            if (select) {
+                select.value = value;
+                select.dispatchEvent(new Event('change'));
+                observer.disconnect();
+            }
+        }
+        const openDialog = getQueryParam('open_dialog');
+        if (openDialog === 'add_item') {
+            showAddItemDialog();
+            const newItemId = getQueryParam('new_item_id');
+            if (newItemId) {
+                observeAndSetSelect('.item select[name="item[]"]', newItemId);
+            }
+        } else if (openDialog === 'add_labor') {
+            showAddLaborDialog();
+            const newLaborId = getQueryParam('new_labor_id');
+            if (newLaborId) {
+                observeAndSetSelect('.item select[name="labor_item[]"]', newLaborId);
+            }
+        }
+        if (openDialog) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('open_dialog');
+            url.searchParams.delete('new_item_id');
+            url.searchParams.delete('new_labor_id');
+            window.history.replaceState({}, document.title, url.pathname + url.search);
+        }
     });
 
     // Function to initialize all event listeners

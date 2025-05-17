@@ -856,15 +856,17 @@ def update_labor():
                        SET description = ?, rate = ?
                        WHERE id = ? AND user_id = ?''',
                     (description, rate, item_id, session['user_id']))
+        new_id = item_id
     else:
         # Create new labor item
-        conn.execute('''INSERT INTO labor_items (user_id, description, rate)
+        cursor = conn.execute('''INSERT INTO labor_items (user_id, description, rate)
                        VALUES (?, ?, ?)''',
                     (session['user_id'], description, rate))
+        new_id = cursor.lastrowid
     
     conn.commit()
     flash('Labor item saved successfully!')
-    return redirect(url_for('index'))
+    return redirect(url_for('index', open_dialog='add_labor', new_labor_id=new_id))
 
 @app.route('/remove_labor_item', methods=['POST'])
 @login_required
@@ -916,15 +918,17 @@ def update_item():
                        SET description = ?, price = ?
                        WHERE id = ? AND user_id = ?''',
                     (description, price, item_id, session['user_id']))
+        new_id = item_id
     else:
         # Create new item
-        conn.execute('''INSERT INTO items (user_id, description, price)
+        cursor = conn.execute('''INSERT INTO items (user_id, description, price)
                        VALUES (?, ?, ?)''',
                     (session['user_id'], description, price))
+        new_id = cursor.lastrowid
     
     conn.commit()
     flash('Item saved successfully!')
-    return redirect(url_for('index'))
+    return redirect(url_for('index', open_dialog='add_item', new_item_id=new_id))
 
 @app.route('/remove_item', methods=['POST'])
 @login_required
