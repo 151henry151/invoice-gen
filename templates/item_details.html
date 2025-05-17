@@ -32,6 +32,7 @@
         <input type="text" id="description" name="description" placeholder="Item Description" value="{{ selected_item.description if selected_item else '' }}" required>
         
         <div class="dollar-input">
+            <span class="dollar-sign">$</span>
             <input type="number" id="price" name="price" placeholder="Price" value="{{ "%.2f"|format(selected_item.price) if selected_item else '' }}" step="0.01" min="0" required>
         </div>
 
@@ -56,4 +57,22 @@
         document.getElementById('price').value = price;
     }
 </script>
+
+<style>
+.dollar-input {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.dollar-sign {
+    position: absolute;
+    left: 10px;
+    font-size: 1em;
+    color: var(--text-color, #333);
+    pointer-events: none;
+}
+.dollar-input input {
+    padding-left: 20px;
+}
+</style>
 {% endblock %} 
