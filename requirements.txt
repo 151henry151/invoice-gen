@@ -8,4 +8,9 @@ WeasyPrint==62.0
 pdfkit==1.0.0
 Flask-Login==0.6.3
 beautifulsoup4==4.12.3
-lxml==5.1.0 
+lxml==5.1.0
+Flask-SQLAlchemy
+pillow
+cffi
+Werkzeug 
+pytest

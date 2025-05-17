@@ -1,3 +1,57 @@
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
+
+db = SQLAlchemy()
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    companies = db.relationship('Company', backref='user', lazy=True)
+    clients = db.relationship('Client', backref='user', lazy=True)
+    items = db.relationship('Item', backref='user', lazy=True)
+    labor_types = db.relationship('LaborType', backref='user', lazy=True)
+
+class Company(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    address = db.Column(db.Text)
+    email = db.Column(db.String(120))
+    phone = db.Column(db.String(20))
+    logo_path = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Client(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    address = db.Column(db.Text)
+    email = db.Column(db.String(120))
+    phone = db.Column(db.String(20))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    invoices = db.relationship('Invoice', backref='client', lazy=True)
+
+class Item(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    description = db.Column(db.String(200), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class LaborType(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    description = db.Column(db.String(200), nullable=False)
+    rate = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 class SalesTax(db.Model):
     __tablename__ = 'sales_tax'
     
@@ -23,46 +77,26 @@ class SalesTax(db.Model):
         }
 
 class Invoice(db.Model):
-    __tablename__ = 'invoice'
-    
     id = db.Column(db.Integer, primary_key=True)
-    invoice_number = db.Column(db.String(50), unique=True, nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    due_date = db.Column(db.Date, nullable=False)
-    status = db.Column(db.String(20), nullable=False, default='draft')
-    notes = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Foreign keys
-    business_id = db.Column(db.Integer, db.ForeignKey('business.id'), nullable=False)
+    invoice_number = db.Column(db.String(20), unique=True, nullable=False)
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
     sales_tax_id = db.Column(db.Integer, db.ForeignKey('sales_tax.id'), nullable=True)
-    tax_applies_to = db.Column(db.String(20), nullable=True)  # 'items', 'labor', or 'both'
+    date = db.Column(db.DateTime, nullable=False)
+    due_date = db.Column(db.DateTime, nullable=False)
+    notes = db.Column(db.Text)
+    total = db.Column(db.Float, nullable=False)
+    tax_applies_to = db.Column(db.String(10))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
-    business = db.relationship('Business', backref='invoices')
-    client = db.relationship('Client', backref='invoices')
-    items = db.relationship('InvoiceItem', backref='invoice', cascade='all, delete-orphan')
-    labor_items = db.relationship('InvoiceLabor', backref='invoice', cascade='all, delete-orphan')
-    
-    def __repr__(self):
-        return f'<Invoice {self.invoice_number}>'
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'invoice_number': self.invoice_number,
-            'date': self.date.isoformat(),
-            'due_date': self.due_date.isoformat(),
-            'status': self.status,
-            'notes': self.notes,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'business': self.business.to_dict() if self.business else None,
-            'client': self.client.to_dict() if self.client else None,
-            'sales_tax': self.sales_tax.to_dict() if self.sales_tax else None,
-            'tax_applies_to': self.tax_applies_to,
-            'items': [item.to_dict() for item in self.items],
-            'labor_items': [item.to_dict() for item in self.labor_items]
-        } 
+    line_items = db.relationship('LineItem', backref='invoice', lazy=True, cascade='all, delete-orphan')
+
+class LineItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'), nullable=False)
+    description = db.Column(db.String(200), nullable=False)
+    quantity = db.Column(db.Float, nullable=False)
+    unit_price = db.Column(db.Float, nullable=False)
+    total = db.Column(db.Float, nullable=False)
+    date = db.Column(db.Date, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow) 

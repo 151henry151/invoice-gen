@@ -1,0 +1,530 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<style>
+    /* Mobile-first styles */
+    :root {
+        --primary-color: #388e3c;
+        --primary-hover: #2e7d32;
+        --button-bg: #388e3c;
+        --button-hover: #2e7d32;
+        --button-text: #ffffff;
+        --button-border: #2e7d32;
+        --input-bg: #ffffff;
+        --input-border: #e0e0e0;
+        --input-focus: #388e3c;
+        --text-primary: #333333;
+        --text-secondary: #666666;
+        --bg-color: #f4f6fb;
+        --card-bg: #ffffff;
+        --card-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    }
+
+    body {
+        background: var(--bg-color);
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--text-primary);
+        line-height: 1.5;
+    }
+
+    .mobile-container {
+        max-width: 100%;
+        padding: 16px;
+        margin: 0 auto;
+    }
+
+    .mobile-card {
+        background: var(--card-bg);
+        border-radius: 16px;
+        box-shadow: var(--card-shadow);
+        padding: 20px;
+        margin-bottom: 16px;
+    }
+
+    .mobile-header {
+        text-align: center;
+        margin-bottom: 24px;
+    }
+
+    .mobile-header h1 {
+        font-size: 24px;
+        margin: 0;
+        color: var(--primary-color);
+    }
+
+    .mobile-button {
+        display: block;
+        width: 100%;
+        padding: 16px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        text-align: center;
+        text-decoration: none;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(56,142,60,0.15);
+    }
+
+    .mobile-button:active {
+        background: var(--primary-hover);
+        transform: translateY(1px);
+    }
+
+    .mobile-button.disabled {
+        background: #e9ecef;
+        color: #6c757d;
+        box-shadow: none;
+        pointer-events: none;
+    }
+
+    .mobile-section {
+        margin-bottom: 24px;
+    }
+
+    .mobile-section-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: var(--text-primary);
+    }
+
+    .mobile-input-group {
+        margin-bottom: 16px;
+    }
+
+    .mobile-label {
+        display: block;
+        font-size: 14px;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+    }
+
+    .mobile-select {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid var(--input-border);
+        border-radius: 8px;
+        font-size: 16px;
+        background: var(--input-bg);
+        -webkit-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 16px;
+    }
+
+    .mobile-select:focus {
+        outline: none;
+        border-color: var(--input-focus);
+        box-shadow: 0 0 0 2px rgba(56,142,60,0.1);
+    }
+
+    .mobile-details {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 12px;
+    }
+
+    .mobile-detail-item {
+        margin-bottom: 12px;
+    }
+
+    .mobile-detail-label {
+        font-size: 14px;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+    }
+
+    .mobile-detail-value {
+        font-size: 16px;
+        color: var(--text-primary);
+    }
+
+    .mobile-actions {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        padding: 16px;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+    }
+
+    .mobile-actions .mobile-button {
+        margin-bottom: 0;
+    }
+
+    .mobile-actions .mobile-button:last-child {
+        margin-bottom: 0;
+    }
+
+    /* Add some padding to the bottom of the page to account for fixed actions */
+    body {
+        padding-bottom: 80px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mobile-container">
+    <div class="mobile-header">
+        <h1>Invoice Generator</h1>
+    </div>
+
+    <!-- Business Details Section -->
+    <div class="mobile-card">
+        <div class="mobile-section">
+            <div class="mobile-section-title">Business Details</div>
+            <div class="mobile-input-group">
+                <label class="mobile-label">Select Business</label>
+                <select class="mobile-select" id="business-select" name="business_id">
+                    <option value="">Select a business</option>
+                    {% for company in companies %}
+                    <option value="{{ company.id }}" {% if selected_company and selected_company.id == company.id %}selected{% endif %}>
+                        {{ company.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if selected_company %}
+            <div class="mobile-details">
+                <div class="mobile-detail-item">
+                    <div class="mobile-detail-label">Name</div>
+                    <div class="mobile-detail-value">{{ selected_company.name }}</div>
+                </div>
+                <div class="mobile-detail-item">
+                    <div class="mobile-detail-label">Address</div>
+                    <div class="mobile-detail-value">{{ selected_company.address }}</div>
+                </div>
+                <div class="mobile-detail-item">
+                    <div class="mobile-detail-label">Email</div>
+                    <div class="mobile-detail-value">{{ selected_company.email }}</div>
+                </div>
+                <div class="mobile-detail-item">
+                    <div class="mobile-detail-label">Phone</div>
+                    <div class="mobile-detail-value">{{ selected_company.phone }}</div>
+                </div>
+            </div>
+            {% endif %}
+            <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else '#' }}" 
+               class="mobile-button {% if not selected_company %}disabled{% endif %}">
+                {% if selected_company %}Edit Business Details{% else %}Add Business Details{% endif %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Client Details Section -->
+    <div class="mobile-card">
+        <div class="mobile-section">
+            <div class="mobile-section-title">Client Details</div>
+            <div class="mobile-input-group">
+                <label class="mobile-label">Select Client</label>
+                <select class="mobile-select" id="client-select" name="client_id">
+                    <option value="">Select a client</option>
+                    {% for client in clients %}
+                    <option value="{{ client.id }}" {% if selected_client and selected_client.id == client.id %}selected{% endif %}>
+                        {{ client.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if selected_client %}
+            <div class="mobile-details">
+                <div class="mobile-detail-item">
+                    <div class="mobile-detail-label">Name</div>
+                    <div class="mobile-detail-value">{{ selected_client.name }}</div>
+                </div>
+                <div class="mobile-detail-item">
+                    <div class="mobile-detail-label">Address</div>
+                    <div class="mobile-detail-value">{{ selected_client.address }}</div>
+                </div>
+                <div class="mobile-detail-item">
+                    <div class="mobile-detail-label">Email</div>
+                    <div class="mobile-detail-value">{{ selected_client.email }}</div>
+                </div>
+                <div class="mobile-detail-item">
+                    <div class="mobile-detail-label">Phone</div>
+                    <div class="mobile-detail-value">{{ selected_client.phone }}</div>
+                </div>
+            </div>
+            {% endif %}
+            <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else url_for('client_details') }}" 
+               class="mobile-button {% if not selected_client %}disabled{% endif %}">
+                {% if selected_client %}Edit Client Details{% else %}Add Client Details{% endif %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Invoice Details Section -->
+    <div class="mobile-card">
+        <div class="mobile-section">
+            <div class="mobile-section-title">Invoice Details</div>
+            <form id="invoice-form" method="POST" action="{{ url_for('generate_invoice') }}">
+                <input type="hidden" name="business_id" value="{{ selected_company.id if selected_company else '' }}">
+                <input type="hidden" name="client_id" value="{{ selected_client.id if selected_client else '' }}">
+                
+                <div class="mobile-input-group">
+                    <label class="mobile-label">Invoice Number</label>
+                    <input type="text" class="mobile-select" name="invoice_number" value="{{ invoice_number }}" required>
+                </div>
+
+                <div class="mobile-input-group">
+                    <label class="mobile-label">Date</label>
+                    <input type="date" class="mobile-select" name="date" value="{{ date }}" required>
+                </div>
+
+                <div class="mobile-input-group">
+                    <label class="mobile-label">Due Date</label>
+                    <input type="date" class="mobile-select" name="due_date" value="{{ due_date }}" required>
+                </div>
+
+                <div class="mobile-input-group">
+                    <label class="mobile-label">Tax Rate (%)</label>
+                    <select class="mobile-select" name="tax_rate" required>
+                        <option value="">Select tax rate</option>
+                        {% for rate in tax_rates %}
+                        <option value="{{ rate }}" {% if rate == selected_tax_rate %}selected{% endif %}>{{ rate }}%</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Fixed Action Buttons -->
+    <div class="mobile-actions">
+        <button type="button" class="mobile-button" id="add-item-btn">Add Item</button>
+        <button type="button" class="mobile-button" id="add-labor-btn">Add Labor</button>
+        <button type="button" class="mobile-button" id="add-note-btn">Add Note</button>
+        <button type="submit" form="invoice-form" class="mobile-button">Generate Invoice</button>
+    </div>
+</div>
+
+<!-- Mobile Dialogs -->
+<div id="item-dialog" class="mobile-dialog" style="display: none;">
+    <div class="mobile-dialog-content">
+        <h3>Add Item</h3>
+        <form id="item-form">
+            <div class="mobile-input-group">
+                <label class="mobile-label">Item</label>
+                <select class="mobile-select" id="item-select" required>
+                    <option value="">Select an item</option>
+                    {% for item in items %}
+                    <option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mobile-input-group">
+                <label class="mobile-label">Quantity</label>
+                <input type="number" class="mobile-select" id="item-quantity" min="1" value="1" required>
+            </div>
+            <div class="mobile-dialog-actions">
+                <button type="button" class="mobile-button" id="cancel-item">Cancel</button>
+                <button type="submit" class="mobile-button">Add</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="labor-dialog" class="mobile-dialog" style="display: none;">
+    <div class="mobile-dialog-content">
+        <h3>Add Labor</h3>
+        <form id="labor-form">
+            <div class="mobile-input-group">
+                <label class="mobile-label">Labor Type</label>
+                <select class="mobile-select" id="labor-select" required>
+                    <option value="">Select labor type</option>
+                    {% for labor in labor_types %}
+                    <option value="{{ labor.id }}" data-rate="{{ labor.rate }}">{{ labor.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mobile-input-group">
+                <label class="mobile-label">Hours</label>
+                <input type="number" class="mobile-select" id="labor-hours" min="0.5" step="0.5" value="1" required>
+            </div>
+            <div class="mobile-dialog-actions">
+                <button type="button" class="mobile-button" id="cancel-labor">Cancel</button>
+                <button type="submit" class="mobile-button">Add</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="note-dialog" class="mobile-dialog" style="display: none;">
+    <div class="mobile-dialog-content">
+        <h3>Add Note</h3>
+        <form id="note-form">
+            <div class="mobile-input-group">
+                <label class="mobile-label">Note</label>
+                <textarea class="mobile-select" id="note-text" rows="3" required></textarea>
+            </div>
+            <div class="mobile-dialog-actions">
+                <button type="button" class="mobile-button" id="cancel-note">Cancel</button>
+                <button type="submit" class="mobile-button">Add</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .mobile-dialog {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+    }
+
+    .mobile-dialog-content {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        width: 90%;
+        max-width: 400px;
+    }
+
+    .mobile-dialog h3 {
+        margin: 0 0 20px 0;
+        font-size: 20px;
+        color: var(--text-primary);
+    }
+
+    .mobile-dialog-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+    }
+
+    .mobile-dialog-actions .mobile-button {
+        flex: 1;
+        margin: 0;
+    }
+
+    textarea.mobile-select {
+        resize: none;
+        min-height: 80px;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Dialog handling
+    function showDialog(dialogId) {
+        document.getElementById(dialogId).style.display = 'flex';
+    }
+
+    function hideDialog(dialogId) {
+        document.getElementById(dialogId).style.display = 'none';
+    }
+
+    // Add Item
+    document.getElementById('add-item-btn').addEventListener('click', () => showDialog('item-dialog'));
+    document.getElementById('cancel-item').addEventListener('click', () => hideDialog('item-dialog'));
+
+    // Add Labor
+    document.getElementById('add-labor-btn').addEventListener('click', () => showDialog('labor-dialog'));
+    document.getElementById('cancel-labor').addEventListener('click', () => hideDialog('labor-dialog'));
+
+    // Add Note
+    document.getElementById('add-note-btn').addEventListener('click', () => showDialog('note-dialog'));
+    document.getElementById('cancel-note').addEventListener('click', () => hideDialog('note-dialog'));
+
+    // Form submissions
+    document.getElementById('item-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const itemSelect = document.getElementById('item-select');
+        const quantity = document.getElementById('item-quantity').value;
+        const selectedOption = itemSelect.options[itemSelect.selectedIndex];
+        
+        if (selectedOption.value) {
+            const itemName = selectedOption.text;
+            const price = selectedOption.dataset.price;
+            const total = (price * quantity).toFixed(2);
+            
+            // Add to items list
+            const itemsList = document.getElementById('items');
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span>${itemName}</span>
+                <span>$${price}</span>
+                <span>${quantity}</span>
+                <span>$${total}</span>
+                <button type="button" class="remove-btn">×</button>
+            `;
+            itemsList.appendChild(li);
+            
+            // Clear and hide dialog
+            this.reset();
+            hideDialog('item-dialog');
+        }
+    });
+
+    document.getElementById('labor-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const laborSelect = document.getElementById('labor-select');
+        const hours = document.getElementById('labor-hours').value;
+        const selectedOption = laborSelect.options[laborSelect.selectedIndex];
+        
+        if (selectedOption.value) {
+            const laborName = selectedOption.text;
+            const rate = selectedOption.dataset.rate;
+            const total = (rate * hours).toFixed(2);
+            
+            // Add to items list
+            const itemsList = document.getElementById('items');
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span>${laborName} (${hours} hrs)</span>
+                <span>$${rate}/hr</span>
+                <span>${hours}</span>
+                <span>$${total}</span>
+                <button type="button" class="remove-btn">×</button>
+            `;
+            itemsList.appendChild(li);
+            
+            // Clear and hide dialog
+            this.reset();
+            hideDialog('labor-dialog');
+        }
+    });
+
+    document.getElementById('note-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const noteText = document.getElementById('note-text').value;
+        
+        if (noteText.trim()) {
+            // Add to notes list
+            const notesList = document.getElementById('notes');
+            const li = document.createElement('li');
+            li.textContent = noteText;
+            notesList.appendChild(li);
+            
+            // Clear and hide dialog
+            this.reset();
+            hideDialog('note-dialog');
+        }
+    });
+
+    // Remove items
+    document.getElementById('items').addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-btn')) {
+            e.target.parentElement.remove();
+        }
+    });
+});
+</script>
+{% endblock %} 

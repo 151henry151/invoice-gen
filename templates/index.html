@@ -2,7 +2,7 @@
 
 {% block title %}Invoice Generator{% endblock %}
 
-{% block page_subtitle %}Dashboard{% endblock %}
+{% block page_subtitle %}invoice-gen{% endblock %}
 
 {% block extra_head %}
     <style>
@@ -1713,18 +1713,21 @@
     }
 
     function showAddLaborDialog() {
-                const itemsDiv = document.getElementById('items');
-                const newItem = document.createElement('div');
-                newItem.className = 'item';
-                newItem.innerHTML = 
+        const itemsDiv = document.getElementById('items');
+        const newItem = document.createElement('div');
+        newItem.className = 'item';
+        // Fetch labor types from API
+        fetch('/api/labor_types')
+            .then(response => response.json())
+            .then(laborTypes => {
+                let options = '<option value="" disabled selected>Select Labor Item</option>' +
+                              '<option value="new">Create New Labor Item</option>';
+                laborTypes.forEach(item => {
+                    options += `<option value="${item.id}" data-rate="${item.rate}">${item.description} - $${parseFloat(item.rate).toFixed(2)}/hr</option>`;
+                });
+                newItem.innerHTML =
                     '<label>Labor Item:</label>' +
-                    '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
-                    '<option value="" disabled selected>Select Labor Item</option>' +
-                    '<option value="new">Create New Labor Item</option>' +
-                    '{% for item in labor_items %}' +
-                    '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
-                    '{% endfor %}' +
-                    '</select>' +
+                    `<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">${options}</select>` +
                     '<label>Date labor performed:</label>' +
                     '<input type="date" name="item_date[]" required>' +
                     '<label>Hours:</label>' +
@@ -1741,7 +1744,8 @@
                     '</div>';
                 itemsDiv.appendChild(newItem);
                 document.querySelector('.main-action-buttons').classList.add('hidden');
-        }
+            });
+    }
 
     function showAddItemDialog() {
                 const itemsDiv = document.getElementById('items');
@@ -1792,7 +1796,7 @@
                 <div style="position: relative;">
                     <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else '#' }}" 
                        class="settings-link {% if not selected_company %}disabled{% endif %}" 
-                       style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;{% if not selected_company %} pointer-events: none; opacity: 0.5;{% endif %}">
+                       style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
                         Edit Details
                     </a>
                     <div class="detail-item">
@@ -1831,8 +1835,10 @@
         <div class="client-details">
             <div class="details-content">
                 <div style="position: relative;">
-                    <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else url_for('client_details') }}" class="settings-link {% if not selected_client %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
-                            Edit Client Details
+                    <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else url_for('client_details') }}" 
+                       class="settings-link {% if not selected_client %}disabled{% endif %}" 
+                       style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
+                        Edit Client Details
                     </a>
                     {% if selected_client %}
                         <div class="detail-item">

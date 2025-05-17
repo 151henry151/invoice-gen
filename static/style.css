@@ -74,11 +74,15 @@ body {
 }
 
 .page-subtitle {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 2rem;
+    letter-spacing: 0.02em;
     color: var(--text-color);
-    font-size: 0.9em;
     margin-top: 8px;
-    font-weight: normal;
-    opacity: 0.8;
+    opacity: 1;
+    display: block;
+    visibility: visible;
 }
 
 .header-buttons {
@@ -228,9 +232,10 @@ button:hover {
     color: var(--button-text) !important;
     text-decoration: none !important;
     border-radius: 4px;
-    font-size: 16px;
+    font-size: 12px;
     border: 1px solid var(--button-border);
     width: auto;
+    transition: background-color 0.2s ease;
 }
 
 .settings-link:hover {
@@ -240,16 +245,17 @@ button:hover {
 }
 
 .settings-link.disabled {
-    background-color: #f8f9fa;
-    color: #adb5bd !important;
-    border-color: #dee2e6;
-    font-style: italic;
+    background-color: var(--button-bg);
+    color: var(--button-text) !important;
+    border-color: var(--button-border);
+    opacity: 0.5;
     cursor: not-allowed;
+    pointer-events: none;
 }
 
 .settings-link.disabled:hover {
-    background-color: #f8f9fa;
-    color: #adb5bd !important;
+    background-color: var(--button-bg);
+    color: var(--button-text) !important;
 }
 
 /* File upload button */
