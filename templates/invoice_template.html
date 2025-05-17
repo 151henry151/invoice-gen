@@ -21,6 +21,52 @@
         .ritz .waffle .s51 { background-color: #ffffff; text-align: left; color: #000000; font-family: 'Roboto', Arial; font-size: 10pt; vertical-align: bottom; white-space: nowrap; direction: ltr; padding: 0px 3px 0px 3px; }
         .ritz .waffle .s52 { background-color: #ffffff; text-align: right; color: #000000; font-family: 'Roboto', Arial; font-size: 10pt; vertical-align: bottom; white-space: nowrap; direction: ltr; padding: 0px 3px 0px 3px; }
         .ritz .waffle .s53 { background-color: #ffffff; text-align: left; color: #000000; font-family: 'Roboto', Arial; font-size: 10pt; vertical-align: bottom; white-space: nowrap; direction: ltr; padding: 0px 3px 0px 3px; }
+        
+        /* Notes section styles */
+        #notes-section {
+            padding: 10px;
+        }
+        
+        #notes-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0 0 10px 0;
+        }
+        
+        #notes-list li {
+            margin-bottom: 5px;
+            padding: 5px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .note-input-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        #note-input {
+            flex: 1;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 10pt;
+        }
+        
+        #add-note-btn {
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 10pt;
+        }
+        
+        #add-note-btn:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
 <body class="ritz">
@@ -406,7 +452,19 @@
                     <th id="1194874101R33" style="height: 25px;" class="row-headers-background"><div class="row-header-wrapper" style="line-height: 25px">34</div></th>
                     <td class="s17"></td>
                     <td class="s54"></td>
-                    <td class="s54" dir="ltr" colspan="2" rowspan="5"></td>
+                    <td class="s54" dir="ltr" colspan="2" rowspan="5">
+                        <div id="notes-section">
+                            <ul id="notes-list">
+                                {% for note in notes %}
+                                <li>{{ note }}</li>
+                                {% endfor %}
+                            </ul>
+                            <div class="note-input-container">
+                                <input type="text" id="note-input" placeholder="Add a note...">
+                                <button id="add-note-btn">Add Note</button>
+                            </div>
+                        </div>
+                    </td>
                     <td class="s51"></td>
                     <td class="s52" dir="ltr"></td>
                     <td class="s53"></td>

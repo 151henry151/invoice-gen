@@ -1070,7 +1070,6 @@
 
     // Function to add note to invoice
     window.addNoteToInvoice = function(button) {
-        const notesSection = document.getElementById('notesSection');
         const notesText = document.getElementById('notes').value.trim();
         
         if (!notesText) {
@@ -1101,7 +1100,7 @@
         lineItem.dataset.description = notesText;
         
         document.getElementById('items').appendChild(lineItem);
-        notesSection.style.display = 'none';
+        document.getElementById('notesSection').style.display = 'none';
         document.getElementById('notes').value = '';
         document.querySelector('.main-action-buttons').classList.remove('hidden');
         saveInvoiceData();
@@ -1358,6 +1357,27 @@
                     
                     // Clear invoice data from localStorage
                     clearInvoiceData();
+
+                    // Serialize line items into JSON
+                    const lineItemsForSubmit = Array.from(document.querySelectorAll('.line-item.confirmed')).map(item => {
+                        const data = {
+                            type: item.dataset.type,
+                            description: item.dataset.description,
+                            total: item.dataset.total
+                        };
+                        if (item.dataset.type === 'labor') {
+                            data.date = item.dataset.date;
+                            data.hours = item.dataset.hours;
+                            data.minutes = item.dataset.minutes;
+                            data.rate = item.dataset.rate;
+                        } else if (item.dataset.type === 'item') {
+                            data.quantity = item.dataset.quantity;
+                            data.price = item.dataset.price;
+                            data.date = item.dataset.date;
+                        }
+                        return data;
+                    });
+                    document.getElementById('line_items_json').value = JSON.stringify(lineItemsForSubmit);
                     console.log('Form submit handler completed');
                 } catch (err) {
                     console.error('Error in form submit handler:', err);
@@ -1706,44 +1726,10 @@
         }
 
     function showAddNoteDialog() {
-                const notesSection = document.getElementById('notesSection');
-                notesSection.style.display = 'block';
-                document.querySelector('.main-action-buttons').classList.add('hidden');
+        const notesSection = document.getElementById('notesSection');
+        notesSection.style.display = 'block';
+        document.querySelector('.main-action-buttons').classList.add('hidden');
     }
-
-    // Add note button click handler
-    document.getElementById('addNoteBtn').addEventListener('click', function() {
-        const noteText = document.getElementById('noteText').value.trim();
-        if (noteText) {
-            const noteItem = document.createElement('div');
-            noteItem.className = 'line-item confirmed';
-            noteItem.dataset.type = 'note';
-            noteItem.dataset.description = noteText;
-            
-            noteItem.innerHTML = `
-            <div class="line-item-content">
-                <div class="detail-item">
-                        <span class="detail-label">Note:</span>
-                        <span class="detail-value">${noteText}</span>
-                        </div>
-                    </div>
-            <div class="line-item-actions">
-                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit note">
-                    <i class="fas fa-pencil-alt"></i>
-                </button>
-                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove note">
-                    <i class="fas fa-trash"></i>
-                </button>
-                </div>
-            `;
-        
-            document.getElementById('items').appendChild(noteItem);
-            document.getElementById('noteText').value = '';
-            document.getElementById('notesSection').style.display = 'none';
-        document.querySelector('.main-action-buttons').classList.remove('hidden');
-        saveInvoiceData();
-    }
-    });
 </script>
 {% endblock %}
 
@@ -1867,6 +1853,7 @@
         
             <form action="{{ url_for('create_invoice') }}" method="post">
                 <input type="hidden" name="client" value="{{ selected_client.id if selected_client else '' }}">
+                <input type="hidden" id="line_items_json" name="line_items_json" value="">
                 <div class="invoice-header">
                     <div class="invoice-fields">
                         <div class="form-group">
@@ -1946,6 +1933,22 @@
                     <div class="totals-row" style="display: flex; justify-content: flex-end; gap: 2rem; margin-top: 0.5rem;">
                         <span class="totals-label" style="font-weight: 700; font-size: 1.1em;">Grand Total:</span>
                         <span id="grandTotal" class="totals-value" style="font-weight: 700; font-size: 1.1em;">$0.00</span>
+                    </div>
+                </div>
+                
+                <!-- Notes Section -->
+                <div id="notesSection" style="display: none; margin: 1rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <div class="form-group">
+                        <label for="notes">Add a note that will display on the invoice:</label>
+                        <textarea id="notes" name="notes" rows="3" style="width: 100%; padding: 0.5rem; margin-bottom: 1rem;"></textarea>
+                    </div>
+                    <div class="button-group" style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                        <button type="button" class="add-to-invoice-btn" onclick="addNoteToInvoice(this)" title="Add to invoice">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button type="button" class="remove-item-btn" onclick="removeNoteFromInvoice(this)" title="Cancel">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
                 </div>
                 

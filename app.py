@@ -22,6 +22,7 @@ import time
 from flask_login import current_user
 from PIL import Image
 import subprocess
+import json
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Generate a secure secret key
@@ -435,13 +436,13 @@ def create_invoice():
         date = request.form['date']
         invoice_number = request.form['invoice_number']
         output_format = 'pdf'  # Always use PDF now
-        items = request.form.getlist('item[]')
-        item_dates = request.form.getlist('item_date[]')
-        hours = request.form.getlist('hours[]')
-        minutes = request.form.getlist('minutes[]')
         notes = request.form.get('notes', '')
         sales_tax_id = request.form.get('sales_tax_id')
         tax_applies_to = request.form.get('tax_applies_to')
+
+        # Parse line items from JSON
+        line_items_json = request.form.get('line_items_json', '[]')
+        line_items_data = json.loads(line_items_json)
 
         # Get client information from database
         conn = get_db()
@@ -479,29 +480,36 @@ def create_invoice():
         # Calculate totals
         subtotal = 0
         line_items = []
-        for i in range(len(items)):
-            if items[i].strip():
-                if i < len(item_dates) and item_dates[i]:
-                    item_date = item_dates[i]
-                else:
-                    item_date = date
-                if i < len(hours) and i < len(minutes) and hours[i] and minutes[i]:
-                    hours_float = float(hours[i]) + (float(minutes[i]) / 60)
-                    item_total = hours_float * float(get_setting('hourly_rate', '40.00'))
-                    quantity = f"{hours[i]}h {minutes[i]}m"
-                    unit_price = float(get_setting('hourly_rate', '40.00'))
-                else:
-                    item_total = float(items[i].split(' - $')[1]) if ' - $' in items[i] else 0
-                    quantity = '1'
-                    unit_price = item_total
-                subtotal += item_total
+        notes_text = notes
+        for item in line_items_data:
+            if item.get('type') == 'item':
+                quantity = int(item.get('quantity', 1))
+                price = float(item.get('price', 0))
+                total = price * quantity
+                subtotal += total
                 line_items.append({
-                    'date': item_date,
-                    'description': items[i].split(' - $')[0] if ' - $' in items[i] else items[i],
+                    'date': item.get('date', date),
+                    'description': item.get('description', ''),
                     'quantity': quantity,
-                    'unit_price': unit_price,
-                    'total': item_total
+                    'unit_price': price,
+                    'total': total
                 })
+            elif item.get('type') == 'labor':
+                hours_val = float(item.get('hours', 0))
+                minutes_val = float(item.get('minutes', 0))
+                hours_float = hours_val + (minutes_val / 60)
+                rate = float(item.get('rate', get_setting('hourly_rate', '40.00')))
+                total = hours_float * rate
+                subtotal += total
+                line_items.append({
+                    'date': item.get('date', date),
+                    'description': item.get('description', f"Labor - {int(hours_val)}h {int(minutes_val)}m"),
+                    'quantity': f"{int(hours_val)}h {int(minutes_val)}m",
+                    'unit_price': rate,
+                    'total': total
+                })
+            elif item.get('type') == 'note':
+                notes_text = item.get('description', notes_text)
 
         # Calculate sales tax if applicable
         sales_tax = 0
@@ -530,7 +538,7 @@ def create_invoice():
             invoice_number,
             client_id,
             date,
-            notes,
+            notes_text,
             grand_total,
             sales_tax_id,
             tax_applies_to
@@ -572,7 +580,7 @@ def create_invoice():
             'subtotal': subtotal,
             'sales_tax': sales_tax,
             'grand_total': grand_total,
-            'notes': notes
+            'notes': notes_text
         }
 
         print("INVOICE DATA FOR PDF:", invoice_data)

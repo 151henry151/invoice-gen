@@ -107,10 +107,26 @@
             text-align: right;
             font-weight: 600;
         }
-        .notes {
-            margin-top: 24px;
-            color: #555;
-            font-size: 0.95em;
+        .summary-table td:last-child {
+            text-align: right;
+        }
+        
+        .notes-section {
+            margin-top: 2rem;
+            padding: 1rem;
+            background-color: var(--secondary-color);
+            border-radius: 4px;
+        }
+        
+        .notes-section h3 {
+            color: var(--primary-color);
+            margin: 0 0 0.5rem 0;
+            font-size: 1.1em;
+        }
+        
+        .notes-section p {
+            margin: 0;
+            white-space: pre-wrap;
         }
     </style>
 </head>
@@ -160,6 +176,14 @@
         {% endfor %}
         </tbody>
     </table>
+    
+    {% if notes %}
+    <div class="notes-section">
+        <h3>Notes</h3>
+        <p>{{ notes }}</p>
+    </div>
+    {% endif %}
+    
     <div class="summary">
         <table class="summary-table">
             <tr>
@@ -176,11 +200,6 @@
             </tr>
         </table>
     </div>
-    {% if notes %}
-    <div class="notes">
-        <strong>Notes:</strong> {{ notes }}
-    </div>
-    {% endif %}
 </div>
 </body>
 </html> 
