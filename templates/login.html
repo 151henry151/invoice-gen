@@ -1,194 +1,119 @@
-{% extends "base.html" %}
-
-{% block extra_head %}
-<style>
-    :root {
-        --primary-color: #388e3c;
-        --primary-hover: #2e7d32;
-        --button-bg: #388e3c;
-        --button-hover: #2e7d32;
-        --button-text: #fff;
-        --button-border: #2e7d32;
-        --input-bg: #fff;
-        --input-border: #e0e0e0;
-        --input-focus: #388e3c;
-        --text-primary: #222;
-        --text-secondary: #666;
-        --bg-color: #f4f6fb;
-        --card-bg: #fff;
-        --card-shadow: 0 2px 12px rgba(0,0,0,0.07);
-        --appbar-bg: #222;
-        --appbar-text: #fff;
-    }
-    [data-theme="dark"] {
-        --primary-color: #7cfb8b;
-        --primary-hover: #4fdc5c;
-        --button-bg: #222;
-        --button-hover: #333;
-        --button-text: #fff;
-        --button-border: #333;
-        --input-bg: #181818;
-        --input-border: #333;
-        --input-focus: #7cfb8b;
-        --text-primary: #fff;
-        --text-secondary: #bbb;
-        --bg-color: #111;
-        --card-bg: #181818;
-        --card-shadow: 0 2px 12px rgba(0,0,0,0.5);
-        --appbar-bg: #111;
-        --appbar-text: #fff;
-    }
-    body {
-        background: var(--bg-color);
-        margin: 0;
-        padding: 0;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        color: var(--text-primary);
-        line-height: 1.4;
-        padding-bottom: 70px;
-    }
-    .appbar {
-        background: var(--appbar-bg);
-        color: var(--appbar-text);
-        padding: 14px 0 10px 0;
-        text-align: center;
-        font-size: 1.3rem;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        margin-bottom: 18px;
-        border-radius: 18px;
-    }
-    .mobile-container {
-        max-width: 100vw;
-        padding: 0 6px;
-        margin: 0 auto;
-    }
-    .mobile-card {
-        background: var(--card-bg);
-        border-radius: 12px;
-        box-shadow: var(--card-shadow);
-        padding: 18px 14px 14px 14px;
-        margin-bottom: 10px;
-        max-width: 400px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-    .mobile-section-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        margin-bottom: 8px;
-        color: var(--text-primary);
-        text-align: center;
-    }
-    .mobile-input-group {
-        margin-bottom: 12px;
-    }
-    .mobile-label {
-        display: block;
-        font-size: 13px;
-        color: var(--text-secondary);
-        margin-bottom: 4px;
-    }
-    .mobile-input {
-        width: 100%;
-        padding: 8px 10px;
-        border: 1px solid var(--input-border);
-        border-radius: 7px;
-        font-size: 15px;
-        background: var(--input-bg);
-        color: var(--text-primary);
-        margin-bottom: 2px;
-        box-sizing: border-box;
-    }
-    .mobile-input:focus {
-        outline: none;
-        border-color: var(--input-focus);
-        box-shadow: 0 0 0 2px rgba(56,142,60,0.1);
-    }
-    .mobile-button {
-        display: block;
-        width: 100%;
-        padding: 10px 0;
-        background: var(--button-bg);
-        color: var(--button-text);
-        border: none;
-        border-radius: 8px;
-        font-size: 15px;
-        font-weight: 600;
-        text-align: center;
-        text-decoration: none;
-        box-shadow: 0 1px 4px rgba(56,142,60,0.10);
-        transition: background 0.15s;
-        margin-top: 8px;
-    }
-    .mobile-button:active {
-        background: var(--button-hover);
-        transform: translateY(1px);
-    }
-    .mobile-button.disabled {
-        background: #444;
-        color: #aaa;
-        box-shadow: none;
-        pointer-events: none;
-    }
-    .flash-messages {
-        margin-bottom: 12px;
-        text-align: center;
-    }
-    .flash-message {
-        background: #ffefc1;
-        color: #7a5c00;
-        border-radius: 7px;
-        padding: 8px 12px;
-        margin-bottom: 6px;
-        font-size: 14px;
-        display: inline-block;
-    }
-    [data-theme="dark"] .flash-message {
-        background: #333;
-        color: #ffe082;
-    }
-    .register-link {
-        text-align: center;
-        margin-top: 12px;
-        font-size: 14px;
-    }
-    .register-link a {
-        color: var(--primary-color);
-        text-decoration: underline;
-    }
-</style>
-{% endblock %}
-
-{% block content %}
-<div class="appbar">invoice-gen</div>
-<div class="mobile-container">
-    <div class="mobile-card">
-        <div class="mobile-section-title">Login</div>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login - Invoice Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            background: #f4f6fb;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+        }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            text-align: center;
+            color: #222;
+        }
+        .alert {
+            background: #ffefc1;
+            color: #7a5c00;
+            border-radius: 7px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        .form-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        label {
+            font-size: 13px;
+            color: #666;
+        }
+        input {
+            padding: 8px 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 7px;
+            font-size: 15px;
+            background: #fff;
+            color: #222;
+        }
+        input:focus {
+            outline: none;
+            border-color: #388e3c;
+            box-shadow: 0 0 0 2px rgba(56,142,60,0.1);
+        }
+        button {
+            padding: 10px 0;
+            background: #388e3c;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        button:hover {
+            background: #2e7d32;
+        }
+        .navigation {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 14px;
+        }
+        .navigation a {
+            color: #388e3c;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Login</h1>
         {% with messages = get_flashed_messages() %}
             {% if messages %}
-                <div class="flash-messages">
                 {% for message in messages %}
-                    <div class="flash-message">{{ message }}</div>
+                    <div class="alert">{{ message }}</div>
                 {% endfor %}
-                </div>
             {% endif %}
         {% endwith %}
-        <form method="POST" action="{{ url_for('login') }}">
-            <div class="mobile-input-group">
-                <label class="mobile-label" for="username">Username</label>
-                <input type="text" class="mobile-input" id="username" name="username" required>
+        <form method="POST" action="{{ url_for('login') }}" class="form-container">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
             </div>
-            <div class="mobile-input-group">
-                <label class="mobile-label" for="password">Password</label>
-                <input type="password" class="mobile-input" id="password" name="password" required>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
             </div>
-            <button type="submit" class="mobile-button">Login</button>
+            <button type="submit">Login</button>
         </form>
-        <div class="register-link">
-            Don't have an account? <a href="{{ url_for('register') }}">Register here</a>
+        <div class="navigation">
+            <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
         </div>
     </div>
-</div>
-{% endblock %} 
+</body>
+</html> 

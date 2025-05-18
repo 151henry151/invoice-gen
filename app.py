@@ -168,37 +168,36 @@ def index():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        print('REGISTER FORM DATA:', request.form)  # Debug print
         username = request.form.get('username')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
-        
+        email = request.form.get('email')
         if not username or not password:
             flash('Username and password are required')
             return redirect(url_for('register'))
-        
         if password != confirm_password:
             flash('Passwords do not match')
             return redirect(url_for('register'))
-        
         # Check if username already exists
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
             flash('Username already exists')
             return redirect(url_for('register'))
-        
         # Create new user
         user = User(
             username=username,
-            password=generate_password_hash(password)
+            password=generate_password_hash(password),
+            email=email
         )
-        
         db.session.add(user)
         db.session.commit()
-        
         flash('Registration successful! Please log in.')
         return redirect(url_for('login'))
-    
-    return render_template('register.html')
+    user_agent = request.headers.get('User-Agent', '').lower()
+    is_mobile = any(device in user_agent for device in ['mobile', 'android', 'iphone', 'ipad'])
+    template = 'mobile_register.html' if is_mobile else 'register.html'
+    return render_template(template)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -220,7 +219,10 @@ def login():
         flash('Invalid username or password')
         return redirect(url_for('login'))
     
-    return render_template('login.html')
+    user_agent = request.headers.get('User-Agent', '').lower()
+    is_mobile = any(device in user_agent for device in ['mobile', 'android', 'iphone', 'ipad'])
+    template = 'mobile_login.html' if is_mobile else 'login.html'
+    return render_template(template)
 
 @app.route('/logout')
 def logout():
@@ -290,11 +292,11 @@ def new_client():
     address = request.form.get('address')
     email = request.form.get('email')
     phone = request.form.get('phone')
-    
     if not name:
+        if request.is_json or request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']:
+            return jsonify({'error': 'Client name is required'}), 400
         flash('Client name is required')
         return redirect(url_for('index'))
-    
     client = Client(
         user_id=session['user_id'],
         name=name,
@@ -302,10 +304,10 @@ def new_client():
         email=email,
         phone=phone
     )
-    
     db.session.add(client)
     db.session.commit()
-    
+    if request.is_json or request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']:
+        return jsonify({'id': client.id, 'name': client.name}), 201
     flash('Client added successfully')
     return redirect(url_for('index'))
 
@@ -316,23 +318,17 @@ def new_company():
     address = request.form.get('address')
     email = request.form.get('email')
     phone = request.form.get('phone')
-    
     if not name:
-        flash('Company name is required')
+        if request.is_json or request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']:
+            return jsonify({'error': 'Name is required'}), 400
+        flash('Name is required')
         return redirect(url_for('index'))
-    
-    company = Company(
-        user_id=session['user_id'],
-        name=name,
-        address=address,
-        email=email,
-        phone=phone
-    )
-    
+    company = Company(user_id=session['user_id'], name=name, address=address, email=email, phone=phone)
     db.session.add(company)
     db.session.commit()
-    
-    flash('Company added successfully')
+    if request.is_json or request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']:
+        return jsonify({'id': company.id, 'name': company.name}), 201
+    flash('Business added successfully')
     return redirect(url_for('index'))
 
 @app.route('/edit_client/<int:client_id>', methods=['GET', 'POST'])
@@ -1492,26 +1488,27 @@ def delete_invoice(invoice_id):
 def new_item():
     description = request.form.get('description')
     price = request.form.get('price')
-    
     if not description or not price:
+        if request.is_json or request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']:
+            return jsonify({'error': 'Item description and price are required'}), 400
         flash('Item description and price are required')
         return redirect(url_for('index'))
-    
     try:
         price = float(price)
     except ValueError:
+        if request.is_json or request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']:
+            return jsonify({'error': 'Invalid price format'}), 400
         flash('Invalid price format')
         return redirect(url_for('index'))
-    
     item = Item(
         user_id=session['user_id'],
         description=description,
         price=price
     )
-    
     db.session.add(item)
     db.session.commit()
-    
+    if request.is_json or request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']:
+        return jsonify({'id': item.id, 'description': item.description, 'price': item.price}), 201
     flash('Item added successfully')
     return redirect(url_for('index'))
 
@@ -1635,14 +1632,31 @@ def generate_invoice_number():
     # Format as INV-XXXX
     return f"INV-{number:04d}"
 
-@app.route('/api/labor_types')
+@app.route('/api/labor_types', methods=['POST'])
 @login_required
-def api_labor_types():
-    labor_types = LaborType.query.filter_by(user_id=session['user_id']).all()
-    return jsonify([
-        {'id': lt.id, 'description': lt.description, 'rate': lt.rate}
-        for lt in labor_types
-    ])
+def create_labor_type():
+    data = request.get_json() if request.is_json else request.form
+    description = data.get('description')
+    rate = data.get('rate')
+    if not description or not rate:
+        if request.is_json or request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']:
+            return jsonify({'error': 'Missing required fields'}), 400
+        flash('Labor description and rate are required')
+        return redirect(url_for('index'))
+    try:
+        rate = float(rate)
+    except ValueError:
+        if request.is_json or request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']:
+            return jsonify({'error': 'Invalid rate value'}), 400
+        flash('Invalid rate value')
+        return redirect(url_for('index'))
+    labor = LaborType(user_id=session['user_id'], description=description, rate=rate)
+    db.session.add(labor)
+    db.session.commit()
+    if request.is_json or request.accept_mimetypes['application/json'] > request.accept_mimetypes['text/html']:
+        return jsonify({'id': labor.id, 'description': labor.description, 'rate': labor.rate}), 201
+    flash('Labor type added successfully')
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     # Create the database tables
