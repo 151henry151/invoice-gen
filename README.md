@@ -66,14 +66,9 @@ This application can be built and run using Docker and Docker Compose, simplifyi
     git clone https://github.com/151henry151/invoice-gen.git
     cd invoice-gen
     ```
+    Note: The `user_logos` directory is included in the repository and will be automatically created when you clone it. This directory is used to store uploaded company logos.
 
-2.  **Create a directory for logo uploads (if it doesn't exist):**
-    The `docker-compose.yml` file is configured to mount a local directory named `user_logos` into the container for persisting uploaded company logos. Create this directory in the root of the project:
-    ```bash
-    mkdir user_logos
-    ```
-
-3.  **Build and run the application using Docker Compose:**
+2.  **Build and run the application using Docker Compose:**
     ```bash
     docker-compose up --build
     ```
@@ -118,12 +113,12 @@ If you prefer to use Docker directly without Docker Compose:
 
 This application is designed to be deployed behind a reverse proxy (like Nginx) and can be run using Docker Compose. Here's a complete guide for production deployment:
 
-1. **Clone and prepare the repository:**
+1. **Clone the repository:**
    ```bash
    git clone https://github.com/151henry151/invoice-gen.git
    cd invoice-gen
-   mkdir user_logos
    ```
+   Note: The `user_logos` directory is included in the repository and will be automatically created when you clone it. This directory is used to store uploaded company logos.
 
 2. **Configure environment variables:**
    Create a `.env` file in the project root with the following variables:
