@@ -114,22 +114,113 @@ If you prefer to use Docker directly without Docker Compose:
 
 ## Deployment
 
-1. **Set environment variables:**
-   - `FLASK_APP=app.py`
-   - `FLASK_ENV=production` (for production)
+### Production Deployment with Docker and Nginx
 
-2. **Use a production WSGI server:**
-   - Example: [gunicorn](https://gunicorn.org/)
-   - Example command:
+This application is designed to be deployed behind a reverse proxy (like Nginx) and can be run using Docker Compose. Here's a complete guide for production deployment:
+
+1. **Clone and prepare the repository:**
+   ```bash
+   git clone https://github.com/151henry151/invoice-gen.git
+   cd invoice-gen
+   mkdir user_logos
+   ```
+
+2. **Configure environment variables:**
+   Create a `.env` file in the project root with the following variables:
+   ```
+   FLASK_APP=wsgi.py
+   FLASK_ENV=production
+   SECRET_KEY=your-secure-secret-key-here
+   DATABASE_URL=sqlite:///invoice_gen.db
+   ```
+
+3. **Build and start the Docker container:**
+   ```bash
+   docker-compose up -d --build
+   ```
+
+4. **Configure Nginx:**
+   - Copy the example configuration:
      ```bash
-     gunicorn app:app
+     cp nginx.conf.example /etc/nginx/sites-available/invoice-gen
+     ```
+   - Edit the configuration:
+     - Replace `your-domain.com` with your actual domain
+     - Update SSL certificate paths
+     - Adjust the static files path to match your deployment
+   - Enable the site:
+     ```bash
+     ln -s /etc/nginx/sites-available/invoice-gen /etc/nginx/sites-enabled/
+     ```
+   - Test and reload Nginx:
+     ```bash
+     nginx -t
+     systemctl reload nginx
      ```
 
-3. **Configure a reverse proxy (optional):**
-   - Use Nginx or Apache to serve static files and proxy requests to Gunicorn.
+5. **Set up SSL certificates:**
+   ```bash
+   certbot --nginx -d your-domain.com
+   ```
 
-4. **(Optional) Set up HTTPS:**
-   - Use Let's Encrypt or another certificate provider.
+6. **Verify the deployment:**
+   - Check container health:
+     ```bash
+     docker ps
+     docker logs invoice-gen-web-1
+     ```
+   - Test the application:
+     - Visit `https://your-domain.com/invoice/`
+     - Verify SSL certificate
+     - Check static file serving
+     - Test PDF generation
+
+### Important Production Considerations
+
+1. **Database Persistence:**
+   - The SQLite database is mounted as a volume in `docker-compose.yml`
+   - Regular backups are recommended
+
+2. **Static Files:**
+   - Company logos are stored in the `user_logos` directory
+   - Static files are served directly by Nginx for better performance
+
+3. **Security:**
+   - SSL/TLS is required for production
+   - Security headers are configured in Nginx
+   - Use strong secret keys in production
+
+4. **Monitoring:**
+   - The container includes a healthcheck
+   - Monitor logs for errors:
+     ```bash
+     docker logs -f invoice-gen-web-1
+     ```
+
+5. **Updates:**
+   - Pull latest changes:
+     ```bash
+     git pull
+     docker-compose up -d --build
+     ```
+   - Database migrations may be required for schema updates
+
+### Troubleshooting
+
+1. **502 Bad Gateway:**
+   - Check if the Docker container is running
+   - Verify Nginx proxy configuration
+   - Check container logs for errors
+
+2. **Static Files Not Loading:**
+   - Verify Nginx static file configuration
+   - Check file permissions
+   - Ensure correct paths in configuration
+
+3. **Database Issues:**
+   - Check database file permissions
+   - Verify volume mounting
+   - Check application logs for SQL errors
 
 ## Features
 
