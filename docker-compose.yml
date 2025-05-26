@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount the static/logos directory to persist uploaded logos
+      # This is important so that uploaded logos are not lost when the container restarts.
+      # We'll create a local directory named 'user_logos' to store these.
+      - ./user_logos:/app/static/logos
+    environment:
+      # Ensure Flask and Gunicorn use the correct settings
+      - FLASK_APP=app.py
+      # - FLASK_ENV=production # Uncomment for production
+      # No need to set FLASK_RUN_HOST or FLASK_RUN_PORT as Gunicorn handles this
+    # Optionally, add a healthcheck
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8080/login"] # Checks if the login page is accessible
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+
+# Optional: Define a volume for persistent data if not mounting a host directory
+# volumes:
+#   user_logos_data:
