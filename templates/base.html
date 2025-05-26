@@ -12,23 +12,25 @@
 <body>
     <div class="page-wrapper">
         <div class="container">
-            <div class="header">
-                <h1>{% block page_title %}Invoice Generator{% endblock %}</h1>
-                <div class="header-divider"></div>
-                <div class="page-subtitle">{% block page_subtitle %}{% endblock %}</div>
-                <div class="user-info">
-                    <span>{{ session.username }}</span>
-                    <a href="{{ url_for('logout') }}" class="logout-button">Logout</a>
+            <div class="header d-flex align-items-end justify-content-between w-100" style="min-height:60px; padding: 0.5rem 0;">
+                <div class="header-logo-container ms-0">
+                    <img src="{{ url_for('static', filename='logos/ig-logo.png') }}" alt="Invoice Generator Logo" class="img-fluid logo-img logo-img-light">
+                    <img src="{{ url_for('static', filename='logos/ig-logo-dark.png') }}" alt="Invoice Generator Logo Dark" class="img-fluid logo-img logo-img-dark">
                 </div>
-                <div class="header-buttons">
-                    <button id="theme-toggle" class="theme-toggle" title="Toggle dark/light theme">
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                    {% if session.username %}
+                        <span class="username-text">{{ session.username }}</span>
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary btn-sm ms-2">Logout</a>
+                    {% endif %}
+                    <button id="theme-toggle" class="theme-toggle btn btn-outline-secondary btn-sm ms-2" title="Toggle dark/light theme">
                         <i class="fas fa-moon"></i>
                     </button>
                 </div>
             </div>
         </div>
-
-        {% block content %}{% endblock %}
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
     </div>
 
     {% block scripts %}{% endblock %}
@@ -57,5 +59,54 @@
             themeIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
         }
     </script>
+    <style>
+        .header {
+            width: 100%;
+            left: 0;
+            position: relative;
+            background: transparent;
+            padding: 0.5rem 0;
+        }
+        .header-logo-container {
+            width: 48px;
+            height: 48px;
+            padding: 4px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #e0e0e0;
+            margin-left: 0;
+        }
+        .header-logo-container .logo-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+        .header-logo-container .logo-img-light {
+            display: block;
+        }
+        [data-theme="dark"] .header-logo-container {
+            background-color: #444;
+            border: 2px solid #888;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+        [data-theme="dark"] .header-logo-container .logo-img-light {
+            display: none;
+        }
+        [data-theme="dark"] .header-logo-container .logo-img-dark {
+            display: block;
+        }
+        .username-text {
+            font-weight: 500;
+            color: #333;
+        }
+        [data-theme="dark"] .username-text {
+            color: #e9ecef;
+        }
+    </style>
 </body>
 </html> 
