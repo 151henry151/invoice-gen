@@ -185,7 +185,7 @@ def login():
         if user and check_password_hash(user['password'], password):
             session['user_id'] = user['id']
             session['username'] = user['username']
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard'))
         
         flash('Invalid username or password!')
     return render_template('login.html')
@@ -197,8 +197,14 @@ def logout():
     return redirect(url_for('login'))
 
 @app.route('/')
+def root():
+    if 'user_id' not in session:
+        return redirect(url_for('login', _external=True, _scheme='https'))
+    return redirect(url_for('dashboard'))
+
+@app.route('/dashboard')
 @login_required
-def index():
+def dashboard():
     conn = get_db()
     clients = conn.execute('SELECT * FROM clients WHERE user_id = ?', 
                          (session['user_id'],)).fetchall()
@@ -249,7 +255,7 @@ def new_client():
                 (session['user_id'], name, address, email, phone))
     conn.commit()
     flash('New client created successfully!', 'success')
-    return redirect(url_for('index'))
+    return redirect(url_for('dashboard'))
 
 @app.route('/create_invoice', methods=['POST'])
 @login_required
@@ -274,7 +280,7 @@ def create_invoice():
                             (client_id, session['user_id'])).fetchone()
         if not client:
             flash('Client not found', 'danger')
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard'))
 
         # Get business info from selected company
         company_id = session.get('selected_company_id')
@@ -448,7 +454,7 @@ def create_invoice():
 
     except Exception as e:
         flash('An error occurred while generating the invoice: {}'.format(str(e)), 'danger')
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard'))
 
 @app.route('/preview/<invoice_number>')
 def preview_invoice(invoice_number):
@@ -554,7 +560,7 @@ def settings():
                         (name, address, email, phone, company_id, session['user_id']))
                 conn.commit()
                 flash('Company details updated successfully!', 'success')
-                return redirect(url_for('index', selected_company=company_id))
+                return redirect(url_for('dashboard', selected_company=company_id))
         else:
             # Create new company
             cursor = conn.execute('INSERT INTO companies (user_id, name, address, email, phone, logo_path) VALUES (?, ?, ?, ?, ?, ?)',
@@ -562,7 +568,7 @@ def settings():
             conn.commit()
             new_company_id = cursor.lastrowid
             flash('New company created successfully!', 'success')
-            return redirect(url_for('index', selected_company=new_company_id))
+            return redirect(url_for('dashboard', selected_company=new_company_id))
 
     # For GET requests, get the company_id from URL parameters
     company_id = request.args.get('company_id')
@@ -571,7 +577,7 @@ def settings():
         selected_company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?', (company_id, session['user_id'])).fetchone()
         if not selected_company:
             flash('Company not found', 'danger')
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard'))
 
     return render_template('settings.html', selected_company=selected_company)
 
@@ -618,7 +624,7 @@ def update_client():
     
     conn.commit()
     flash('Client details saved successfully!', 'success')
-    return redirect(url_for('index', selected_client=selected_client_id))
+    return redirect(url_for('dashboard', selected_client=selected_client_id))
 
 @app.route('/update_company', methods=['POST'])
 @login_required
@@ -647,7 +653,7 @@ def update_company():
             update_setting('logo_path', filename)
     
     flash('Company details saved successfully!')
-    return redirect(url_for('index'))
+    return redirect(url_for('dashboard'))
 
 @app.route('/labor_details')
 @login_required
@@ -690,7 +696,7 @@ def update_labor():
     
     conn.commit()
     flash('Labor item saved successfully!')
-    return redirect(url_for('index', open_dialog='add_labor', new_labor_id=new_id))
+    return redirect(url_for('dashboard', open_dialog='add_labor', new_labor_id=new_id))
 
 @app.route('/remove_labor_item', methods=['POST'])
 @login_required
@@ -752,7 +758,7 @@ def update_item():
     
     conn.commit()
     flash('Item saved successfully!')
-    return redirect(url_for('index', open_dialog='add_item', new_item_id=new_id))
+    return redirect(url_for('dashboard', open_dialog='add_item', new_item_id=new_id))
 
 @app.route('/remove_item', methods=['POST'])
 @login_required

@@ -33,7 +33,7 @@
     
     <div class="actions">
         <a href="{{ url_for('download_invoice', invoice_number=invoice.invoice_number) }}">Download PDF</a>
-        <a href="{{ url_for('index') }}">Back to Home</a>
+        <a href="{{ url_for('dashboard') }}">Back to Home</a>
     </div>
     
     <iframe src="{{ url_for('static', filename=invoice.client_name.lower().replace(' ', '_') + '_invoice_' + invoice.invoice_number + '.html') }}"></iframe>
