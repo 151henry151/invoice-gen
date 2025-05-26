@@ -199,7 +199,7 @@ def logout():
 @app.route('/')
 def root():
     if 'user_id' not in session:
-        return redirect(url_for('login', _external=True, _scheme='https'))
+        return redirect(url_for('login'))
     return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
