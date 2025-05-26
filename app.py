@@ -2,18 +2,15 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 from datetime import datetime, timedelta
 import sqlite3
 import os
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.platypus import Table, TableStyle
-import pandas as pd
+# Removed reportlab imports
+# Removed pandas import
 from weasyprint import HTML, CSS
 import re
 from openpyxl import load_workbook, Workbook
 import openpyxl
 import shutil
 from openpyxl.styles import PatternFill, Border, Side
-import pdfkit
+# Removed pdfkit import
 import tempfile
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -120,13 +117,34 @@ def register():
         username = request.form['username']
         password = request.form['password']
         email = request.form['email']
+
+        # Password validation
+        errors = []
+        if len(password) < 12:
+            errors.append("Password must be at least 12 characters long.")
+        if not re.search(r"[A-Z]", password):
+            errors.append("Password must contain at least one uppercase letter.")
+        if not re.search(r"[a-z]", password):
+            errors.append("Password must contain at least one lowercase letter.")
+        if not re.search(r"[0-9]", password):
+            errors.append("Password must contain at least one digit.")
+        if not re.search(r"[!@#$%^&*()-_=+\[\]{};:'\",.<>/?]", password):
+            errors.append("Password must contain at least one special character.")
         
-        conn = get_db()
+        if errors:
+            for error in errors:
+                flash(error, 'danger') # Use 'danger' category for error messages
+            return render_template('register.html') # Stay on register page
+
+        # If validation passes, proceed to create user
+        conn = None # Initialize conn to None
         try:
+            conn = get_db() # Assign conn here
             # Create user
+            hashed_password = generate_password_hash(password) # Hash after validation
             cursor = conn.cursor()
             cursor.execute('INSERT INTO users (username, password, email) VALUES (?, ?, ?)',
-                        (username, generate_password_hash(password), email))
+                        (username, hashed_password, email))
             user_id = cursor.lastrowid
             
             # Set default settings for new user
@@ -142,12 +160,13 @@ def register():
                            default_settings)
             
             conn.commit()
-            flash('Registration successful! Please log in.')
+            flash('Registration successful! Please log in.', 'success') # Use 'success' category
             return redirect(url_for('login'))
         except sqlite3.IntegrityError:
-            flash('Username or email already exists.')
+            flash('Username or email already exists.', 'danger')
         finally:
-            conn.close()
+            if conn: # Ensure conn is defined before trying to close
+                conn.close()
     
     return render_template('register.html')
 
@@ -227,204 +246,6 @@ def new_client():
                 (session['user_id'], name, address, email, phone))
     conn.commit()
     flash('New client created successfully!', 'success')
-    return redirect(url_for('index'))
-
-def edit_excel_invoice(template_path, output_path, invoice_data):
-    """Edit the Excel invoice template with new data"""
-    # Copy the template to the output path
-    shutil.copy2(template_path, output_path)
-    
-    # Load the workbook
-    wb = load_workbook(output_path)
-    ws = wb.active
-    
-    # Unmerge all cells first
-    merged_cells = list(ws.merged_cells.ranges)
-    for merged_range in merged_cells:
-        ws.unmerge_cells(str(merged_range))
-    
-    # Add logo if provided
-    if invoice_data.get('logo_path'):
-        try:
-            img = openpyxl.drawing.image.Image(invoice_data['logo_path'])
-            # Adjust logo size and position
-            img.width = 100  # Adjust width as needed
-            img.height = 100  # Adjust height as needed
-            ws.add_image(img, 'B2')  # Position the logo in cell B2
-        except Exception as e:
-            print(f"Error adding logo: {str(e)}")
-    
-    # Add spaces to company information in column C
-    for row in range(3, 7):  # Rows 3-6
-        cell = ws[f'C{row}']
-        if cell.value:
-            cell.value = '      ' + str(cell.value)
-    
-    # Get the background color from a surrounding cell (e.g., G6)
-    surrounding_cell = ws['G6']
-    fill_color = surrounding_cell.fill.start_color.index
-    
-    # Apply the same background color to G4 and G5
-    ws['G4'].fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
-    ws['G5'].fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
-    
-    # Format the date as M/D/YYYY
-    date_obj = datetime.strptime(invoice_data['date'], '%Y-%m-%d')
-    formatted_date = date_obj.strftime('%-m/%-d/%Y')
-    
-    # Update invoice number and date
-    ws['G8'] = f"Invoice  # {invoice_data['invoice_number']}"
-    ws['G6'] = f"Date: {formatted_date}"
-    
-    # Get the formatting from template cells
-    template_rate_cell = ws['F26']
-    rate_number_format = template_rate_cell.number_format
-    
-    template_total_cell = ws['G26']
-    total_number_format = template_total_cell.number_format
-    
-    # Get the formatting from the template's client cells
-    template_client_name_cell = ws['B14']
-    client_name_format = template_client_name_cell.number_format
-    
-    template_client_address_cell = ws['B15']
-    client_address_format = template_client_address_cell.number_format
-    
-    # Update client information with correct formatting
-    client_name_cell = ws['B14']
-    client_name_cell.value = invoice_data['client_name']
-    client_name_cell.number_format = client_name_format
-    
-    client_address_cell = ws['B15']
-    client_address_cell.value = invoice_data['client_address']
-    client_address_cell.number_format = client_address_format
-    
-    # Clear existing line items (rows 22-32) while preserving formatting
-    for row in range(22, 33):
-        for col in ['B', 'C', 'D', 'E', 'F', 'G']:
-            cell = ws[f'{col}{row}']
-            # Store original number format
-            original_number_format = cell.number_format
-            
-            # Clear value
-            cell.value = None
-            
-            # Set alternating background colors
-            if (row - 22) % 2 == 0:  # Even rows (22, 24, 26, etc.)
-                cell.fill = PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type="solid")
-            else:  # Odd rows (23, 25, 27, etc.)
-                cell.fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type="solid")
-            
-            # Restore number format
-            cell.number_format = original_number_format
-    
-    # Set border styles for columns F and G
-    for row in range(22, 33):
-        # Column F
-        cell = ws[f'F{row}']
-        cell.border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin') if row == 22 else Side(style='none'),
-            bottom=Side(style='thin') if row == 32 else Side(style='none')
-        )
-        
-        # Column G
-        cell = ws[f'G{row}']
-        cell.border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin') if row == 22 else Side(style='none'),
-            bottom=Side(style='thin') if row == 32 else Side(style='none')
-        )
-    
-    # Update line items
-    row = 22  # Starting row for line items
-    for item in invoice_data['line_items']:
-        # Format the line item date as M/D/YYYY
-        item_date_obj = datetime.strptime(item['date'], '%Y-%m-%d')
-        formatted_item_date = item_date_obj.strftime('%-m/%-d/%Y')
-        
-        # Set date with correct formatting
-        date_cell = ws[f'B{row}']
-        date_cell.value = formatted_item_date
-        
-        ws[f'C{row}'] = item['description']   # Description
-        ws[f'E{row}'] = item['quantity']      # Quantity
-        
-        # Set rate with correct formatting
-        rate_cell = ws[f'F{row}']
-        rate_cell.value = item['unit_price']
-        rate_cell.number_format = rate_number_format
-        
-        # Set total with correct formatting
-        total_cell = ws[f'G{row}']
-        total_cell.value = item['total']
-        total_cell.number_format = total_number_format
-        
-        row += 1
-    
-    # Update final total with correct formatting
-    total_cell = ws['G39']
-    total_cell.value = f"$ {invoice_data['total']:.2f}"
-    total_cell.number_format = total_number_format
-    
-    # Update notes if any
-    if invoice_data.get('notes'):
-        ws['C34'] = invoice_data['notes']
-    
-    # Save the workbook
-    wb.save(output_path)
-
-def convert_to_pdf(excel_path, pdf_path):
-    """Convert Excel file to PDF using LibreOffice"""
-    try:
-        # Convert Excel to PDF using LibreOffice
-        cmd = [
-            'libreoffice',
-            '--headless',
-            '--convert-to', 'pdf',
-            '--outdir', os.path.dirname(pdf_path),
-            excel_path
-        ]
-        
-        # Run the conversion command
-        process = subprocess.run(cmd, capture_output=True, text=True)
-        
-        if process.returncode != 0:
-            raise Exception(f'LibreOffice conversion failed: {process.stderr}')
-        
-        # Get the generated PDF path (LibreOffice adds .pdf extension)
-        generated_pdf = os.path.splitext(excel_path)[0] + '.pdf'
-        
-        # Move the generated PDF to the desired location
-        if os.path.exists(generated_pdf):
-            shutil.move(generated_pdf, pdf_path)
-        else:
-            raise Exception('PDF file was not generated')
-            
-    except Exception as e:
-        raise Exception(f'Error converting to PDF: {str(e)}')
-
-@app.route('/upload_logo', methods=['POST'])
-def upload_logo():
-    if 'logo' not in request.files:
-        flash('No file selected')
-        return redirect(url_for('index'))
-    
-    file = request.files['logo']
-    if file.filename == '':
-        flash('No file selected')
-        return redirect(url_for('index'))
-    
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-        flash('Logo uploaded successfully')
-        return redirect(url_for('index'))
-    
-    flash('Invalid file type')
     return redirect(url_for('index'))
 
 @app.route('/create_invoice', methods=['POST'])

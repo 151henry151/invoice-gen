@@ -41,7 +41,7 @@ body {
 .page-wrapper {
     max-width: 800px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 10px; /* Changed from 20px to 10px */
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -800,4 +800,100 @@ form {
 [data-theme="dark"] .line-item.confirmed,
 [data-theme="dark"] .line-item-actions {
     background-color: var(--section-bg) !important;
-} 
+}
+
+/* Media Queries for Responsiveness */
+
+@media (max-width: 767.98px) {
+    .page-wrapper {
+        padding: 5px;
+        margin: 0 5px;
+        max-width: 100%;
+    }
+
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .header h1 {
+        font-size: 1.8rem; /* Slightly reduce font size for header */
+    }
+    
+    .header .user-info {
+        margin-top: 10px;
+        width: 100%;
+        justify-content: space-between; /* Space out username and logout */
+    }
+    
+    .header .header-buttons {
+        margin-top: 10px;
+        align-self: flex-end; /* Move theme toggle to the right */
+    }
+
+    .company-details, .client-details {
+        flex-direction: column;
+        align-items: flex-start; 
+    }
+
+    .logo-placeholder {
+        margin-bottom: 10px;
+        align-self: center; 
+    }
+    
+    .client-details .details-content .settings-link,
+    .company-details .details-content .settings-link {
+        position: static; 
+        display: block; 
+        margin-top: 10px;
+        text-align: center;
+    }
+
+    .invoice-header {
+        grid-template-columns: 1fr; 
+        gap: 10px; 
+    }
+
+    .invoice-header .invoice-fields {
+        flex-direction: column; 
+        gap: 10px;
+    }
+    
+    .invoice-header .invoice-actions {
+        grid-row: auto; 
+        justify-self: end; 
+        margin-top: 0; 
+    }
+
+    .line-item {
+        grid-template-columns: 1fr; 
+        gap: 10px;
+    }
+    
+    .line-item-actions {
+        flex-direction: row; 
+        justify-content: flex-end; 
+        gap: 10px; 
+    }
+
+    .line-item-actions button {
+        width: auto; 
+        padding: 8px 12px; 
+    }
+
+    .button-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .button-container .file-input-style { /* Assuming .file-input-style is used as a button */
+        width: 100%; 
+        text-align: center;
+    }
+}
+
+@media (max-width: 479.98px) {
+    .header h1 {
+        font-size: 1.5rem;
+    }
+    /* Add more specific styles for very small screens if needed */
+}
