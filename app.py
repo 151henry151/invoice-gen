@@ -20,9 +20,12 @@ from flask_login import current_user
 from PIL import Image
 import subprocess
 import json
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Generate a secure secret key
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+app.config['PREFERRED_URL_SCHEME'] = 'https'
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))  # Use environment variable for secret key
 
 # Configure upload settings
 UPLOAD_FOLDER = 'static/logos'
@@ -63,14 +66,14 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash('Please log in to access this page.')
-            return redirect(url_for('login'))
+            return redirect(url_for('login', _external=True, _scheme='https'))
         return f(*args, **kwargs)
     return decorated_function
 
 # Database setup
 def get_db():
     if 'db' not in g:
-        g.db = sqlite3.connect('invoice_gen.db')
+        g.db = sqlite3.connect('/app/invoice_gen.db')
         g.db.row_factory = sqlite3.Row
     return g.db
 
@@ -80,7 +83,7 @@ def close_db(e=None):
         db.close()
 
 def init_db():
-    db = sqlite3.connect('invoice_gen.db')
+    db = sqlite3.connect('/app/invoice_gen.db')
     with app.open_resource('schema.sql') as f:
         db.executescript(f.read().decode('utf8'))
     db.commit()

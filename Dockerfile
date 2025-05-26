@@ -9,33 +9,41 @@ COPY requirements.txt .
 
 # Install any needed packages specified in requirements.txt
 # We'll also install libreoffice here for the PDF conversion, and other OS-level dependencies.
-RUN apt-get update && apt-get install -y --no-install-recommends     libreoffice     # Add other OS-level dependencies for WeasyPrint if needed, e.g.,
-    # libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libfontconfig1
-    # For now, let's assume WeasyPrint's Python package handles its direct deps
-    # or that they are covered by the base image or libreoffice install.
-    && rm -rf /var/lib/apt/lists/*     && pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libreoffice \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libcairo2 \
+    libgdk-pixbuf2.0-0 \
+    libffi-dev \
+    libxml2 \
+    libxslt1.1 \
+    libjpeg-dev \
+    libfontconfig1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Create necessary directories
+RUN mkdir -p /app/static/logos && \
+    chmod -R 777 /app/static/logos
 
 # Copy the rest of the application code into the container at /app
 COPY . .
 
-RUN python -c "from app import init_db; init_db()"
-
 # Initialize the database
-# Ensure schema.sql is present and app.py can initialize the DB.
-# We might need a small script to run init_db() if flask run doesn't trigger it appropriately on first start.
-# For now, assume app.py handles DB initialization if it doesn't exist.
-# If not, we'll add a RUN command here later: RUN python -c "from app import init_db; init_db()"
+RUN python -c "from app import init_db; init_db()"
 
 # Make port 8080 available to the world outside this container
 EXPOSE 8080
 
 # Define environment variables
-ENV FLASK_APP app.py
-ENV FLASK_RUN_HOST 0.0.0.0
-ENV FLASK_RUN_PORT 8080
-# ENV FLASK_ENV production # Uncomment for production
+ENV FLASK_APP=wsgi.py
+ENV FLASK_RUN_HOST=0.0.0.0
+ENV FLASK_RUN_PORT=8080
+ENV FLASK_ENV=production
+ENV PYTHONUNBUFFERED=1
 
-# Run app.py when the container launches
-# Using Gunicorn for production is better, but let's start with flask run for simplicity.
-# We will refine this to use Gunicorn later.
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
+# Run the application with Gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "--timeout", "120", "wsgi:application"]
