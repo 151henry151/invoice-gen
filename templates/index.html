@@ -165,63 +165,62 @@
         .main-action-buttons.hidden { /* Keep hidden style for JS */
             display: none;
         }
-        /* Removed custom .main-action-buttons and button styles, will use Bootstrap classes */
         
         button[type="submit"] {
             margin-top: 2rem;
         }
         .flash-messages {
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 1000;
-        width: auto;
-        max-width: 80%;
-        text-align: center;
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            width: auto;
+            max-width: 80%;
+            text-align: center;
         }
         .flash-message {
-        padding: 15px 30px;
+            padding: 15px 30px;
             margin-bottom: 10px;
             border-radius: 4px;
-        background-color: #4CAF50;
-        color: white;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        animation: slideIn 0.5s ease-out;
-    }
-    @keyframes slideIn {
-        from {
-            transform: translateY(-100%);
-            opacity: 0;
+            background-color: #4CAF50;
+            color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            animation: slideIn 0.5s ease-out;
         }
-        to {
-            transform: translateY(0);
-            opacity: 1;
+        @keyframes slideIn {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
         }
-    }
-    @keyframes fadeOut {
-        from {
-            opacity: 1;
-        }
-        to {
-            opacity: 0;
-        }
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
         }
         .line-item.confirmed {
             background-color: #f8f9fa;
             border: 1px solid #e9ecef;
-            padding: 0.5rem;  /* Reduced from 1rem */
-            margin-bottom: 0.5rem;  /* Reduced from 1rem */
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
         }
         .line-item.confirmed .content-wrapper {
             display: flex;
             flex-direction: column;
         }
         .line-item.confirmed .detail-item {
-            margin: 0;  /* Removed margin */
-            padding: 0;  /* Removed padding */
+            margin: 0;
+            padding: 0;
             font-size: 0.9em;
-            line-height: 1.2;  /* Added tighter line height */
+            line-height: 1.2;
         }
         
         .line-item.confirmed .detail-label {
@@ -235,7 +234,7 @@
         .line-item.confirmed .total-cost {
             font-weight: bold;
             color: #28a745;
-            margin-top: 0.25rem;  /* Reduced from 0.5rem */
+            margin-top: 0.25rem;
             clear: both;
         }
         .invoice-fields {
@@ -257,7 +256,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-top: 24px;  /* Match the label height */
+            margin-top: 24px;
         }
         
         .invoice-header.confirmed {
@@ -352,6 +351,134 @@
 
         .remove-item-btn:hover {
             background-color: #c82333 !important;
+        }
+
+        /* Settings link styles */
+        .settings-link {
+            position: absolute;
+            top: 0;
+            right: 0;
+            font-size: 12px;
+            padding: 4px 8px;
+        }
+
+        .settings-link.disabled {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        /* Company and client details styles */
+        .company-details, .client-details {
+            position: relative;
+        }
+
+        .details-content {
+            position: relative;
+        }
+
+        .detail-item {
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+
+        .detail-value {
+            color: #666;
+        }
+
+        .detail-value[data-placeholder]:empty::before {
+            content: attr(data-placeholder);
+            color: #999;
+        }
+
+        /* Company logo styles */
+        .company-logo {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        /* Details header styles */
+        .details-header {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        /* Settings link styles */
+        .settings-link {
+            position: absolute;
+            top: 0;
+            right: 0;
+            font-size: 12px;
+            padding: 4px 8px;
+            text-decoration: none;
+            color: #6c757d;
+            border: 1px solid #6c757d;
+            border-radius: 4px;
+            background-color: transparent;
+        }
+
+        .settings-link:hover {
+            color: #fff;
+            background-color: #6c757d;
+            text-decoration: none;
+        }
+
+        .settings-link.disabled {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        /* Company and client details styles */
+        .company-details, .client-details {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .details-content {
+            position: relative;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .detail-item {
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            margin-right: 0.5rem;
+            color: #495057;
+        }
+
+        .detail-value {
+            color: #666;
+        }
+
+        .detail-value[data-placeholder]:empty::before {
+            content: attr(data-placeholder);
+            color: #999;
+        }
+
+        /* Logo placeholder styles */
+        .logo-placeholder {
+            width: 150px;
+            height: 150px;
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            background-color: #f8f9fa;
+        }
+
+        .logo-placeholder-text {
+            color: #999;
+            font-size: 0.9rem;
         }
     </style>
 <script>
@@ -671,7 +798,7 @@
             window.history.replaceState({}, '', url);
             
             // Save to session via AJAX
-            fetch('/save_selections', {
+            fetch(`{{ APP_ROOT }}/save_selections`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -711,118 +838,121 @@
 
     // Update the handleCompanySelection function
     function handleCompanySelection(value) {
-        if (value.startsWith('/settings')) {
-            // If it's the "Create New Business" option, navigate to settings
+        if (value.startsWith('/')) {
             window.location.href = value;
-        } else {
-            // Otherwise, update the company details on the page
-            fetch(`/get_company/${value}`)
-                .then(response => response.json())
-                .then(company => {
-                    // Update company details
-                    const nameElement = document.querySelector('.detail-value[data-placeholder="Business Name"]');
-                    const addressElement = document.querySelector('.detail-value[data-placeholder="Business Address"]');
-                    const emailElement = document.querySelector('.detail-value[data-placeholder="business@example.com"]');
-                    const phoneElement = document.querySelector('.detail-value[data-placeholder="(xxx) xxx-xxxx"]');
-                    
-                    if (nameElement) nameElement.textContent = company.name;
-                    if (addressElement) addressElement.textContent = company.address;
-                    if (emailElement) emailElement.textContent = company.email;
-                    if (phoneElement) phoneElement.textContent = company.phone;
-                    
-                    // Update logo if it exists
-                    const logoPlaceholder = document.querySelector('.logo-placeholder');
-                    if (logoPlaceholder) {
-                        if (company.logo_path) {
-                            logoPlaceholder.innerHTML = `<img src="{{ url_for('static', filename='logos/') }}${company.logo_path}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
-                        } else {
-                            logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
-                        }
-                    }
-
-                    // Enable the Edit Details button
-                    const editButton = document.querySelector('.settings-link');
-                    if (editButton) {
-                        editButton.classList.remove('disabled');
-                        editButton.href = `/settings?company_id=${value}`;
-                        editButton.style.pointerEvents = 'auto';
-                        editButton.style.opacity = '1';
-                    }
-                    
-                    // Save the selection
-                    saveSelectedBusinessAndClient();
-                })
-                .catch(error => {
-                    console.error('Error fetching company details:', error);
-                });
+            document.querySelector('.company-selector').selectedIndex = 0;
+            return;
         }
+        if (!/^[0-9]+$/.test(value)) {
+            return;
+        }
+        fetch(`{{ APP_ROOT }}/get_company/${value}`)
+            .then(response => response.json())
+            .then(company => {
+                // Update company details
+                const nameElement = document.querySelector('.detail-value[data-placeholder="Business Name"]');
+                const addressElement = document.querySelector('.detail-value[data-placeholder="Business Address"]');
+                const emailElement = document.querySelector('.detail-value[data-placeholder="business@example.com"]');
+                const phoneElement = document.querySelector('.detail-value[data-placeholder="(xxx) xxx-xxxx"]');
+                
+                if (nameElement) nameElement.textContent = company.name;
+                if (addressElement) addressElement.textContent = company.address;
+                if (emailElement) emailElement.textContent = company.email;
+                if (phoneElement) phoneElement.textContent = company.phone;
+                
+                // Update logo if it exists
+                const logoPlaceholder = document.querySelector('.logo-placeholder');
+                if (logoPlaceholder) {
+                    if (company.logo_path) {
+                        logoPlaceholder.innerHTML = `<img src="{{ url_for('static', filename='user_logos/' + company.logo_path) }}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
+                    } else {
+                        logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
+                    }
+                }
+
+                // Enable the Edit Details button
+                const editButton = document.querySelector('.settings-link');
+                if (editButton) {
+                    editButton.classList.remove('disabled');
+                    editButton.href = `/settings?company_id=${value}`;
+                    editButton.style.pointerEvents = 'auto';
+                    editButton.style.opacity = '1';
+                }
+                
+                // Save the selection
+                saveSelectedBusinessAndClient();
+            })
+            .catch(error => {
+                console.error('Error fetching company details:', error);
+            });
     }
 
     // Update the handleClientSelection function
     function handleClientSelection(value) {
-        console.log('Client selection changed:', value);
-        if (value.startsWith('/client_details')) {
-            // If it's the "Create New Client" option, navigate to client details
-            console.log('Navigating to create new client page');
+        if (value.startsWith('/')) {
             window.location.href = value;
-        } else {
-            // Update the hidden client input field
-            const clientInput = document.querySelector('input[name="client"]');
-            if (clientInput) {
-                clientInput.value = value;
-            }
-            
-            // Otherwise, update the client details on the page
-            console.log('Fetching client details for ID:', value);
-            fetch(`/get_client/${value}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(client => {
-                    console.log('Received client details:', client);
-                    // Get the client details container
-                    const clientDetails = document.querySelector('.client-details .details-content');
-                    if (!clientDetails) {
-                        console.error('Could not find client details container');
-                        return;
-                    }
-                    
-                    // Update the content with the client details
-                    clientDetails.innerHTML = `
-                        <div style="position: relative;">
-                            <a href="/client_details?client_id=${value}" class="settings-link" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
-                                Edit Client Details
-                            </a>
-                            <div class="detail-item">
-                                <span class="detail-label">Client Name:</span>
-                                <span class="detail-value">${client.name}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Address:</span>
-                                <span class="detail-value">${client.address}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Email:</span>
-                                <span class="detail-value">${client.email}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Phone Number:</span>
-                                <span class="detail-value">${client.phone}</span>
-                            </div>
-                        </div>
-                    `;
-                    console.log('Updated client details in the DOM');
-                    
-                    // Save the selection
-                    saveSelectedBusinessAndClient();
-                })
-                .catch(error => {
-                    console.error('Error fetching or updating client details:', error);
-                });
+            document.querySelector('.client-selector').selectedIndex = 0;
+            return;
         }
+        if (!/^[0-9]+$/.test(value)) {
+            return;
+        }
+        // Update the hidden client input field
+        const clientInput = document.querySelector('input[name="client"]');
+        if (clientInput) {
+            clientInput.value = value;
+        }
+        
+        // Otherwise, update the client details on the page
+        console.log('Fetching client details for ID:', value);
+        fetch(`{{ APP_ROOT }}/get_client/${value}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(client => {
+                console.log('Received client details:', client);
+                // Get the client details container
+                const clientDetails = document.querySelector('.client-details .details-content');
+                if (!clientDetails) {
+                    console.error('Could not find client details container');
+                    return;
+                }
+                
+                // Update the content with the client details
+                clientDetails.innerHTML = `
+                    <div style="position: relative;">
+                        <a href="/client_details?client_id=${value}" class="settings-link" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
+                            Edit Client Details
+                        </a>
+                        <div class="detail-item">
+                            <span class="detail-label">Client Name:</span>
+                            <span class="detail-value">${client.name}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Address:</span>
+                            <span class="detail-value">${client.address}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Email:</span>
+                            <span class="detail-value">${client.email}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Phone Number:</span>
+                            <span class="detail-value">${client.phone}</span>
+                        </div>
+                    </div>
+                `;
+                console.log('Updated client details in the DOM');
+                
+                // Save the selection
+                saveSelectedBusinessAndClient();
+            })
+            .catch(error => {
+                console.error('Error fetching or updating client details:', error);
+            });
     }
 
     // Function to handle item selection
@@ -1764,16 +1894,15 @@
         <div class="company-details">
             <div class="logo-placeholder">
                 {% if selected_company and selected_company.logo_path %}
-                    <img src="{{ url_for('static', filename='logos/' + selected_company.logo_path) }}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">
+                    <img src="{{ url_for('static', filename='user_logos/' + selected_company.logo_path) }}" alt="Company Logo" class="company-logo">
                 {% else %}
                     <span class="logo-placeholder-text">Company Logo</span>
                 {% endif %}
             </div>
             <div class="details-content">
-                <div style="position: relative;">
+                <div class="details-header">
                     <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else '#' }}" 
-                       class="settings-link {% if not selected_company %}disabled{% endif %}" 
-                       style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;{% if not selected_company %} pointer-events: none; opacity: 0.5;{% endif %}">
+                       class="settings-link{% if not selected_company %} disabled{% endif %}">
                         Edit Details
                     </a>
                     <div class="detail-item">
@@ -1801,7 +1930,7 @@
                     <option value="" disabled selected>Select Your Business</option>
                     <option value="{{ url_for('settings') }}?new=true">Create New Business</option>
                     {% for company in companies %}
-                        <option value="{{ company.id }}" {% if selected_company and selected_company.id == company.id %}selected{% endif %}>{{ company.name }}</option>
+                        <option value="{{ company.id }}" {% if selected_company and selected_company.id == company.id %}selected{% endif %}>{{ selected_company.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -1812,9 +1941,7 @@
         <div class="client-details">
             <div class="details-content">
                 <div style="position: relative;">
-                    <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else url_for('client_details') }}" class="settings-link {% if not selected_client %}disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
-                            Edit Client Details
-                    </a>
+                    <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else url_for('client_details') }}" class="btn btn-outline-secondary btn-sm settings-link{% if not selected_client %} disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">Edit Client Details</a>
                     {% if selected_client %}
                         <div class="detail-item">
                             <span class="detail-label">Client Name:</span>
@@ -1880,20 +2007,20 @@
             <form action="{{ url_for('create_invoice') }}" method="post">
                 <input type="hidden" name="client" value="{{ selected_client.id if selected_client else '' }}">
                 <input type="hidden" id="line_items_json" name="line_items_json" value="">
-                <div class="invoice-header"> {/* Existing CSS handles grid, media query makes it 1fr */}
-                    <div class="invoice-fields row"> {/* Changed to row */}
-                        <div class="form-group col-md-6"> {/* Added col-md-6 */}
+                <div class="invoice-header"> 
+                    <div class="invoice-fields row"> 
+                        <div class="form-group col-md-6"> 
                             <label for="date">Invoice Date:</label>
-                            <input type="date" id="date" name="date" class="form-control" required> {/* Added form-control */}
+                            <input type="date" id="date" name="date" class="form-control" required> 
                         </div>
-                        <div class="form-group col-md-6"> {/* Added col-md-6 */}
+                        <div class="form-group col-md-6"> 
                             <label for="invoice_number">Invoice Number:</label>
-                            <input type="text" id="invoice_number" name="invoice_number" class="form-control" value="{{ get_setting('next_invoice_number', '1001') }}"> {/* Added form-control */}
+                            <input type="text" id="invoice_number" name="invoice_number" class="form-control" value="{{ get_setting('next_invoice_number', '1001') }}">
                             <input type="hidden" id="auto_invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
                         </div>
                     </div>
                     <div class="invoice-actions">
-                        <button type="button" id="confirmInvoiceBtn" class="add-to-invoice-btn btn btn-success btn-sm" title="Add to invoice"> {/* Added btn, btn-success, btn-sm */}
+                        <button type="button" id="confirmInvoiceBtn" class="add-to-invoice-btn btn btn-success btn-sm" title="Add to invoice"> 
                             <i class="fas fa-check"></i>
                         </button>
                     </div>
@@ -1904,11 +2031,11 @@
                 
                 <!-- Sales Tax Dialog -->
                 <div id="salesTaxDialog" class="dialog" style="display: none; margin: 1rem 0;">
-                    <div class="dialog-content card card-body"> {/* Added card card-body, removed inline style */}
-                        <h2 class="h5 mb-3">Sales Tax</h2> {/* Used Bootstrap heading class and margin */}
-                        <div class="form-group mb-3"> {/* Added mb-3 */}
-                            <label for="salesTaxSelect">Select Tax Rate:</label> {/* Removed style, added for */}
-                            <select id="salesTaxSelect" name="sales_tax_id" class="form-select" onchange="handleSalesTaxSelection(this)"> {/* Added form-select */}
+                    <div class="dialog-content card card-body"> 
+                        <h2 class="h5 mb-3">Sales Tax</h2> 
+                        <div class="form-group mb-3"> 
+                            <label for="salesTaxSelect">Select Tax Rate:</label> 
+                            <select id="salesTaxSelect" name="sales_tax_id" class="form-select" onchange="handleSalesTaxSelection(this)"> 
                                 <option value="" disabled selected>Select Tax Rate</option>
                                 <option value="new">Create New Tax Rate</option>
                                 <option value="clear">Clear saved tax rates</option>
@@ -1918,28 +2045,28 @@
                             </select>
                 </div>
                         <div id="newTaxRateFields" style="display: none;">
-                            <div class="form-group mb-3"> {/* Added mb-3 */}
-                                <label for="taxDescription">Description:</label> {/* Removed style, added for */}
-                                <input type="text" id="taxDescription" class="form-control" placeholder="e.g., State Sales Tax"> {/* Added form-control, removed inline style */}
+                            <div class="form-group mb-3"> 
+                                <label for="taxDescription">Description:</label> 
+                                <input type="text" id="taxDescription" class="form-control" placeholder="e.g., State Sales Tax"> 
                             </div>
-                            <div class="form-group mb-3"> {/* Added mb-3 */}
-                                <label for="taxRate">Rate (%):</label> {/* Removed style, added for */}
-                                <input type="number" id="taxRate" class="form-control" min="0" step="0.01" placeholder="e.g., 8.5"> {/* Added form-control, removed inline style */}
+                            <div class="form-group mb-3"> 
+                                <label for="taxRate">Rate (%):</label> 
+                                <input type="number" id="taxRate" class="form-control" min="0" step="0.01" placeholder="e.g., 8.5"> 
                             </div>
                         </div>
-                        <div class="form-group mb-3"> {/* Added mb-3 */}
-                            <label for="taxAppliesTo">Apply Tax To:</label> {/* Removed style, added for */}
-                            <select id="taxAppliesTo" name="tax_applies_to" class="form-select" required> {/* Added form-select */}
+                        <div class="form-group mb-3"> 
+                            <label for="taxAppliesTo">Apply Tax To:</label> 
+                            <select id="taxAppliesTo" name="tax_applies_to" class="form-select" required> 
                                 <option value="items" selected>Items only</option>
                                 <option value="labor">Labor only</option>
                                 <option value="both">Both items and labor</option>
                             </select>
                         </div>
-                        <div class="d-flex gap-2 justify-content-end"> {/* Replaced button-group with Bootstrap flex */}
-                            <button type="button" class="btn btn-success btn-sm" onclick="addSalesTaxToInvoice()" title="Add to invoice"> {/* Used Bootstrap button classes */}
+                        <div class="d-flex gap-2 justify-content-end"> 
+                            <button type="button" class="btn btn-success btn-sm" onclick="addSalesTaxToInvoice()" title="Add to invoice"> 
                             <i class="fas fa-check"></i>
                         </button>
-                            <button type="button" class="btn btn-danger btn-sm" onclick="closeSalesTaxDialog()" title="Cancel"> {/* Used Bootstrap button classes */}
+                            <button type="button" class="btn btn-danger btn-sm" onclick="closeSalesTaxDialog()" title="Cancel"> 
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -1947,54 +2074,54 @@
             </div>
                 
                 <!-- Invoice Totals Section -->
-                <div id="invoice-totals" class="mt-4 mb-4 text-end"> {/* Added Bootstrap margins and text-align */}
-                    <div class="totals-row d-flex justify-content-end gap-3"> {/* Replaced inline style with Bootstrap flex */}
-                        <span class="totals-label fw-bold">Subtotal:</span> {/* Used fw-bold */}
-                        <span id="subtotal" class="totals-value fw-bold">$0.00</span> {/* Used fw-bold */}
+                <div id="invoice-totals" class="mt-4 mb-4 text-end"> 
+                    <div class="totals-row d-flex justify-content-end gap-3"> 
+                        <span class="totals-label fw-bold">Subtotal:</span> 
+                        <span id="subtotal" class="totals-value fw-bold">$0.00</span> 
                     </div>
-                    <div class="totals-row d-flex justify-content-end gap-3 mt-2"> {/* Replaced inline style, added mt-2 */}
-                        <span class="totals-label fw-bold">Sales Tax:</span> {/* Used fw-bold */}
-                        <span id="taxTotal" class="totals-value fw-bold">$0.00</span> {/* Used fw-bold */}
+                    <div class="totals-row d-flex justify-content-end gap-3 mt-2"> 
+                        <span class="totals-label fw-bold">Sales Tax:</span> 
+                        <span id="taxTotal" class="totals-value fw-bold">$0.00</span> 
                     </div>
-                    <div class="totals-row d-flex justify-content-end gap-3 mt-2"> {/* Replaced inline style, added mt-2 */}
-                        <span class="totals-label fw-bolder fs-5">Grand Total:</span> {/* Used fw-bolder, fs-5 */}
-                        <span id="grandTotal" class="totals-value fw-bolder fs-5">$0.00</span> {/* Used fw-bolder, fs-5 */}
+                    <div class="totals-row d-flex justify-content-end gap-3 mt-2"> 
+                        <span class="totals-label fw-bolder fs-5">Grand Total:</span> 
+                        <span id="grandTotal" class="totals-value fw-bolder fs-5">$0.00</span> 
                     </div>
                 </div>
                 
                 <!-- Notes Section -->
                 <!-- Notes Section -->
-                <div id="notesSection" class="card card-body my-3" style="display: none;"> {/* Added card card-body, my-3, removed inline style */}
-                    <div class="form-group mb-3"> {/* Added mb-3 */}
+                <div id="notesSection" class="card card-body my-3" style="display: none;"> 
+                    <div class="form-group mb-3"> 
                         <label for="notes">Add a note that will display on the invoice:</label>
-                        <textarea id="notes" name="notes" class="form-control" rows="3"></textarea> {/* Added form-control, removed inline style */}
+                        <textarea id="notes" name="notes" class="form-control" rows="3"></textarea> 
                     </div>
-                    <div class="d-flex gap-2 justify-content-end"> {/* Replaced button-group with Bootstrap flex */}
-                        <button type="button" class="btn btn-success btn-sm" onclick="addNoteToInvoice(this)" title="Add to invoice"> {/* Used Bootstrap button classes */}
+                    <div class="d-flex gap-2 justify-content-end"> 
+                        <button type="button" class="btn btn-success btn-sm" onclick="addNoteToInvoice(this)" title="Add to invoice"> 
                             <i class="fas fa-check"></i>
                         </button>
-                        <button type="button" class="btn btn-danger btn-sm" onclick="removeNoteFromInvoice(this)" title="Cancel"> {/* Used Bootstrap button classes */}
+                        <button type="button" class="btn btn-danger btn-sm" onclick="removeNoteFromInvoice(this)" title="Cancel"> 
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                 </div>
                 
-                <div class="main-action-buttons d-flex flex-wrap justify-content-start gap-2 mt-3 mb-3"> {/* Added Bootstrap flex, wrap, gap, margin */}
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddLaborDialog()"> {/* Bootstrap button classes */}
+                <div class="main-action-buttons d-flex flex-wrap justify-content-start gap-2 mt-3 mb-3"> 
+                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddLaborDialog()"> 
                         <i class="fas fa-tools"></i> Add Labor
                     </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddItemDialog()"> {/* Bootstrap button classes */}
+                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddItemDialog()"> 
                         <i class="fas fa-box"></i> Add Item
                     </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddNoteDialog()"> {/* Bootstrap button classes */}
+                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddNoteDialog()"> 
                         <i class="fas fa-sticky-note"></i> Add Note
                     </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="salesTaxButton" onclick="showAddSalesTaxDialog()"> {/* Bootstrap button classes */}
+                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="salesTaxButton" onclick="showAddSalesTaxDialog()"> 
                         <i class="fas fa-percentage"></i> Add Sales Tax
                     </button>
                 </div>
                 
-                <button type="submit" class="btn btn-primary w-100">Generate Invoice</button> {/* Bootstrap button classes, w-100 for full width */}
+                <button type="submit" class="btn btn-primary w-100">Generate Invoice</button> 
                 </form>
     </div>
 {% endblock %}
