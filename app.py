@@ -28,7 +28,7 @@ app.config['PREFERRED_URL_SCHEME'] = 'https'
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))  # Use environment variable for secret key
 
 # Configure upload settings
-UPLOAD_FOLDER = 'static/logos'
+UPLOAD_FOLDER = 'static/user_logos'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 MAX_LOGO_SIZE = (200, 200)  # Maximum dimensions for logo
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -293,7 +293,7 @@ def create_invoice():
                 business_email = company['email']
                 logo_path = company['logo_path']
                 if logo_path and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], logo_path)):
-                    logo_url = url_for('static', filename=f'logos/{logo_path}')
+                    logo_url = url_for('static', filename=f'user_logos/{logo_path}')
                 else:
                     logo_url = url_for('static', filename='default_logo.png')
         else:
@@ -303,7 +303,7 @@ def create_invoice():
             business_email = get_setting('business_email', 'Business Email')
             logo_path = get_setting('logo_path')
             if logo_path and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], logo_path)):
-                logo_url = url_for('static', filename=f'logos/{logo_path}')
+                logo_url = url_for('static', filename=f'user_logos/{logo_path}')
             else:
                 logo_url = url_for('static', filename='default_logo.png')
 
@@ -956,6 +956,10 @@ def update_invoice_sales_tax(invoice_id):
     except sqlite3.Error as e:
         conn.rollback()
         return jsonify({'error': 'Database error occurred'}), 500
+
+@app.context_processor
+def inject_app_root():
+    return dict(APP_ROOT='/invoice')
 
 if __name__ == '__main__':
     # Create the database tables

@@ -695,7 +695,7 @@
                     lineItem.dataset.taxId = item.taxId;
                     
                     // Fetch the tax rate details to get the description
-                    fetch('/api/sales-tax')
+                    fetch('/invoice/api/sales-tax')
                         .then(response => response.json())
                         .then(rates => {
                             const taxRate = rates.find(r => r.id === parseInt(item.taxId));
@@ -864,7 +864,7 @@
                 const logoPlaceholder = document.querySelector('.logo-placeholder');
                 if (logoPlaceholder) {
                     if (company.logo_path) {
-                        logoPlaceholder.innerHTML = `<img src="{{ url_for('static', filename='user_logos/' + company.logo_path) }}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
+                        logoPlaceholder.innerHTML = `<img src="{{ url_for('static', filename='user_logos/') }}${company.logo_path}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
                     } else {
                         logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
                     }
@@ -1384,6 +1384,16 @@
             url.searchParams.delete('new_labor_id');
             window.history.replaceState({}, document.title, url.pathname + url.search);
         }
+
+        // Update logo display
+        const logoPlaceholder = document.getElementById('logo-placeholder');
+        if (logoPlaceholder) {
+            {% if selected_company and selected_company.logo_path %}
+                logoPlaceholder.innerHTML = `<img src="{{ url_for('static', filename='user_logos/' + selected_company.logo_path) }}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
+            {% else %}
+                logoPlaceholder.innerHTML = `<span class="logo-placeholder-text">Company Logo</span>`;
+            {% endif %}
+        }
     });
 
     // Function to initialize all event listeners
@@ -1425,8 +1435,13 @@
                         return;
                     }
                     
-                    fetch(`/check_invoice_number/${invoiceNumberInput.value}`)
-                        .then(response => response.json())
+                    fetch(`{{ url_for('check_invoice_number', invoice_number='') }}${invoiceNumberInput.value}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.json();
+                        })
                         .then(data => {
                             if (data.exists) {
                                 if (!confirm('This invoice number already exists. Do you want to proceed anyway?')) {
@@ -1549,7 +1564,7 @@
         dialog.style.display = 'block';
         
         // Load existing tax rates
-        fetch('/api/sales-tax')
+        fetch('/invoice/api/sales-tax')
             .then(response => response.json())
             .then(rates => {
                 const select = document.getElementById('salesTaxSelect');
@@ -1581,7 +1596,7 @@
     function handleSalesTaxSelection(select) {
         if (select.value === 'clear') {
             if (confirm('Are you sure you want to clear all saved tax rates? This action cannot be undone.')) {
-                fetch('/api/sales-tax', {
+                fetch('/invoice/api/sales-tax', {
                     method: 'DELETE'
                 })
                 .then(response => {
@@ -1614,7 +1629,7 @@
         // Calculate and display tax amount in real-time when a rate is selected
         if (select.value && select.value !== 'new') {
             const appliesTo = document.getElementById('taxAppliesTo').value;
-            fetch('/api/sales-tax')
+            fetch('/invoice/api/sales-tax')
                 .then(response => response.json())
                 .then(rates => {
                     const selectedRate = rates.find(r => r.id === parseInt(select.value));
@@ -1673,7 +1688,7 @@
             }
             
             try {
-                const response = await fetch('/api/sales-tax', {
+                const response = await fetch('/invoice/api/sales-tax', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1684,12 +1699,15 @@
                     })
                 });
                 
+                console.log('Response status:', response.status);
+                const responseText = await response.text();
+                console.log('Response text:', responseText);
+                
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Failed to create tax rate');
+                    throw new Error(responseText || 'Failed to create tax rate');
                 }
                 
-                const data = await response.json();
+                const data = JSON.parse(responseText);
                 addTaxToInvoice(data, appliesTo);
             } catch (error) {
                 console.error('Error creating tax rate:', error);
@@ -1697,18 +1715,17 @@
             }
         } else if (select.value) {
             // Use existing tax rate
-            fetch('/api/sales-tax')
-                .then(response => response.json())
-                .then(rates => {
-                    const selectedRate = rates.find(r => r.id === parseInt(select.value));
-                    if (selectedRate) {
-                        addTaxToInvoice(selectedRate, appliesTo);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading tax rate:', error);
-                    alert('Error loading tax rate. Please try again.');
-                });
+            try {
+                const response = await fetch('/invoice/api/sales-tax');
+                const rates = await response.json();
+                const selectedRate = rates.find(r => r.id === parseInt(select.value));
+                if (selectedRate) {
+                    addTaxToInvoice(selectedRate, appliesTo);
+                }
+            } catch (error) {
+                console.error('Error loading tax rate:', error);
+                alert('Error loading tax rate. Please try again.');
+            }
         } else {
             alert('Please select a tax rate');
         }
@@ -1798,7 +1815,7 @@
         
         // Pre-select the tax rate
         const select = document.getElementById('salesTaxSelect');
-        fetch('/api/sales-tax')
+        fetch('/invoice/api/sales-tax')
             .then(response => response.json())
             .then(rates => {
                 const matchingRate = rates.find(r => r.rate === parseFloat(rate));
@@ -1892,7 +1909,7 @@
 {% block content %}
     <div class="container">
         <div class="company-details">
-            <div class="logo-placeholder">
+            <div id="logo-placeholder" class="logo-placeholder">
                 {% if selected_company and selected_company.logo_path %}
                     <img src="{{ url_for('static', filename='user_logos/' + selected_company.logo_path) }}" alt="Company Logo" class="company-logo">
                 {% else %}

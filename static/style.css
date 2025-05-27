@@ -798,8 +798,24 @@ form {
 [data-theme="dark"] .line-item,
 [data-theme="dark"] .line-item-content,
 [data-theme="dark"] .line-item.confirmed,
-[data-theme="dark"] .line-item-actions {
+[data-theme="dark"] .line-item-actions,
+[data-theme="dark"] .dialog,
+[data-theme="dark"] .dialog-content,
+[data-theme="dark"] .card,
+[data-theme="dark"] .card-body {
     background-color: var(--section-bg) !important;
+    color: var(--text-color) !important;
+}
+
+[data-theme="dark"] .btn-outline-secondary {
+    color: var(--button-text) !important;
+    border-color: var(--button-border) !important;
+    background-color: var(--button-bg) !important;
+}
+
+[data-theme="dark"] .btn-outline-secondary:hover {
+    background-color: var(--button-hover) !important;
+    color: var(--button-text) !important;
 }
 
 /* Media Queries for Responsiveness */
@@ -896,4 +912,12 @@ form {
         font-size: 1.5rem;
     }
     /* Add more specific styles for very small screens if needed */
+}
+
+[data-theme="dark"] .company-details,
+[data-theme="dark"] .client-details,
+[data-theme="dark"] .details-content {
+    background-color: var(--section-bg) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
 }
