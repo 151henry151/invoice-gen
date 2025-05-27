@@ -158,6 +158,32 @@ All API endpoints may return the following error responses:
 - `404 Not Found`: Requested resource not found
 - `500 Internal Server Error`: Server-side error
 
+## Customizing Invoice Templates
+
+The Invoice Generator uses a single HTML (Jinja2) template for invoice generation. You can customize this template to match your branding, layout, and required fields.
+
+### HTML (Jinja2) Template
+
+- **Location:** `invoice-gen/templates/invoice_pretty.html`
+- **Format:** Standard HTML with [Jinja2](https://jinja.palletsprojects.com/) templating syntax.
+- **Variables:** You can use variables such as `{{ business_name }}`, `{{ client_name }}`, `{{ invoice_number }}`, `{{ line_items }}`, etc. (see the template for all available variables).
+- **How to Customize:**
+  - Edit the HTML and CSS directly in the template file.
+  - Use Jinja2 control structures (e.g., `{% for item in line_items %}`) to loop through items.
+  - Add or remove fields as needed.
+  - Preview changes by generating a new invoice and viewing it in the app.
+
+#### Common variables available in the template:
+- `business_name`, `business_address`, `business_email`, `business_phone`
+- `client_name`, `client_address`, `client_email`, `client_phone`
+- `invoice_number`, `invoice_date`, `notes`, `subtotal`, `sales_tax`, `grand_total`
+- `line_items` (list of items, each with `date`, `description`, `quantity`, `unit_price`, `total`)
+
+#### Tips
+- Always back up your template before making major changes.
+- After editing the template, generate a test invoice to ensure your changes render as expected.
+- For advanced logic, use Jinja2 syntax in the template.
+
 ## Frameworks & Libraries Used
 
 - **Flask**: Web framework for Python
