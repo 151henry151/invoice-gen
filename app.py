@@ -966,6 +966,8 @@ def invoice_list():
         WHERE i.user_id = ?
         ORDER BY i.date DESC
     ''', (session['user_id'],)).fetchall()
+    if not invoices:
+        return redirect(url_for('dashboard'))
     return render_template('invoice_list.html', invoices=invoices)
 
 @app.route('/invoice/<invoice_number>')
