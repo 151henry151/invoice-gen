@@ -21,6 +21,7 @@ from PIL import Image
 import subprocess
 import json
 from werkzeug.middleware.proxy_fix import ProxyFix
+import glob
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -1025,6 +1026,44 @@ def view_invoice(invoice_number):
                          sales_tax=sales_tax,
                          grand_total=grand_total,
                          notes=invoice['notes'])
+
+@app.route('/edit_profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    conn = get_db()
+    user_id = session['user_id']
+    user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+    # Get available HTML invoice templates
+    template_files = glob.glob(os.path.join(app.root_path, 'templates', 'invoice_*.html'))
+    templates = [os.path.basename(f) for f in template_files]
+    # Get preferred template from settings
+    preferred_template = get_setting('preferred_template')
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        preferred_template = request.form['preferred_template']
+        # Handle profile picture upload
+        profile_picture = user['profile_picture'] if 'profile_picture' in user.keys() else None
+        if 'profile_picture' in request.files:
+            file = request.files['profile_picture']
+            if file and file.filename:
+                filename = secure_filename(f"{user_id}_" + file.filename)
+                pic_path = os.path.join('static/profile_pics', filename)
+                os.makedirs(os.path.dirname(pic_path), exist_ok=True)
+                file.save(pic_path)
+                profile_picture = filename
+        # Update user info
+        conn.execute('UPDATE users SET username = ?, email = ?, profile_picture = ? WHERE id = ?',
+                     (username, email, profile_picture, user_id))
+        # Update preferred template in settings
+        update_setting('preferred_template', preferred_template)
+        conn.commit()
+        flash('Profile updated successfully!', 'success')
+        return redirect(url_for('edit_profile'))
+    # Render form
+    user_dict = dict(user)
+    user_dict['preferred_template'] = preferred_template
+    return render_template('edit_profile.html', user=user_dict, templates=templates)
 
 @app.context_processor
 def inject_app_root():

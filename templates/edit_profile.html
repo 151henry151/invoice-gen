@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Edit Profile</h2>
+    <form action="{{ url_for('edit_profile') }}" method="post" enctype="multipart/form-data" class="mt-4" autocomplete="off">
+        <div class="mb-3">
+            <label for="username" class="form-label">Username</label>
+            <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="profile_picture" class="form-label">Profile Picture</label>
+            {% if user.profile_picture %}
+                <div class="mb-2">
+                    <img src="{{ url_for('static', filename='profile_pics/' ~ user.profile_picture) }}" alt="Profile Picture" class="rounded" style="max-width: 120px; max-height: 120px;">
+                </div>
+            {% endif %}
+            <input class="form-control" type="file" id="profile_picture" name="profile_picture" accept="image/*">
+        </div>
+        <div class="mb-3">
+            <label for="preferred_template" class="form-label">Preferred Invoice Template</label>
+            <select class="form-select" id="preferred_template" name="preferred_template">
+                {% for template in templates %}
+                    <option value="{{ template }}" {% if user.preferred_template == template %}selected{% endif %}>{{ template }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-success">Save Changes</button>
+    </form>
+</div>
+{% endblock %} 

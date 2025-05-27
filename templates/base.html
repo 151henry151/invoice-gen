@@ -20,7 +20,9 @@
                 </div>
                 <div class="d-flex align-items-center gap-2 ms-auto">
                     {% if session.username %}
-                        <span class="username-text">{{ session.username }}</span>
+                        <span class="user-info">
+                            <a href="{{ url_for('edit_profile') }}" class="user-link">{{ session.username }}</a>
+                        </span>
                         <a href="{{ url_for('logout') }}" class="logout-button">Logout</a>
                     {% endif %}
                     <button id="theme-toggle" class="theme-toggle btn btn-outline-secondary btn-sm ms-2" title="Toggle dark/light theme">
@@ -160,6 +162,14 @@
         }
         [data-theme="dark"] .custom-navbar .navbar-toggler-icon {
             background-image: url("data:image/svg+xml;charset=utf8,%3Csvg viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath stroke='rgba(233,236,239,0.7)' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 7h22M4 15h22M4 23h22'/%3E%3C/svg%3E");
+        }
+        .user-link {
+            color: #e9ecef;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .user-link:hover {
+            color: #90ee90;
         }
     </style>
 </body>
