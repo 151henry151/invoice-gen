@@ -18,6 +18,146 @@ invoice_gen/
 └── ...                   # Other supporting files
 ```
 
+## API Documentation
+
+The application provides several RESTful API endpoints for managing invoices, clients, and settings. All endpoints require authentication unless specified otherwise.
+
+### Authentication Endpoints
+
+- `POST /register`
+  - Register a new user
+  - Required fields: username, password, email
+  - Returns: Redirect to login page on success
+
+- `POST /login`
+  - Authenticate user
+  - Required fields: username/email, password
+  - Returns: Redirect to dashboard on success
+
+- `GET /logout`
+  - Log out current user
+  - Returns: Redirect to login page
+
+### Client Management
+
+- `POST /new_client`
+  - Create a new client
+  - Required fields: name, address, email, phone
+  - Returns: Redirect to dashboard with success message
+
+- `GET /get_client/<client_id>`
+  - Get client details
+  - Returns: JSON object with client information
+  ```json
+  {
+    "name": "string",
+    "address": "string",
+    "email": "string",
+    "phone": "string"
+  }
+  ```
+
+### Company Management
+
+- `GET /get_company/<company_id>`
+  - Get company details
+  - Returns: JSON object with company information
+  ```json
+  {
+    "name": "string",
+    "address": "string",
+    "email": "string",
+    "phone": "string",
+    "logo_path": "string"
+  }
+  ```
+
+- `POST /update_company`
+  - Update company details
+  - Fields: company_name, company_address, company_email, hourly_rate, logo (optional)
+  - Returns: Redirect to dashboard with success message
+
+### Invoice Management
+
+- `GET /check_invoice_number/<invoice_number>`
+  - Check if invoice number exists
+  - Returns: JSON object with existence status
+  ```json
+  {
+    "exists": boolean
+  }
+  ```
+
+- `GET /download/<invoice_number>`
+  - Download invoice as Excel file
+  - Returns: Excel file download
+
+### Sales Tax Management
+
+- `GET /api/sales-tax`
+  - Get all sales tax rates
+  - Returns: Array of tax rate objects
+  ```json
+  [
+    {
+      "id": number,
+      "rate": number,
+      "description": "string"
+    }
+  ]
+  ```
+
+- `POST /api/sales-tax`
+  - Create new sales tax rate
+  - Required fields: rate, description
+  - Returns: Created tax rate object
+  ```json
+  {
+    "id": number,
+    "rate": number,
+    "description": "string"
+  }
+  ```
+
+- `DELETE /api/sales-tax`
+  - Delete all sales tax rates
+  - Returns: Success message
+
+- `PUT /api/invoice/<invoice_id>/sales-tax`
+  - Update invoice sales tax settings
+  - Required fields: sales_tax_id, tax_applies_to
+  - Returns: Updated invoice tax information
+  ```json
+  {
+    "id": number,
+    "sales_tax_id": number,
+    "tax_applies_to": "string",
+    "tax_rate": number,
+    "tax_description": "string"
+  }
+  ```
+
+### Session Management
+
+- `POST /save_selections`
+  - Save selected business and client IDs
+  - Fields: businessId, clientId
+  - Returns: Success status
+  ```json
+  {
+    "success": boolean
+  }
+  ```
+
+### Error Responses
+
+All API endpoints may return the following error responses:
+
+- `400 Bad Request`: Missing or invalid required fields
+- `401 Unauthorized`: Authentication required
+- `404 Not Found`: Requested resource not found
+- `500 Internal Server Error`: Server-side error
+
 ## Frameworks & Libraries Used
 
 - **Flask**: Web framework for Python
