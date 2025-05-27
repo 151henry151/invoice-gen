@@ -198,9 +198,7 @@ def logout():
 
 @app.route('/')
 def root():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('invoice_list'))
 
 @app.route('/dashboard')
 @login_required
@@ -956,6 +954,72 @@ def update_invoice_sales_tax(invoice_id):
     except sqlite3.Error as e:
         conn.rollback()
         return jsonify({'error': 'Database error occurred'}), 500
+
+@app.route('/invoices')
+@login_required
+def invoice_list():
+    conn = get_db()
+    invoices = conn.execute('''
+        SELECT i.*, c.name as client_name
+        FROM invoices i
+        JOIN clients c ON i.client_id = c.id
+        WHERE i.user_id = ?
+        ORDER BY i.date DESC
+    ''', (session['user_id'],)).fetchall()
+    return render_template('invoice_list.html', invoices=invoices)
+
+@app.route('/invoice/<invoice_number>')
+@login_required
+def view_invoice(invoice_number):
+    conn = get_db()
+    
+    # Get invoice details
+    invoice = conn.execute('''
+        SELECT i.*, c.name as client_name, c.address as client_address, 
+               c.email as client_email, c.phone as client_phone,
+               b.name as business_name, b.address as business_address,
+               b.email as business_email, b.phone as business_phone
+        FROM invoices i
+        JOIN clients c ON i.client_id = c.id
+        JOIN companies b ON i.business_id = b.id
+        WHERE i.invoice_number = ? AND i.user_id = ?
+    ''', (invoice_number, session['user_id'])).fetchone()
+    
+    if not invoice:
+        flash('Invoice not found', 'danger')
+        return redirect(url_for('invoice_list'))
+    
+    # Get line items
+    line_items = conn.execute('''
+        SELECT * FROM line_items
+        WHERE invoice_id = ?
+        ORDER BY date
+    ''', (invoice['id'],)).fetchall()
+    
+    # Calculate totals
+    subtotal = sum(item['total'] for item in line_items)
+    sales_tax = 0
+    if invoice['sales_tax_id']:
+        tax_rate = conn.execute('SELECT rate FROM sales_tax WHERE id = ?',
+                              (invoice['sales_tax_id'],)).fetchone()
+        if tax_rate:
+            taxable_amount = 0
+            for item in line_items:
+                if (invoice['tax_applies_to'] == 'items' and 'h' not in str(item['quantity'])) or \
+                   (invoice['tax_applies_to'] == 'labor' and 'h' in str(item['quantity'])) or \
+                   invoice['tax_applies_to'] == 'both':
+                    taxable_amount += item['total']
+            sales_tax = taxable_amount * (tax_rate['rate'] / 100)
+    
+    grand_total = subtotal + sales_tax
+    
+    return render_template('view_invoice.html',
+                         invoice=invoice,
+                         line_items=line_items,
+                         subtotal=subtotal,
+                         sales_tax=sales_tax,
+                         grand_total=grand_total,
+                         notes=invoice['notes'])
 
 @app.context_processor
 def inject_app_root():

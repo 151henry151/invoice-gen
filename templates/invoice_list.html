@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create New Invoice
+        </a>
+        <div></div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <h2>Invoices</h2>
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Date</th>
+                            <th>Client</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in invoices %}
+                        <tr>
+                            <td>{{ invoice.invoice_number }}</td>
+                            <td>{{ invoice.date }}</td>
+                            <td>{{ invoice.client_name }}</td>
+                            <td>${{ "%.2f"|format(invoice.total) }}</td>
+                            <td>
+                                <span class="badge {% if invoice.status == 'paid' %}bg-success{% elif invoice.status == 'pending' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                    {{ invoice.status|title }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{{ url_for('view_invoice', invoice_number=invoice.invoice_number) }}" 
+                                       class="btn btn-sm btn-outline-primary" 
+                                       title="View Invoice">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('download_invoice', invoice_number=invoice.invoice_number) }}" 
+                                       class="btn btn-sm btn-outline-success" 
+                                       title="Download Invoice">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center">No invoices found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
