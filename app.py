@@ -978,18 +978,20 @@ def view_invoice(invoice_number):
     # Get invoice details
     invoice = conn.execute('''
         SELECT i.*, c.name as client_name, c.address as client_address, 
-               c.email as client_email, c.phone as client_phone,
-               b.name as business_name, b.address as business_address,
-               b.email as business_email, b.phone as business_phone
+               c.email as client_email, c.phone as client_phone
         FROM invoices i
         JOIN clients c ON i.client_id = c.id
-        JOIN companies b ON i.business_id = b.id
         WHERE i.invoice_number = ? AND i.user_id = ?
     ''', (invoice_number, session['user_id'])).fetchone()
     
     if not invoice:
         flash('Invoice not found', 'danger')
         return redirect(url_for('invoice_list'))
+    
+    # Get company info for the current user
+    company = conn.execute('''
+        SELECT name, address, email, phone FROM companies WHERE user_id = ? LIMIT 1
+    ''', (session['user_id'],)).fetchone()
     
     # Get line items
     line_items = conn.execute('''
@@ -1017,6 +1019,7 @@ def view_invoice(invoice_number):
     
     return render_template('view_invoice.html',
                          invoice=invoice,
+                         company=company,
                          line_items=line_items,
                          subtotal=subtotal,
                          sales_tax=sales_tax,
