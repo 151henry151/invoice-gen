@@ -22,14 +22,19 @@ import subprocess
 import json
 from werkzeug.middleware.proxy_fix import ProxyFix
 import glob
+import io
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))  # Use environment variable for secret key
 
+# Configure static file serving
+app.static_folder = 'static'
+app.static_url_path = '/static'
+
 # Configure upload settings
-UPLOAD_FOLDER = 'static/user_logos'
+UPLOAD_FOLDER = 'static/uploads'  # Changed from user_logos to uploads
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 MAX_LOGO_SIZE = (200, 200)  # Maximum dimensions for logo
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -74,7 +79,7 @@ def login_required(f):
 # Database setup
 def get_db():
     if 'db' not in g:
-        g.db = sqlite3.connect('/app/invoice_gen.db')
+        g.db = sqlite3.connect('/app/db/invoice_gen.db')
         g.db.row_factory = sqlite3.Row
     return g.db
 
@@ -84,7 +89,9 @@ def close_db(e=None):
         db.close()
 
 def init_db():
-    db = sqlite3.connect('/app/invoice_gen.db')
+    # Ensure the directory exists
+    os.makedirs('/app/db', exist_ok=True)
+    db = sqlite3.connect('/app/db/invoice_gen.db')
     with app.open_resource('schema.sql') as f:
         db.executescript(f.read().decode('utf8'))
     db.commit()
@@ -184,8 +191,14 @@ def login():
         user = conn.execute('SELECT * FROM users WHERE username = ? OR email = ?', (username_or_email, username_or_email)).fetchone()
         
         if user and check_password_hash(user['password'], password):
+            print(f"[DEBUG] User logged in - ID: {user['id']}, Username: {user['username']}")
+            print(f"[DEBUG] User profile picture path: {user['profile_picture']}")
+            
             session['user_id'] = user['id']
             session['username'] = user['username']
+            session['profile_picture'] = user['profile_picture']
+            
+            print(f"[DEBUG] Session after login - user_id: {session['user_id']}, username: {session['username']}, profile_picture: {session['profile_picture']}")
             return redirect(url_for('dashboard'))
         
         flash('Invalid username/email or password!')
@@ -291,20 +304,32 @@ def create_invoice():
                 business_phone = company['phone']
                 business_email = company['email']
                 logo_path = company['logo_path']
-                if logo_path and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], logo_path)):
-                    logo_url = url_for('static', filename=f'user_logos/{logo_path}')
+                if logo_path:
+                    # Check if logo exists in the upload folder
+                    full_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], logo_path)
+                    if os.path.exists(full_logo_path) and os.path.isfile(full_logo_path):
+                        logo_url = os.path.abspath(full_logo_path)  # Use absolute path for PDF generation
+                    else:
+                        print(f"Logo file not found at {full_logo_path}, using default logo")
+                        logo_url = os.path.abspath(os.path.join(app.static_folder, 'default_logo.png'))
                 else:
-                    logo_url = url_for('static', filename='default_logo.png')
+                    logo_url = os.path.abspath(os.path.join(app.static_folder, 'default_logo.png'))
         else:
             business_name = get_setting('business_name', 'Business Name')
             business_address = get_setting('business_address', 'Business Address')
             business_phone = get_setting('business_phone', 'Business Phone')
             business_email = get_setting('business_email', 'Business Email')
             logo_path = get_setting('logo_path')
-            if logo_path and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], logo_path)):
-                logo_url = url_for('static', filename=f'user_logos/{logo_path}')
+            if logo_path:
+                # Check if logo exists in the upload folder
+                full_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], logo_path)
+                if os.path.exists(full_logo_path) and os.path.isfile(full_logo_path):
+                    logo_url = os.path.abspath(full_logo_path)  # Use absolute path for PDF generation
+                else:
+                    print(f"Logo file not found at {full_logo_path}, using default logo")
+                    logo_url = os.path.abspath(os.path.join(app.static_folder, 'default_logo.png'))
             else:
-                logo_url = url_for('static', filename='default_logo.png')
+                logo_url = os.path.abspath(os.path.join(app.static_folder, 'default_logo.png'))
 
         # Calculate totals
         subtotal = 0
@@ -343,7 +368,7 @@ def create_invoice():
         # Calculate sales tax if applicable
         sales_tax = 0
         if sales_tax_id and tax_applies_to:
-            tax_rate = conn.execute('SELECT rate FROM sales_tax WHERE id = ?', (sales_tax_id,)).fetchone()
+            tax_rate = conn.execute('SELECT rate FROM sales_tax_rates WHERE id = ?', (sales_tax_id,)).fetchone()
             if tax_rate:
                 taxable_amount = 0
                 for item in line_items:
@@ -419,33 +444,45 @@ def create_invoice():
                 # Render HTML
                 html_content = render_template('invoice_pretty.html', **invoice_data)
 
-                # Debug: Print module paths
-                import weasyprint
-                from weasyprint import HTML
-                print("WeasyPrint module path:", weasyprint.__file__)
-                print("HTML class path:", HTML.__module__)
-
                 # Generate PDF
-                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_pdf:
+                temp_pdf = None
+                try:
+                    temp_pdf = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
                     pdf_path = temp_pdf.name
-                    try:
-                        # Create HTML object with the rendered content
-                        html = HTML(string=html_content, base_url=request.host_url)
-                        # Write PDF
-                        html.write_pdf(pdf_path)
-                        return send_file(
-                            pdf_path,
-                            as_attachment=True,
-                            download_name=f'invoice_{invoice_number}.pdf',
-                            mimetype='application/pdf'
-                        )
-                    except Exception as e:
-                        print(f"Error during PDF generation: {str(e)}")
-                        print(f"Error type: {type(e)}")
-                        print(f"HTML content type: {type(html_content)}")
-                        print(f"HTML content length: {len(str(html_content))}")
-                        print(f"HTML content preview: {str(html_content)[:200]}")  # Print first 200 chars
-                        raise
+                    temp_pdf.close()
+
+                    # Use the absolute static directory as base_url
+                    static_dir = os.path.join(app.root_path, 'static')
+                    html = HTML(string=html_content, base_url=static_dir)
+                    html.write_pdf(pdf_path)
+                    
+                    # Send the file and ensure it's deleted after sending
+                    response = send_file(
+                        pdf_path,
+                        as_attachment=True,
+                        download_name=f'invoice_{invoice_number}.pdf',
+                        mimetype='application/pdf'
+                    )
+                    
+                    # Add cleanup callback
+                    @response.call_on_close
+                    def cleanup():
+                        try:
+                            os.unlink(pdf_path)
+                        except Exception as e:
+                            print(f"Error cleaning up temporary PDF file: {str(e)}")
+                    
+                    return response
+                    
+                except Exception as e:
+                    # Clean up the temporary file if it exists
+                    if temp_pdf and os.path.exists(pdf_path):
+                        try:
+                            os.unlink(pdf_path)
+                        except Exception as cleanup_error:
+                            print(f"Error cleaning up temporary PDF file: {str(cleanup_error)}")
+                    raise
+                    
             except Exception as e:
                 print(f"Error in PDF generation block: {str(e)}")
                 print(f"Error type: {type(e)}")
@@ -480,16 +517,63 @@ def preview_invoice(invoice_number):
     '''
 
 @app.route('/download/<invoice_number>')
+@login_required
 def download_invoice(invoice_number):
     conn = get_db()
     invoice = conn.execute('''
-        SELECT i.*, c.name as client_name
+        SELECT i.*, c.name as client_name, c.address as client_address, c.email as client_email, c.phone as client_phone
         FROM invoices i
         JOIN clients c ON i.client_id = c.id
-        WHERE i.invoice_number = ?
-    ''', (invoice_number,)).fetchone()
-    filename = f"static/{invoice['client_name'].lower().replace(' ', '_')}_invoice_{invoice_number}.xlsx"
-    return send_file(filename, as_attachment=True)
+        WHERE i.invoice_number = ? AND i.user_id = ?
+    ''', (invoice_number, session['user_id'])).fetchone()
+    if not invoice:
+        flash('Invoice not found', 'danger')
+        return redirect(url_for('invoice_list'))
+    # Get company info
+    company = conn.execute('SELECT name, address, email, phone FROM companies WHERE user_id = ? LIMIT 1', (session['user_id'],)).fetchone()
+    # Get line items
+    line_items = conn.execute('SELECT * FROM line_items WHERE invoice_id = ? ORDER BY date', (invoice['id'],)).fetchall()
+    # Calculate totals
+    subtotal = sum(item['total'] for item in line_items)
+    sales_tax = 0
+    if invoice['sales_tax_id']:
+        tax_rate = conn.execute('SELECT rate FROM sales_tax_rates WHERE id = ?', (invoice['sales_tax_id'],)).fetchone()
+        if tax_rate:
+            taxable_amount = 0
+            for item in line_items:
+                if (invoice['tax_applies_to'] == 'items' and 'h' not in str(item['quantity'])) or \
+                   (invoice['tax_applies_to'] == 'labor' and 'h' in str(item['quantity'])) or \
+                   invoice['tax_applies_to'] == 'both':
+                    taxable_amount += item['total']
+            sales_tax = taxable_amount * (tax_rate['rate'] / 100)
+    grand_total = subtotal + sales_tax
+    # Render HTML for PDF
+    html = render_template('invoice_pretty.html',
+        business_name=company['name'],
+        business_address=company['address'],
+        business_email=company['email'],
+        business_phone=company['phone'],
+        client_name=invoice['client_name'],
+        client_address=invoice['client_address'],
+        client_email=invoice['client_email'],
+        client_phone=invoice['client_phone'],
+        invoice_number=invoice['invoice_number'],
+        invoice_date=invoice['date'],
+        notes=invoice['notes'],
+        line_items=line_items,
+        subtotal=subtotal,
+        sales_tax=sales_tax,
+        grand_total=grand_total
+    )
+    # Generate PDF
+    pdf = HTML(string=html).write_pdf()
+    response = send_file(
+        io.BytesIO(pdf),
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f"invoice_{invoice['invoice_number']}.pdf"
+    )
+    return response
 
 def migrate_settings_to_companies():
     conn = get_db()
@@ -525,15 +609,14 @@ def settings():
 
         if logo and logo.filename:
             filename = secure_filename(logo.filename)
-            logo_path = f"{session['user_id']}_{int(time.time())}_{filename}"
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], logo_path)
-            
-            # Create upload folder if it doesn't exist
-            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-            
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            logo_path = f"{timestamp}_{filename}"
+            # Create uploads directory if it doesn't exist
+            upload_dir = os.path.join(app.root_path, 'static', 'uploads')
+            os.makedirs(upload_dir, exist_ok=True)
             # Save the file
+            filepath = os.path.join(upload_dir, logo_path)
             logo.save(filepath)
-            
             # Resize the logo
             if not resize_logo(filepath):
                 # If resize fails, delete the uploaded file
@@ -541,6 +624,8 @@ def settings():
                     os.remove(filepath)
                 flash('Error processing logo. Please try again.', 'danger')
                 return redirect(url_for('settings'))
+            # Store only the filename in the database (no 'uploads/' prefix)
+            # logo_path is already just the filename
 
         if company_id:
             # Update existing company
@@ -549,7 +634,7 @@ def settings():
                 if logo_path:
                     # Delete old logo if it exists
                     if company['logo_path']:
-                        old_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], company['logo_path'])
+                        old_logo_path = os.path.join(app.root_path, 'static', company['logo_path'])
                         if os.path.exists(old_logo_path):
                             os.remove(old_logo_path)
                     conn.execute('UPDATE companies SET name=?, address=?, email=?, phone=?, logo_path=? WHERE id=? AND user_id=?',
@@ -688,9 +773,9 @@ def update_labor():
         new_id = item_id
     else:
         # Create new labor item
-        cursor = conn.execute('''INSERT INTO labor_items (user_id, description, rate)
-                       VALUES (?, ?, ?)''',
-                    (session['user_id'], description, rate))
+        cursor = conn.execute('''INSERT INTO labor_items (user_id, description, rate, hours)
+                       VALUES (?, ?, ?, ?)''',
+                    (session['user_id'], description, rate, 0))
         new_id = cursor.lastrowid
     
     conn.commit()
@@ -750,9 +835,9 @@ def update_item():
         new_id = item_id
     else:
         # Create new item
-        cursor = conn.execute('''INSERT INTO items (user_id, description, price)
-                       VALUES (?, ?, ?)''',
-                    (session['user_id'], description, price))
+        cursor = conn.execute('''INSERT INTO items (user_id, description, price, quantity)
+                       VALUES (?, ?, ?, ?)''',
+                    (session['user_id'], description, price, 1))
         new_id = cursor.lastrowid
     
     conn.commit()
@@ -833,7 +918,7 @@ def save_selections():
 @login_required
 def get_sales_tax_rates():
     conn = get_db()
-    rates = conn.execute('SELECT * FROM sales_tax ORDER BY description').fetchall()
+    rates = conn.execute('SELECT * FROM sales_tax_rates ORDER BY description').fetchall()
     return jsonify([{
         'id': rate['id'],
         'rate': rate['rate'],
@@ -846,7 +931,7 @@ def delete_all_sales_tax_rates():
     conn = get_db()
     try:
         # Delete all tax rates
-        conn.execute('DELETE FROM sales_tax')
+        conn.execute('DELETE FROM sales_tax_rates')
         conn.commit()
         return jsonify({'message': 'All tax rates have been cleared'}), 200
     except sqlite3.Error as e:
@@ -875,19 +960,19 @@ def create_sales_tax_rate():
     conn = get_db()
     try:
         # Check for duplicate description
-        existing = conn.execute('SELECT id FROM sales_tax WHERE description = ?', 
+        existing = conn.execute('SELECT id FROM sales_tax_rates WHERE description = ?', 
                               (data['description'],)).fetchone()
         if existing:
             print("Duplicate description found:", data['description'])  # Debug log
             return jsonify({'error': 'A tax rate with this description already exists'}), 400
         
         # Insert new tax rate
-        cursor = conn.execute('INSERT INTO sales_tax (rate, description) VALUES (?, ?)',
-                            (rate, data['description']))
+        cursor = conn.execute('INSERT INTO sales_tax_rates (user_id, rate, description) VALUES (?, ?, ?)',
+                            (session['user_id'], rate, data['description']))
         conn.commit()
         
         # Get the newly created tax rate
-        new_rate = conn.execute('SELECT * FROM sales_tax WHERE id = ?', 
+        new_rate = conn.execute('SELECT * FROM sales_tax_rates WHERE id = ?', 
                               (cursor.lastrowid,)).fetchone()
         
         print("Successfully created tax rate:", new_rate)  # Debug log
@@ -922,7 +1007,7 @@ def update_invoice_sales_tax(invoice_id):
             return jsonify({'error': 'Invoice not found'}), 404
         
         # Check if sales tax rate exists
-        tax_rate = conn.execute('SELECT id FROM sales_tax WHERE id = ?',
+        tax_rate = conn.execute('SELECT id FROM sales_tax_rates WHERE id = ?',
                               (data['sales_tax_id'],)).fetchone()
         if not tax_rate:
             return jsonify({'error': 'Sales tax rate not found'}), 404
@@ -940,7 +1025,7 @@ def update_invoice_sales_tax(invoice_id):
         updated_invoice = conn.execute('''
             SELECT i.*, st.rate as tax_rate, st.description as tax_description
             FROM invoices i
-            LEFT JOIN sales_tax st ON i.sales_tax_id = st.id
+            LEFT JOIN sales_tax_rates st ON i.sales_tax_id = st.id
             WHERE i.id = ? AND i.user_id = ?
         ''', (invoice_id, session['user_id'])).fetchone()
         
@@ -1005,7 +1090,7 @@ def view_invoice(invoice_number):
     subtotal = sum(item['total'] for item in line_items)
     sales_tax = 0
     if invoice['sales_tax_id']:
-        tax_rate = conn.execute('SELECT rate FROM sales_tax WHERE id = ?',
+        tax_rate = conn.execute('SELECT rate FROM sales_tax_rates WHERE id = ?',
                               (invoice['sales_tax_id'],)).fetchone()
         if tax_rate:
             taxable_amount = 0
@@ -1030,40 +1115,111 @@ def view_invoice(invoice_number):
 @app.route('/edit_profile', methods=['GET', 'POST'])
 @login_required
 def edit_profile():
-    conn = get_db()
-    user_id = session['user_id']
-    user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
-    # Get available HTML invoice templates
-    template_files = glob.glob(os.path.join(app.root_path, 'templates', 'invoice_*.html'))
-    templates = [os.path.basename(f) for f in template_files]
-    # Get preferred template from settings
-    preferred_template = get_setting('preferred_template')
     if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-        preferred_template = request.form['preferred_template']
-        # Handle profile picture upload
-        profile_picture = user['profile_picture'] if 'profile_picture' in user.keys() else None
-        if 'profile_picture' in request.files:
-            file = request.files['profile_picture']
-            if file and file.filename:
-                filename = secure_filename(f"{user_id}_" + file.filename)
-                pic_path = os.path.join('static/profile_pics', filename)
-                os.makedirs(os.path.dirname(pic_path), exist_ok=True)
-                file.save(pic_path)
-                profile_picture = filename
-        # Update user info
-        conn.execute('UPDATE users SET username = ?, email = ?, profile_picture = ? WHERE id = ?',
-                     (username, email, profile_picture, user_id))
-        # Update preferred template in settings
-        update_setting('preferred_template', preferred_template)
-        conn.commit()
-        flash('Profile updated successfully!', 'success')
-        return redirect(url_for('edit_profile'))
-    # Render form
-    user_dict = dict(user)
-    user_dict['preferred_template'] = preferred_template
-    return render_template('edit_profile.html', user=user_dict, templates=templates)
+        username = request.form.get('username')
+        email = request.form.get('email')
+        current_password = request.form.get('current_password')
+        new_password = request.form.get('new_password')
+        profile_picture = request.files.get('profile_picture')
+        
+        print(f"[DEBUG] Profile update request - Username: {username}, Email: {email}")
+        print(f"[DEBUG] Profile picture in request: {profile_picture is not None}")
+        
+        conn = get_db()
+        try:
+            # Check if username is already taken by another user
+            existing_user = conn.execute('SELECT id FROM users WHERE username = ? AND id != ?',
+                                      (username, session['user_id'])).fetchone()
+            if existing_user:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'success': False, 'message': 'Username already taken'})
+                flash('Username already taken')
+                return redirect(url_for('edit_profile'))
+            
+            # Check if email is already taken by another user
+            existing_email = conn.execute('SELECT id FROM users WHERE email = ? AND id != ?',
+                                       (email, session['user_id'])).fetchone()
+            if existing_email:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'success': False, 'message': 'Email already taken'})
+                flash('Email already taken')
+                return redirect(url_for('edit_profile'))
+            
+            # Handle profile picture upload
+            profile_picture_path = None
+            if profile_picture and profile_picture.filename:
+                print(f"[DEBUG] Processing profile picture upload - Filename: {profile_picture.filename}")
+                
+                # Create uploads directory if it doesn't exist
+                upload_dir = os.path.join(app.root_path, 'static', 'uploads')
+                os.makedirs(upload_dir, exist_ok=True)
+                print(f"[DEBUG] Upload directory: {upload_dir}")
+                
+                # Generate unique filename
+                filename = secure_filename(profile_picture.filename)
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                unique_filename = f"{timestamp}_{filename}"
+                print(f"[DEBUG] Generated unique filename: {unique_filename}")
+                
+                # Save the file
+                filepath = os.path.join(upload_dir, unique_filename)
+                profile_picture.save(filepath)
+                print(f"[DEBUG] Saved file to: {filepath}")
+                
+                # Store only the filename in the database (no 'uploads/' prefix)
+                # logo_path is already just the filename
+                
+                conn.execute('UPDATE users SET profile_picture = ? WHERE id = ?',
+                           (filename, session['user_id']))
+                
+                # Update session with filename
+                session['profile_picture'] = filename
+                profile_picture_path = filename
+                print(f"[DEBUG] Updated session with profile picture path: {filename}")
+            
+            # Update username and email
+            conn.execute('UPDATE users SET username = ?, email = ? WHERE id = ?',
+                       (username, email, session['user_id']))
+            
+            # Handle password change if provided
+            if current_password and new_password:
+                user = conn.execute('SELECT password FROM users WHERE id = ?',
+                                  (session['user_id'],)).fetchone()
+                if not check_password_hash(user['password'], current_password):
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({'success': False, 'message': 'Current password is incorrect'})
+                    flash('Current password is incorrect')
+                    return redirect(url_for('edit_profile'))
+                
+                conn.execute('UPDATE users SET password = ? WHERE id = ?',
+                           (generate_password_hash(new_password), session['user_id']))
+            
+            conn.commit()
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    'success': True,
+                    'message': 'Profile updated successfully',
+                    'profile_picture': url_for('static', filename=profile_picture_path) if profile_picture_path else None
+                })
+            
+            flash('Profile updated successfully')
+            return redirect(url_for('dashboard'))
+            
+        except Exception as e:
+            print(f"[ERROR] Exception during profile update: {str(e)}")
+            conn.rollback()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': f'Error updating profile: {str(e)}'})
+            flash(f'Error updating profile: {str(e)}')
+            return redirect(url_for('edit_profile'))
+    
+    # GET request - show edit form
+    conn = get_db()
+    user = conn.execute('SELECT username, email, profile_picture FROM users WHERE id = ?',
+                       (session['user_id'],)).fetchone()
+    print(f"[DEBUG] Loading edit profile page - User data: {dict(user)}")
+    return render_template('edit_profile.html', user=user)
 
 @app.context_processor
 def inject_app_root():

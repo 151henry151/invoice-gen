@@ -2,7 +2,7 @@
 {% block content %}
 <div class="container mt-4">
     <h2>Edit Profile</h2>
-    <form action="{{ url_for('edit_profile') }}" method="post" enctype="multipart/form-data" class="mt-4" autocomplete="off">
+    <form action="{{ url_for('edit_profile') }}" method="post" enctype="multipart/form-data" class="mt-4" autocomplete="off" id="profile-form">
         <div class="mb-3">
             <label for="username" class="form-label">Username</label>
             <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" required>
@@ -13,12 +13,23 @@
         </div>
         <div class="mb-3">
             <label for="profile_picture" class="form-label">Profile Picture</label>
-            {% if user.profile_picture %}
-                <div class="mb-2">
-                    <img src="{{ url_for('static', filename='profile_pics/' ~ user.profile_picture) }}" alt="Profile Picture" class="rounded" style="max-width: 120px; max-height: 120px;">
-                </div>
-            {% endif %}
-            <input class="form-control" type="file" id="profile_picture" name="profile_picture" accept="image/*">
+            <div id="current-picture" class="mb-2">
+                {% if user.profile_picture %}
+                    <img src="{{ url_for('static', filename=user.profile_picture) }}?v={{ range(1, 10000) | random }}" alt="Profile Picture" class="profile-pic-preview" id="profile-preview" style="max-width: 200px; max-height: 200px;">
+                {% endif %}
+            </div>
+            <div class="logo-upload-info">
+                <p class="logo-size-info">Recommended size: 200x200 pixels. Images will be automatically resized while maintaining aspect ratio.</p>
+                <input type="file" id="profile_picture" name="profile_picture" accept="image/*" onchange="previewImage(this)">
+            </div>
+        </div>
+        <div class="mb-3">
+            <label for="current_password" class="form-label">Current Password (leave blank if not changing)</label>
+            <input type="password" class="form-control" id="current_password" name="current_password">
+        </div>
+        <div class="mb-3">
+            <label for="new_password" class="form-label">New Password (leave blank if not changing)</label>
+            <input type="password" class="form-control" id="new_password" name="new_password">
         </div>
         <div class="mb-3">
             <label for="preferred_template" class="form-label">Preferred Invoice Template</label>
@@ -31,4 +42,67 @@
         <button type="submit" class="btn btn-success">Save Changes</button>
     </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function previewImage(input) {
+    const preview = document.getElementById('profile-preview');
+    const currentPicture = document.getElementById('current-picture');
+    
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            if (!preview) {
+                // Create preview image if it doesn't exist
+                const img = document.createElement('img');
+                img.id = 'profile-preview';
+                img.className = 'profile-pic-preview';
+                img.alt = 'Profile Picture';
+                img.style.maxWidth = '200px';
+                img.style.maxHeight = '200px';
+                currentPicture.appendChild(img);
+                img.src = e.target.result;
+            } else {
+                preview.src = e.target.result;
+            }
+        }
+        
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// Handle form submission
+document.getElementById('profile-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('{{ url_for("edit_profile") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update the profile picture in the navbar
+            const navbarPic = document.querySelector('.profile-pic-small');
+            if (navbarPic) {
+                navbarPic.src = data.profile_picture + '?v=' + new Date().getTime();
+            }
+            // Show success message
+            alert('Profile updated successfully!');
+            // Redirect to dashboard
+            window.location.href = '{{ url_for("dashboard") }}';
+        } else {
+            alert(data.message || 'Error updating profile');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating profile');
+    });
+});
+</script>
 {% endblock %} 

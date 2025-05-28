@@ -40,7 +40,7 @@
             {% if selected_company and selected_company.logo_path %}
                 <div class="current-logo">
                     <p>Current Logo:</p>
-                    <img src="{{ url_for('static', filename='logos/' + selected_company.logo_path) }}" alt="Current Logo" style="max-width: 200px; max-height: 200px;">
+                    <img src="{{ url_for('static', filename=selected_company.logo_path) }}" alt="Current Logo" style="max-width: 200px; max-height: 200px;">
                 </div>
             {% endif %}
 

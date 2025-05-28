@@ -9,14 +9,16 @@ services:
       # Mount the static/logos directory to persist uploaded logos
       # This is important so that uploaded logos are not lost when the container restarts.
       # We'll create a local directory named 'user_logos' to store these.
-      - ./user_logos:/app/static/logos
-      - ./invoice_gen.db:/app/invoice_gen.db
+      - ./invoice/static/user_logos:/app/invoice/static/user_logos
+      # Use a named volume for uploads
+      - uploads_data:/app/static/uploads
+      - invoice_db_data:/app/db
     environment:
       # Ensure Flask and Gunicorn use the correct settings
       - FLASK_APP=wsgi.py
       - FLASK_ENV=production
       - SECRET_KEY=your-secure-secret-key-here
-      - DATABASE_URL=sqlite:///invoice_gen.db
+      - DATABASE_URL=sqlite:///db/invoice_gen.db
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/static/css/style.css"]
@@ -24,6 +26,10 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+volumes:
+  invoice_db_data:
+  uploads_data:
 
 # Optional: Define a volume for persistent data if not mounting a host directory
 # volumes:

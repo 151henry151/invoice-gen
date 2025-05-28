@@ -482,6 +482,8 @@
         }
     </style>
 <script>
+    const APP_ROOT = "{{ APP_ROOT }}";
+    
     // Function to calculate total cost
     window.calculateTotalCost = function(itemDiv) {
         const hours = parseFloat(itemDiv.querySelector('input[name="hours[]"]').value) || 0;
@@ -710,10 +712,6 @@
                                             <span class="detail-label">Applied to:</span>
                                             <span class="detail-value">${item.appliesTo === 'both' ? 'Both items and labor' : item.appliesTo === 'items' ? 'Items only' : 'Labor only'}</span>
                                         </div>
-                                        <div class="detail-item">
-                                            <span class="detail-label">Total:</span>
-                                            <span class="detail-value">$${parseFloat(item.total).toFixed(2)}</span>
-                                        </div>
                                     </div>
                                     <div class="line-item-actions">
                                         <button type="button" class="edit-item-btn" onclick="editSalesTax(this)" title="Edit tax">
@@ -725,13 +723,8 @@
                                     </div>
                                 `;
                                 
-                                // Insert tax line before the totals
-                                const totalsDiv = document.getElementById('invoice-totals');
-                                if (totalsDiv) {
-                                    totalsDiv.parentNode.insertBefore(lineItem, totalsDiv);
-                                } else {
-                                    itemsContainer.appendChild(lineItem);
-                                }
+                                // Insert tax line into the items container so it matches the width/layout of other line items
+                                document.getElementById('items').appendChild(lineItem);
                                 
                                 // Update the sales tax button text
                                 const salesTaxButton = document.getElementById('salesTaxButton');
@@ -798,7 +791,7 @@
             window.history.replaceState({}, '', url);
             
             // Save to session via AJAX
-            fetch(`{{ APP_ROOT }}/save_selections`, {
+            fetch(`${APP_ROOT}/save_selections`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -846,7 +839,7 @@
         if (!/^[0-9]+$/.test(value)) {
             return;
         }
-        fetch(`{{ APP_ROOT }}/get_company/${value}`)
+        fetch(`${APP_ROOT}/get_company/${value}`)
             .then(response => response.json())
             .then(company => {
                 // Update company details
@@ -864,7 +857,7 @@
                 const logoPlaceholder = document.querySelector('.logo-placeholder');
                 if (logoPlaceholder) {
                     if (company.logo_path) {
-                        logoPlaceholder.innerHTML = `<img src="{{ url_for('static', filename='user_logos/') }}${company.logo_path}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
+                        logoPlaceholder.innerHTML = '<img src="' + APP_ROOT + '/static/uploads/' + company.logo_path + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
                     } else {
                         logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
                     }
@@ -874,7 +867,7 @@
                 const editButton = document.querySelector('.settings-link');
                 if (editButton) {
                     editButton.classList.remove('disabled');
-                    editButton.href = `/settings?company_id=${value}`;
+                    editButton.href = `${APP_ROOT}/settings?company_id=${value}`;
                     editButton.style.pointerEvents = 'auto';
                     editButton.style.opacity = '1';
                 }
@@ -905,7 +898,7 @@
         
         // Otherwise, update the client details on the page
         console.log('Fetching client details for ID:', value);
-        fetch(`{{ APP_ROOT }}/get_client/${value}`)
+        fetch(`${APP_ROOT}/get_client/${value}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -924,7 +917,7 @@
                 // Update the content with the client details
                 clientDetails.innerHTML = `
                     <div style="position: relative;">
-                        <a href="/client_details?client_id=${value}" class="settings-link" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
+                        <a href="${APP_ROOT}/client_details?client_id=${value}" class="settings-link" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">
                             Edit Client Details
                         </a>
                         <div class="detail-item">
@@ -1389,9 +1382,9 @@
         const logoPlaceholder = document.getElementById('logo-placeholder');
         if (logoPlaceholder) {
             {% if selected_company and selected_company.logo_path %}
-                logoPlaceholder.innerHTML = `<img src="{{ url_for('static', filename='user_logos/' + selected_company.logo_path) }}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
+                logoPlaceholder.innerHTML = '<img src="' + APP_ROOT + '/static/uploads/' + selected_company.logo_path + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
             {% else %}
-                logoPlaceholder.innerHTML = `<span class="logo-placeholder-text">Company Logo</span>`;
+                logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
             {% endif %}
         }
     });
@@ -1435,7 +1428,7 @@
                         return;
                     }
                     
-                    fetch(`{{ url_for('check_invoice_number', invoice_number='') }}${invoiceNumberInput.value}`)
+                    fetch(`${APP_ROOT}/check_invoice_number/${invoiceNumberInput.value}`)
                         .then(response => {
                             if (!response.ok) {
                                 throw new Error('Network response was not ok');
@@ -1769,10 +1762,6 @@
                     <span class="detail-label">Applied to:</span>
                     <span class="detail-value">${appliesTo === 'both' ? 'Both items and labor' : appliesTo === 'items' ? 'Items only' : 'Labor only'}</span>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Total:</span>
-                    <span class="detail-value">$${taxAmount.toFixed(2)}</span>
-                </div>
             </div>
             <div class="line-item-actions">
                 <button type="button" class="edit-item-btn" onclick="editSalesTax(this)" title="Edit tax">
@@ -1787,14 +1776,8 @@
         // Remove any inline styles that might be causing the size difference
         taxLine.removeAttribute('style');
         
-        // Insert tax line before the totals
-        const totalsDiv = document.getElementById('invoice-totals');
-        if (totalsDiv) {
-            totalsDiv.parentNode.insertBefore(taxLine, totalsDiv);
-        } else {
-            // Fallback: append to items container if totals div not found
-            document.getElementById('items').appendChild(taxLine);
-        }
+        // Insert tax line into the items container so it matches the width/layout of other line items
+        document.getElementById('items').appendChild(taxLine);
         
         // Update the sales tax button text
         const salesTaxButton = document.getElementById('salesTaxButton');
@@ -1903,6 +1886,18 @@
         notesSection.style.display = 'block';
         document.querySelector('.main-action-buttons').classList.add('hidden');
     }
+
+    function removeItemFromInvoice(button) {
+        const itemDiv = button.closest('.item');
+        itemDiv.remove();
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+    }
+
+    function removeLaborItemFromInvoice(button) {
+        const itemDiv = button.closest('.item');
+        itemDiv.remove();
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+    }
 </script>
 {% endblock %}
 
@@ -1911,7 +1906,7 @@
         <div class="company-details">
             <div id="logo-placeholder" class="logo-placeholder">
                 {% if selected_company and selected_company.logo_path %}
-                    <img src="{{ url_for('static', filename='user_logos/' + selected_company.logo_path) }}" alt="Company Logo" class="company-logo">
+                    <img src="{{ url_for('static', filename='uploads/' ~ selected_company.logo_path) }}" alt="Company Logo" class="company-logo">
                 {% else %}
                     <span class="logo-placeholder-text">Company Logo</span>
                 {% endif %}
@@ -1919,7 +1914,8 @@
             <div class="details-content">
                 <div class="details-header">
                     <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else '#' }}" 
-                       class="settings-link{% if not selected_company %} disabled{% endif %}">
+                       class="settings-link{% if not selected_company %} disabled{% endif %}"
+                       data-app-root="{{ APP_ROOT }}">
                         Edit Details
                     </a>
                     <div class="detail-item">
@@ -1958,7 +1954,7 @@
         <div class="client-details">
             <div class="details-content">
                 <div style="position: relative;">
-                    <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else url_for('client_details') }}" class="btn btn-outline-secondary btn-sm settings-link{% if not selected_client %} disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">Edit Client Details</a>
+                    <a href="#" class="btn btn-outline-secondary btn-sm settings-link{% if not selected_client %} disabled{% endif %}" style="position: absolute; top: 0; right: 0; font-size: 12px; padding: 4px 8px;">Edit Client Details</a>
                     {% if selected_client %}
                         <div class="detail-item">
                             <span class="detail-label">Client Name:</span>
@@ -2138,7 +2134,7 @@
                     </button>
                 </div>
                 
-                <button type="submit" class="btn btn-primary w-100">Generate Invoice</button> 
+                <button type="submit" class="btn btn-success w-100">Generate Invoice</button> 
                 </form>
     </div>
 {% endblock %}

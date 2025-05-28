@@ -20,7 +20,6 @@
                             <th>Date</th>
                             <th>Client</th>
                             <th>Total</th>
-                            <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -31,11 +30,6 @@
                             <td>{{ invoice.date }}</td>
                             <td>{{ invoice.client_name }}</td>
                             <td>${{ "%.2f"|format(invoice.total) }}</td>
-                            <td>
-                                <span class="badge {% if invoice.status == 'paid' %}bg-success{% elif invoice.status == 'pending' %}bg-warning{% else %}bg-secondary{% endif %}">
-                                    {{ invoice.status|title }}
-                                </span>
-                            </td>
                             <td>
                                 <div class="btn-group">
                                     <a href="{{ url_for('view_invoice', invoice_number=invoice.invoice_number) }}" 
@@ -53,7 +47,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6" class="text-center">No invoices found</td>
+                            <td colspan="5" class="text-center">No invoices found</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -62,4 +56,75 @@
         </div>
     </div>
 </div>
+
+<style>
+    .table {
+        color: var(--text-color);
+    }
+    
+    .table td, .table th {
+        color: var(--text-color);
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: var(--text-color);
+    }
+    
+    .table-hover tbody tr:hover td {
+        color: var(--text-color);
+    }
+    
+    .badge {
+        font-size: 0.85em;
+        padding: 0.35em 0.65em;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .table-responsive {
+        margin-bottom: 1rem;
+    }
+    
+    .text-muted {
+        color: var(--text-muted) !important;
+    }
+    
+    .table thead th {
+        border-bottom: 2px solid var(--border-color);
+        color: var(--text-color);
+        font-weight: 600;
+    }
+    
+    .table td {
+        vertical-align: middle;
+    }
+    
+    .table tbody tr {
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .table tbody tr:last-child {
+        border-bottom: none;
+    }
+    
+    .table .btn-group {
+        white-space: nowrap;
+    }
+    
+    .table .btn-group .btn {
+        margin: 0 2px;
+    }
+    
+    .table .btn-group .btn:first-child {
+        margin-left: 0;
+    }
+    
+    .table .btn-group .btn:last-child {
+        margin-right: 0;
+    }
+</style>
 {% endblock %} 

@@ -128,12 +128,18 @@
             margin: 0;
             white-space: pre-wrap;
         }
+        .totals-section {
+            background: #fff;
+            border-radius: 0 0 8px 8px;
+            margin-top: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
     </style>
 </head>
 <body>
 <div class="invoice-container">
     <div class="header">
-        <img src="{{ logo_url }}" alt="Business Logo" class="logo">
+        <img src="file://{{ logo_url }}" alt="Business Logo" class="logo">
         <div class="business-info">
             <h2>{{ business_name }}</h2>
             <div>{{ business_address }}</div>
@@ -175,6 +181,20 @@
         </tr>
         {% endfor %}
         </tbody>
+        <tfoot class="totals-section">
+            <tr>
+                <td colspan="4" class="label" style="text-align: right;">Subtotal:</td>
+                <td class="value">${{ '%.2f'|format(subtotal) }}</td>
+            </tr>
+            <tr>
+                <td colspan="4" class="label" style="text-align: right;">Sales Tax:</td>
+                <td class="value">${{ '%.2f'|format(sales_tax) }}</td>
+            </tr>
+            <tr>
+                <td colspan="4" class="label" style="text-align: right;"><strong>Grand Total:</strong></td>
+                <td class="value"><strong>${{ '%.2f'|format(grand_total) }}</strong></td>
+            </tr>
+        </tfoot>
     </table>
     
     {% if notes %}
@@ -184,22 +204,7 @@
     </div>
     {% endif %}
     
-    <div class="summary">
-        <table class="summary-table">
-            <tr>
-                <td class="label">Subtotal:</td>
-                <td class="value">${{ '%.2f'|format(subtotal) }}</td>
-            </tr>
-            <tr>
-                <td class="label">Sales Tax:</td>
-                <td class="value">${{ '%.2f'|format(sales_tax) }}</td>
-            </tr>
-            <tr>
-                <td class="label"><strong>Grand Total:</strong></td>
-                <td class="value"><strong>${{ '%.2f'|format(grand_total) }}</strong></td>
-            </tr>
-        </table>
-    </div>
+    {# Reminder: Ensure logo_url is an absolute/static URL accessible to WeasyPrint #}
 </div>
 </body>
 </html> 

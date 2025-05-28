@@ -11,6 +11,7 @@ COPY requirements.txt .
 # We'll also install libreoffice here for the PDF conversion, and other OS-level dependencies.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+    sqlite3 \
     libreoffice \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
@@ -32,8 +33,9 @@ RUN mkdir -p /app/static/logos && \
 # Copy the rest of the application code into the container at /app
 COPY . .
 
-# Initialize the database
-RUN python -c "from app import init_db; init_db()"
+# Copy entrypoint script and make it executable
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Make port 8080 available to the world outside this container
 EXPOSE 8080
@@ -45,5 +47,5 @@ ENV FLASK_RUN_PORT=8080
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 
-# Run the application with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "--timeout", "120", "wsgi:application"]
+# Use entrypoint.sh as the container's CMD
+CMD ["/app/entrypoint.sh"]

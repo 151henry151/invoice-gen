@@ -103,4 +103,67 @@
     </div>
     {% endif %}
 </div>
+
+<style>
+    .card {
+        background-color: var(--card-bg);
+        border-color: var(--border-color);
+    }
+    
+    .card-body {
+        color: var(--text-color);
+    }
+    
+    .card-title {
+        color: var(--text-color);
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    
+    .table {
+        color: var(--text-color);
+    }
+    
+    .table td, .table th {
+        color: var(--text-color);
+        border-color: var(--border-color);
+    }
+    
+    .table thead th {
+        border-bottom: 2px solid var(--border-color);
+        font-weight: 600;
+    }
+    
+    .table tbody tr {
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .table tbody tr:last-child {
+        border-bottom: none;
+    }
+    
+    .table tfoot tr {
+        border-top: 2px solid var(--border-color);
+    }
+    
+    .table tfoot tr:last-child {
+        border-top: 2px solid var(--border-color);
+    }
+    
+    .table tfoot strong {
+        color: var(--text-color);
+    }
+    
+    p {
+        color: var(--text-color);
+    }
+    
+    strong {
+        color: var(--text-color);
+    }
+    
+    h2 {
+        color: var(--text-color);
+    }
+</style>
 {% endblock %} 
