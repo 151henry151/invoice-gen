@@ -1,47 +1,44 @@
 {% extends "base.html" %}
+
+{% block title %}Edit Profile - Invoice Generator{% endblock %}
+
+{% block page_subtitle %}Edit Profile{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <h2>Edit Profile</h2>
-    <form action="{{ url_for('edit_profile') }}" method="post" enctype="multipart/form-data" class="mt-4" autocomplete="off" id="profile-form">
-        <div class="mb-3">
-            <label for="username" class="form-label">Username</label>
-            <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" required>
-        </div>
-        <div class="mb-3">
-            <label for="email" class="form-label">Email</label>
-            <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
-        </div>
-        <div class="mb-3">
-            <label for="profile_picture" class="form-label">Profile Picture</label>
-            <div id="current-picture" class="mb-2">
-                {% if user.profile_picture %}
-                    <img src="{{ url_for('static', filename=user.profile_picture) }}?v={{ range(1, 10000) | random }}" alt="Profile Picture" class="profile-pic-preview" id="profile-preview" style="max-width: 200px; max-height: 200px;">
-                {% endif %}
+    <div class="container mt-4">
+        <h2>Edit Profile</h2>
+        <form action="{{ url_for('edit_profile') }}" method="post" enctype="multipart/form-data" class="mt-4" autocomplete="off" id="profile-form">
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" required>
             </div>
-            <div class="logo-upload-info">
-                <p class="logo-size-info">Recommended size: 200x200 pixels. Images will be automatically resized while maintaining aspect ratio.</p>
-                <input type="file" id="profile_picture" name="profile_picture" accept="image/*" onchange="previewImage(this)">
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
             </div>
-        </div>
-        <div class="mb-3">
-            <label for="current_password" class="form-label">Current Password (leave blank if not changing)</label>
-            <input type="password" class="form-control" id="current_password" name="current_password">
-        </div>
-        <div class="mb-3">
-            <label for="new_password" class="form-label">New Password (leave blank if not changing)</label>
-            <input type="password" class="form-control" id="new_password" name="new_password">
-        </div>
-        <div class="mb-3">
-            <label for="preferred_template" class="form-label">Preferred Invoice Template</label>
-            <select class="form-select" id="preferred_template" name="preferred_template">
-                {% for template in templates %}
-                    <option value="{{ template }}" {% if user.preferred_template == template %}selected{% endif %}>{{ template }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <button type="submit" class="btn btn-success">Save Changes</button>
-    </form>
-</div>
+            <div class="mb-3">
+                <label for="profile_picture" class="form-label">Profile Picture</label>
+                <div id="current-picture" class="mb-2">
+                    {% if user.profile_picture %}
+                        <img src="{{ url_for('static', filename=user.profile_picture) }}?v={{ range(1, 10000) | random }}" alt="Profile Picture" class="profile-pic-preview" id="profile-preview" style="max-width: 200px; max-height: 200px;">
+                    {% endif %}
+                </div>
+                <div class="logo-upload-info">
+                    <p class="logo-size-info">Recommended size: 200x200 pixels. Images will be automatically resized while maintaining aspect ratio.</p>
+                    <input type="file" id="profile_picture" name="profile_picture" accept="image/*" onchange="previewImage(this)">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="current_password" class="form-label">Current Password (leave blank if not changing)</label>
+                <input type="password" class="form-control" id="current_password" name="current_password">
+            </div>
+            <div class="mb-3">
+                <label for="new_password" class="form-label">New Password (leave blank if not changing)</label>
+                <input type="password" class="form-control" id="new_password" name="new_password">
+            </div>
+            <button type="submit" class="btn btn-success">Save Changes</button>
+        </form>
+    </div>
 {% endblock %}
 
 {% block scripts %}

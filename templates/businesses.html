@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Your Businesses</h2>
+        <a href="{{ url_for('settings') }}" class="btn btn-success">
+            <i class="fas fa-plus"></i> Add New Business
+        </a>
+    </div>
+
+    <div class="row">
+        {% for business in businesses %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    {% if business.logo_path %}
+                    <div class="text-center mb-3">
+                        <img src="{{ url_for('static', filename='uploads/' ~ business.logo_path) }}" 
+                             alt="{{ business.name }} logo" 
+                             class="img-fluid rounded" 
+                             style="max-height: 100px;">
+                    </div>
+                    {% endif %}
+                    <h5 class="card-title">{{ business.name }}</h5>
+                    <p class="card-text">
+                        <strong>Address:</strong><br>
+                        {{ business.address }}
+                    </p>
+                    <p class="card-text">
+                        <strong>Contact:</strong><br>
+                        Email: {{ business.email }}<br>
+                        Phone: {{ business.phone }}
+                    </p>
+                    <div class="mt-3">
+                        <div class="btn-group">
+                            <a href="{{ url_for('settings') }}" class="btn btn-outline-success btn-sm">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            <button class="btn btn-outline-danger btn-sm" 
+                                    onclick="confirmDelete('{{ business.id }}', '{{ business.name }}')">
+                                <i class="fas fa-trash"></i> Remove
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> You haven't added any businesses yet. 
+                <a href="{{ url_for('settings') }}" class="alert-link">Add your first business</a> to start creating invoices.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete <span id="deleteName"></span>?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        transition: transform 0.2s ease-in-out;
+    }
+    
+    .card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .card-title {
+        color: var(--text-color);
+        font-weight: 600;
+    }
+    
+    .card-text {
+        color: var(--text-color);
+    }
+    
+    .alert {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+    }
+    
+    .alert-link {
+        color: var(--primary-color);
+    }
+    
+    .alert-link:hover {
+        color: var(--primary-color-hover);
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .modal-content {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+    }
+
+    .modal-header {
+        border-bottom-color: var(--border-color);
+    }
+
+    .modal-footer {
+        border-top-color: var(--border-color);
+    }
+</style>
+
+<script>
+function confirmDelete(businessId, businessName) {
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    document.getElementById('deleteName').textContent = businessName;
+    
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    confirmBtn.onclick = function() {
+        fetch(`/remove_business/${businessId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Error deleting business: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting business');
+        });
+        
+        modal.hide();
+    };
+    
+    modal.show();
+}
+</script>
+{% endblock %} 

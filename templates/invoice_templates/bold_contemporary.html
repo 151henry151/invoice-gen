@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice</title>
+    <style>
+        :root {
+            --primary-color: #E91E63;
+            --secondary-color: #fce4ec;
+            --accent-color: #C2185B;
+            --font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        body {
+            font-family: var(--font-family);
+            background: #fff;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+        .invoice-container {
+            max-width: 800px;
+            margin: 40px auto;
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .header {
+            background: var(--primary-color);
+            color: white;
+            padding: 40px;
+            position: relative;
+        }
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: var(--primary-color);
+            transform: skewY(-3deg);
+        }
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+        .logo {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .business-info {
+            text-align: right;
+        }
+        .business-info h2 {
+            margin: 0 0 15px 0;
+            color: white;
+            font-size: 2em;
+            font-weight: 500;
+        }
+        .business-info div {
+            margin-bottom: 5px;
+            color: rgba(255,255,255,0.9);
+        }
+        .content {
+            padding: 60px 40px 40px;
+        }
+        .invoice-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        .bill-to {
+            font-size: 1em;
+        }
+        .bill-to strong {
+            color: var(--primary-color);
+            display: block;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .invoice-meta {
+            text-align: right;
+        }
+        .invoice-meta div {
+            margin-bottom: 10px;
+            color: #666;
+        }
+        .invoice-meta strong {
+            color: var(--primary-color);
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 40px 0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .items-table th {
+            background: var(--primary-color);
+            color: white;
+            font-weight: 500;
+            padding: 16px;
+            text-align: left;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9em;
+        }
+        .items-table td {
+            padding: 16px;
+            border-bottom: 1px solid #eee;
+        }
+        .items-table tr:last-child td {
+            border-bottom: none;
+        }
+        .items-table tr:nth-child(even) {
+            background: var(--secondary-color);
+        }
+        .summary {
+            margin-top: 40px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .summary-table {
+            width: 300px;
+            background: var(--secondary-color);
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .summary-table td {
+            padding: 8px 0;
+        }
+        .summary-table .label {
+            color: #666;
+        }
+        .summary-table .value {
+            text-align: right;
+            font-weight: 500;
+        }
+        .summary-table td:last-child {
+            text-align: right;
+        }
+        .summary-table tr:last-child td {
+            border-top: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            font-weight: 600;
+            font-size: 1.1em;
+            padding-top: 12px;
+        }
+        .notes-section {
+            margin-top: 40px;
+            padding: 24px;
+            background: var(--secondary-color);
+            border-radius: 8px;
+        }
+        .notes-section h3 {
+            color: var(--primary-color);
+            margin: 0 0 12px 0;
+            font-size: 1.1em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .notes-section p {
+            margin: 0;
+            white-space: pre-wrap;
+            color: #666;
+        }
+        .footer {
+            background: var(--primary-color);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+<div class="invoice-container">
+    <div class="header">
+        <div class="header-content">
+            <img src="file://{{ logo_url }}" alt="Business Logo" class="logo">
+            <div class="business-info">
+                <h2>{{ business_name }}</h2>
+                <div>{{ business_address }}</div>
+                <div>{{ business_phone }}</div>
+                <div>{{ business_email }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="content">
+        <div class="invoice-details">
+            <div class="bill-to">
+                <strong>Bill To</strong>
+                {{ client_name }}<br>
+                {{ client_address }}<br>
+                {{ client_phone }}<br>
+                {{ client_email }}
+            </div>
+            <div class="invoice-meta">
+                <div><strong>Invoice Date:</strong> {{ invoice_date }}</div>
+                <div><strong>Invoice Number:</strong> {{ invoice_number }}</div>
+            </div>
+        </div>
+        
+        <table class="items-table">
+            <thead>
+            <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Total</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in line_items %}
+            <tr>
+                <td>{{ item.date }}</td>
+                <td>{{ item.description }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>${{ '%.2f'|format(item.unit_price) }}</td>
+                <td>${{ '%.2f'|format(item.total) }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        
+        <div class="summary">
+            <table class="summary-table">
+                <tr>
+                    <td class="label">Subtotal</td>
+                    <td class="value">${{ '%.2f'|format(subtotal) }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Sales Tax</td>
+                    <td class="value">${{ '%.2f'|format(sales_tax) }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Total</td>
+                    <td class="value">${{ '%.2f'|format(grand_total) }}</td>
+                </tr>
+            </table>
+        </div>
+        
+        {% if notes %}
+        <div class="notes-section">
+            <h3>Notes</h3>
+            <p>{{ notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="footer">
+        Thank you for your business
+    </div>
+</div>
+</body>
+</html> 

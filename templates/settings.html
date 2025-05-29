@@ -28,6 +28,14 @@
             
             <input type="tel" id="phone" name="phone" placeholder="Phone Number" value="{{ selected_company.phone if selected_company else '' }}" required>
             
+            <label for="invoice_template">Invoice Template:</label>
+            <select id="invoice_template" name="invoice_template" required>
+                <option value="invoice_pretty" {% if selected_company and selected_company.invoice_template == 'invoice_pretty' %}selected{% endif %}>Classic Green</option>
+                <option value="modern_minimal" {% if selected_company and selected_company.invoice_template == 'modern_minimal' %}selected{% endif %}>Modern Minimal</option>
+                <option value="classic_professional" {% if selected_company and selected_company.invoice_template == 'classic_professional' %}selected{% endif %}>Classic Professional</option>
+                <option value="bold_contemporary" {% if selected_company and selected_company.invoice_template == 'bold_contemporary' %}selected{% endif %}>Bold Contemporary</option>
+            </select>
+            
             <label for="logo">Logo:</label>
             <div class="logo-upload-info">
                 <p class="logo-size-info">Recommended size: 200x200 pixels. Images will be automatically resized while maintaining aspect ratio.</p>

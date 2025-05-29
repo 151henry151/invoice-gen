@@ -34,6 +34,7 @@ CREATE TABLE companies (
     email TEXT,
     phone TEXT,
     logo_path TEXT,
+    invoice_template TEXT DEFAULT 'invoice_pretty',
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
 

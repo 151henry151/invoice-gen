@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Your Clients</h2>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-success">
+            <i class="fas fa-plus"></i> Add New Client
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Contact</th>
+                            <th>Address</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for client in clients %}
+                        <tr>
+                            <td>
+                                <strong>{{ client.name }}</strong>
+                            </td>
+                            <td>
+                                Email: {{ client.email }}<br>
+                                Phone: {{ client.phone }}
+                            </td>
+                            <td>{{ client.address }}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-success btn-sm" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-success btn-sm">
+                                        <i class="fas fa-file-invoice"></i> Create Invoice
+                                    </a>
+                                    <button class="btn btn-outline-danger btn-sm" 
+                                            onclick="confirmDelete('{{ client.id }}', '{{ client.name }}')"
+                                            title="Remove">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center">
+                                <div class="alert alert-info mb-0">
+                                    <i class="fas fa-info-circle"></i> You haven't added any clients yet. 
+                                    <a href="{{ url_for('dashboard') }}" class="alert-link">Add your first client</a> to start creating invoices.
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete <span id="deleteName"></span>?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .table {
+        color: var(--text-color);
+    }
+    
+    .table td, .table th {
+        color: var(--text-color);
+        vertical-align: middle;
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: var(--text-color);
+    }
+    
+    .table-hover tbody tr:hover td {
+        color: var(--text-color);
+    }
+    
+    .alert {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        margin: 0;
+    }
+    
+    .alert-link {
+        color: var(--primary-color);
+    }
+    
+    .alert-link:hover {
+        color: var(--primary-color-hover);
+    }
+    
+    .btn-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .table thead th {
+        border-bottom: 2px solid var(--border-color);
+        color: var(--text-color);
+        font-weight: 600;
+    }
+    
+    .table tbody tr {
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .table tbody tr:last-child {
+        border-bottom: none;
+    }
+
+    .modal-content {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+    }
+
+    .modal-header {
+        border-bottom-color: var(--border-color);
+    }
+
+    .modal-footer {
+        border-top-color: var(--border-color);
+    }
+</style>
+
+<script>
+function confirmDelete(clientId, clientName) {
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    document.getElementById('deleteName').textContent = clientName;
+    
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    confirmBtn.onclick = function() {
+        fetch(`/remove_client/${clientId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Error deleting client: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting client');
+        });
+        
+        modal.hide();
+    };
+    
+    modal.show();
+}
+</script>
+{% endblock %} 

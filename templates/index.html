@@ -1382,7 +1382,8 @@
         const logoPlaceholder = document.getElementById('logo-placeholder');
         if (logoPlaceholder) {
             {% if selected_company and selected_company.logo_path %}
-                logoPlaceholder.innerHTML = '<img src="' + APP_ROOT + '/static/uploads/' + selected_company.logo_path + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
+                const logoPath = "{{ selected_company.logo_path }}";
+                logoPlaceholder.innerHTML = '<img src="' + APP_ROOT + '/static/uploads/' + logoPath + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
             {% else %}
                 logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
             {% endif %}
@@ -1943,7 +1944,7 @@
                     <option value="" disabled selected>Select Your Business</option>
                     <option value="{{ url_for('settings') }}?new=true">Create New Business</option>
                     {% for company in companies %}
-                        <option value="{{ company.id }}" {% if selected_company and selected_company.id == company.id %}selected{% endif %}>{{ selected_company.name }}</option>
+                        <option value="{{ company.id }}" {% if selected_company and selected_company.id == company.id %}selected{% endif %}>{{ company.name }}</option>
                     {% endfor %}
                 </select>
             </div>
