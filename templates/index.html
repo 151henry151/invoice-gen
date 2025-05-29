@@ -360,8 +360,23 @@
             right: 0;
             font-size: 12px;
             padding: 4px 8px;
+            text-decoration: none;
+            color: #6c757d;
+            border: 1px solid #6c757d;
+            border-radius: 4px;
+            background-color: transparent;
+            transition: all 0.2s;
         }
-
+        @media (max-width: 600px) {
+            .settings-link {
+                position: static;
+                display: block;
+                width: 100%;
+                margin-bottom: 0.5rem;
+                margin-top: 0.5rem;
+                text-align: center;
+            }
+        }
         .settings-link.disabled {
             pointer-events: none;
             opacity: 0.5;

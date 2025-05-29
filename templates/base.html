@@ -16,26 +16,20 @@
 <body>
     <div class="page-wrapper">
         <div class="container">
-            <div class="header d-flex align-items-end justify-content-between w-100" style="min-height:60px; padding: 0.5rem 0;">
-                <div class="d-flex align-items-center">
-                    <div class="header-logo-container ms-0">
+            <div class="header d-flex align-items-center justify-content-between w-100 flex-row flex-nowrap" style="min-height:60px; padding: 0.5rem 0;">
+                <div class="d-flex align-items-center flex-row flex-nowrap w-100">
+                    <div class="header-logo-container ms-0 me-2">
                         <img src="{{ url_for('static', filename='logos/ig-logo.png') }}" alt="Invoice Generator Logo" class="img-fluid logo-img logo-img-light">
                         <img src="{{ url_for('static', filename='logos/ig-logo-dark.png') }}" alt="Invoice Generator Logo Dark" class="img-fluid logo-img logo-img-dark">
                     </div>
-                    {% if not session.username %}
-                    <h1 class="app-title ms-3 mb-0">invoice-gen</h1>
-                    {% endif %}
-                </div>
-                <div class="d-flex align-items-center gap-2 ms-auto">
                     {% if session.username %}
-                        <span class="user-info">
+                        <span class="user-info d-flex align-items-center ms-2">
                             {% if session.profile_picture %}
-                                <!-- Debug: Profile picture path: {{ session.profile_picture }} -->
                                 <img src="{{ url_for('static', filename=session.profile_picture) }}" alt="Profile Picture" class="profile-pic-small">
                             {% endif %}
-                            <a href="{{ url_for('edit_profile') }}" class="user-link">{{ session.username }}</a>
+                            <a href="{{ url_for('edit_profile') }}" class="user-link ms-1">{{ session.username }}</a>
                         </span>
-                        <a href="{{ url_for('logout') }}" class="logout-button">Logout</a>
+                        <a href="{{ url_for('logout') }}" class="logout-button ms-2">Logout</a>
                     {% endif %}
                     <button id="theme-toggle" class="theme-toggle btn btn-outline-secondary btn-sm ms-2" title="Toggle dark/light theme">
                         <i class="fas fa-moon"></i>
@@ -84,11 +78,21 @@
         </div>
         {% endif %}
         <div class="container">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="flash-messages">
+                    {% for message in messages %}
+                        <div class="flash-message">{{ message }}</div>
+                    {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
             {% block content %}{% endblock %}
         </div>
     </div>
 
     {% block scripts %}{% endblock %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Theme toggle functionality
         const themeToggle = document.getElementById('theme-toggle');
@@ -113,6 +117,19 @@
         function updateThemeIcon(theme) {
             themeIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
         }
+        // Auto-dismiss flash messages
+        document.addEventListener('DOMContentLoaded', function() {
+            const flashMessages = document.querySelectorAll('.flash-message');
+            if (flashMessages.length > 0) {
+                setTimeout(() => {
+                    flashMessages.forEach(msg => {
+                        msg.style.transition = 'opacity 0.5s';
+                        msg.style.opacity = '0';
+                        setTimeout(() => msg.remove(), 500);
+                    });
+                }, 4000);
+            }
+        });
     </script>
     <style>
         .header {
@@ -260,6 +277,39 @@
         }
         [data-theme="dark"] .app-title {
             color: #e9ecef;
+        }
+        .flash-messages {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            width: auto;
+            max-width: 80%;
+            text-align: center;
+        }
+        .flash-message {
+            padding: 15px 30px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            animation: slideIn 0.5s ease-out;
+        }
+        @media (max-width: 600px) {
+            .header .d-flex.align-items-center.flex-row.flex-nowrap.w-100 {
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                align-items: center !important;
+                justify-content: flex-start !important;
+            }
+            .header-logo-container {
+                margin-right: 8px;
+            }
+            .user-info, .logout-button, .theme-toggle {
+                margin-left: 0 !important;
+            }
         }
     </style>
 </body>
