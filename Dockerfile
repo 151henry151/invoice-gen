@@ -15,7 +15,6 @@ COPY migrations/alembic.ini ./alembic.ini
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     sqlite3 \
-    libreoffice \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
     libcairo2 \
