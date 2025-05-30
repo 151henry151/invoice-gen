@@ -7,6 +7,9 @@ WORKDIR /app
 # Copy the requirements file into the container at /app
 COPY requirements.txt .
 
+# Copy alembic.ini into /app
+COPY migrations/alembic.ini ./alembic.ini
+
 # Install any needed packages specified in requirements.txt
 # We'll also install libreoffice here for the PDF conversion, and other OS-level dependencies.
 RUN apt-get update && \
@@ -28,7 +31,9 @@ RUN apt-get update && \
 
 # Create necessary directories
 RUN mkdir -p /app/static/logos && \
-    chmod -R 777 /app/static/logos
+    mkdir -p /app/db && \
+    chmod -R 777 /app/static/logos && \
+    chmod -R 777 /app/db
 
 # Copy the rest of the application code into the container at /app
 COPY . .

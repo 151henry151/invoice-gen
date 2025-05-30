@@ -1,14 +1,4 @@
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS clients;
-DROP TABLE IF EXISTS companies;
-DROP TABLE IF EXISTS labor_items;
-DROP TABLE IF EXISTS items;
-DROP TABLE IF EXISTS settings;
-DROP TABLE IF EXISTS sales_tax_rates;
-DROP TABLE IF EXISTS line_items;
-DROP TABLE IF EXISTS invoices;
-
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
@@ -16,7 +6,7 @@ CREATE TABLE users (
     profile_picture TEXT
 );
 
-CREATE TABLE clients (
+CREATE TABLE IF NOT EXISTS clients (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     name TEXT NOT NULL,
@@ -26,7 +16,7 @@ CREATE TABLE clients (
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
-CREATE TABLE companies (
+CREATE TABLE IF NOT EXISTS companies (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     name TEXT NOT NULL,
@@ -38,7 +28,7 @@ CREATE TABLE companies (
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
-CREATE TABLE labor_items (
+CREATE TABLE IF NOT EXISTS labor_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     description TEXT NOT NULL,
@@ -47,7 +37,7 @@ CREATE TABLE labor_items (
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
-CREATE TABLE items (
+CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     description TEXT NOT NULL,
@@ -56,7 +46,7 @@ CREATE TABLE items (
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
-CREATE TABLE settings (
+CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     key TEXT NOT NULL,
@@ -65,7 +55,7 @@ CREATE TABLE settings (
     UNIQUE(user_id, key)
 );
 
-CREATE TABLE sales_tax_rates (
+CREATE TABLE IF NOT EXISTS sales_tax_rates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     rate REAL NOT NULL,
@@ -73,7 +63,7 @@ CREATE TABLE sales_tax_rates (
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
-CREATE TABLE invoices (
+CREATE TABLE IF NOT EXISTS invoices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     invoice_number TEXT NOT NULL,
@@ -88,7 +78,7 @@ CREATE TABLE invoices (
     FOREIGN KEY (sales_tax_id) REFERENCES sales_tax_rates (id)
 );
 
-CREATE TABLE line_items (
+CREATE TABLE IF NOT EXISTS line_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     invoice_id INTEGER NOT NULL,
     description TEXT NOT NULL,

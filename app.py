@@ -23,11 +23,19 @@ import json
 from werkzeug.middleware.proxy_fix import ProxyFix
 import glob
 import io
+from flask_migrate import Migrate
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))  # Use environment variable for secret key
+
+# Configure SQLAlchemy
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////app/db/invoice_gen.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 # Configure static file serving
 app.static_folder = 'static'
@@ -78,32 +86,23 @@ def login_required(f):
 
 # Database setup
 def get_db():
-    if 'db' not in g:
-        g.db = sqlite3.connect('/app/db/invoice_gen.db')
-        g.db.row_factory = sqlite3.Row
-    return g.db
+    return db
 
 def close_db(e=None):
-    db = g.pop('db', None)
-    if db is not None:
-        db.close()
+    pass  # SQLAlchemy handles connection cleanup
 
 def init_db():
     # Ensure the directory exists
     os.makedirs('/app/db', exist_ok=True)
-    db = sqlite3.connect('/app/db/invoice_gen.db')
-    with app.open_resource('schema.sql') as f:
-        db.executescript(f.read().decode('utf8'))
-    db.commit()
-    db.close()
-
-def init_app(app):
-    app.teardown_appcontext(close_db)
     with app.app_context():
-        init_db()
+        db.create_all()
         migrate_settings_to_companies()
         ensure_invoice_template_column()
         print("Database initialization and migrations completed")
+
+def init_app(app):
+    with app.app_context():
+        init_db()
 
 def get_setting(key, default=None):
     db = get_db()
@@ -616,23 +615,38 @@ def download_invoice(invoice_number):
     return response
 
 def migrate_settings_to_companies():
-    conn = get_db()
-    users = conn.execute('SELECT id FROM users').fetchall()
-    for user in users:
-        user_id = user['id']
-        name = conn.execute('SELECT value FROM settings WHERE user_id = ? AND key = ?', (user_id, 'company_name')).fetchone()
-        address = conn.execute('SELECT value FROM settings WHERE user_id = ? AND key = ?', (user_id, 'company_address')).fetchone()
-        email = conn.execute('SELECT value FROM settings WHERE user_id = ? AND key = ?', (user_id, 'company_email')).fetchone()
-        phone = conn.execute('SELECT value FROM settings WHERE user_id = ? AND key = ?', (user_id, 'company_phone')).fetchone()
-        logo = conn.execute('SELECT value FROM settings WHERE user_id = ? AND key = ?', (user_id, 'logo_path')).fetchone()
-        # Only migrate if company_name exists and not already in companies
-        if name and not conn.execute('SELECT 1 FROM companies WHERE user_id = ? AND name = ?', (user_id, name['value'])).fetchone():
-            conn.execute(
-                'INSERT INTO companies (user_id, name, address, email, phone, logo_path) VALUES (?, ?, ?, ?, ?, ?)',
-                (user_id, name['value'], address['value'] if address else '', email['value'] if email else '', phone['value'] if phone else '', logo['value'] if logo else '')
+    """Migrate settings to companies table"""
+    try:
+        # Get all users
+        users = db.session.query(User).all()
+        
+        for user in users:
+            # Check if user already has a company
+            existing_company = db.session.query(Business).filter_by(user_id=user.id).first()
+            if existing_company:
+                continue
+                
+            # Get user settings
+            settings = db.session.query(Setting).filter_by(user_id=user.id).all()
+            settings_dict = {s.key: s.value for s in settings}
+            
+            # Create new company
+            company = Business(
+                user_id=user.id,
+                name=settings_dict.get('company_name', ''),
+                address=settings_dict.get('company_address', ''),
+                email=settings_dict.get('company_email', ''),
+                phone=settings_dict.get('company_phone', ''),
+                logo_path=settings_dict.get('logo_path', '')
             )
-    conn.commit()
-    conn.close()
+            db.session.add(company)
+            
+        db.session.commit()
+        print("Settings migration completed successfully")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error during settings migration: {str(e)}")
+        raise
 
 def ensure_invoice_template_column():
     conn = get_db()
@@ -1379,9 +1393,7 @@ def remove_client(client_id):
     finally:
         conn.close()
 
-# Initialize the app
-init_app(app)
-
 if __name__ == '__main__':
+    init_app(app)
     # Start the application
     app.run(debug=True, port=8080) 
