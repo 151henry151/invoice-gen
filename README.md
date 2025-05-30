@@ -200,16 +200,51 @@ The Invoice Generator uses a single HTML (Jinja2) template for invoice generatio
    cd invoice-gen
    ```
 
-2. **Create and activate a virtual environment:**
+2. **Set up the virtual environment:**
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
    pip install -r requirements.txt
    ```
+
+3. **Database Migrations**
+
+   The project uses Alembic for database migrations. Here's how to work with migrations:
+
+   a. **Initial Setup**
+   ```bash
+   # The migrations directory is already set up in the project
+   # To create a new migration after model changes:
+   flask db migrate -m "Description of changes"
+   
+   # To apply pending migrations:
+   flask db upgrade
+   ```
+
+   b. **Common Migration Commands**
+   ```bash
+   # View migration history
+   flask db history
+   
+   # Downgrade to a specific version
+   flask db downgrade <revision_id>
+   
+   # Upgrade to the latest version
+   flask db upgrade
+   ```
+
+   c. **Migration Best Practices**
+   - Always create a new migration when making model changes
+   - Test migrations both up and down before committing
+   - Include meaningful descriptions in migration messages
+   - Review generated migration files before applying them
+   - Back up your database before running migrations in production
+
+   d. **Troubleshooting**
+   - If migrations fail, check the error message and the migration file
+   - Use `flask db current` to see the current migration version
+   - Use `flask db heads` to see the latest migration version
+   - If needed, you can manually edit migration files before applying them
 
 4. **Run the development server:**
    ```bash
@@ -395,6 +430,52 @@ This application is designed to be deployed behind a reverse proxy (like Nginx) 
 - All configuration is handled in `app.py` and `templates/index.html`.
 - Static assets (CSS, JS, images) are in the `static/` directory.
 - For PDF export, ensure WeasyPrint is installed and configured if used.
+
+## Database Migrations
+
+This project uses Flask-Migrate (Alembic) to manage database migrations. This allows you to evolve your database schema over time without losing data.
+
+### Initial Setup
+
+If you need to reset the migration environment (e.g., during development or if the migration state is corrupted), follow these steps:
+
+1. **Backup and Reset Migrations:**
+   - Inside the Docker container, run:
+     ```sh
+     mv /app/migrations /app/migrations_backup_$(date +%Y%m%d_%H%M%S)
+     flask db init
+     ```
+   - This creates a fresh `migrations/` directory with a new `alembic.ini`.
+
+2. **Configure the Database URL:**
+   - Ensure that the `sqlalchemy.url` in `/app/migrations/alembic.ini` points to your database. For example:
+     ```ini
+     [alembic]
+     sqlalchemy.url = sqlite:////app/db/invoice_gen.db
+     ```
+
+3. **Generate and Apply the Initial Migration:**
+   - Run:
+     ```sh
+     flask db migrate -m "Initial migration"
+     flask db upgrade
+     ```
+
+### Making Schema Changes
+
+When you need to update your database schema (e.g., adding a new table or column):
+
+1. **Update your SQLAlchemy models** in `models.py`.
+2. **Generate a new migration:**
+   ```sh
+   flask db migrate -m "Describe your change"
+   ```
+3. **Apply the migration:**
+   ```sh
+   flask db upgrade
+   ```
+
+This workflow ensures that your database schema evolves safely in production without data loss.
 
 ---
 
