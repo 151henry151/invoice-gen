@@ -17,8 +17,8 @@
             <option value="" disabled selected>Edit Item</option>
             <option value="new">Create New Item</option>
             {% for item in items %}
-                <option value="{{ item.id }}" data-description="{{ item.description }}" data-price="{{ item.price }}">
-                    {{ item.description }} - ${{ "%.2f"|format(item.price) }}
+                <option value="{{ item.id }}" data-description="{{ item.description }}" data-price="{{ item.unit_price }}">
+                    {{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}
                 </option>
             {% endfor %}
         </select>
@@ -33,7 +33,7 @@
         
         <div class="dollar-input">
             <span class="dollar-sign">$</span>
-            <input type="number" id="price" name="price" placeholder="Price" value="{{ "%.2f"|format(selected_item.price) if selected_item else '' }}" step="0.01" min="0" required>
+            <input type="number" id="price" name="price" placeholder="Price" value="{{ "%.2f"|format(selected_item.unit_price) if selected_item else '' }}" step="0.01" min="0" required>
         </div>
 
         <button type="submit">Save Item</button>

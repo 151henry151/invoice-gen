@@ -477,6 +477,17 @@ When you need to update your database schema (e.g., adding a new table or column
 
 This workflow ensures that your database schema evolves safely in production without data loss.
 
+### Running Alembic Migrations Inside Docker
+
+To generate and apply a migration inside the Docker environment, use:
+
+```sh
+docker-compose exec web flask db migrate -m "Describe your change"
+docker-compose exec web flask db upgrade
+```
+
+This ensures migrations are run in the same environment as your production app.
+
 ## URL Prefix Configuration
 
 This application is configured to run under the `/invoice` URL prefix (e.g., `https://example.com/invoice/`). This configuration is handled through the WSGI server (Gunicorn) using the `SCRIPT_NAME` environment variable, which is the recommended way to handle URL prefixes in Flask applications.

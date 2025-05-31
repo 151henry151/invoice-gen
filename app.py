@@ -39,6 +39,7 @@ migrate = Migrate(app, db)
 
 # Configure static file serving
 app.static_folder = 'static'
+app.static_url_path = '/invoice/static'  # Update static URL path to include /invoice prefix
 
 # Configure upload settings
 UPLOAD_FOLDER = 'static/uploads'  # Changed from user_logos to uploads
@@ -51,9 +52,6 @@ def url_for_with_prefix(*args, **kwargs):
     kwargs['_external'] = True
     kwargs['_scheme'] = 'https'
     return url_for(*args, **kwargs)
-
-# Override the default url_for
-app.jinja_env.globals.update(url_for=url_for_with_prefix)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -127,6 +125,8 @@ def update_setting(key, value):
         setting = Setting(user_id=session['user_id'], key=key, value=value)
         db.session.add(setting)
     db.session.commit()
+
+app.jinja_env.globals.update(get_setting=get_setting)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -268,152 +268,16 @@ def new_client():
     flash('New client created successfully!', 'success')
     return redirect(url_for_with_prefix('dashboard'))
 
-@app.route('/create_invoice', methods=['POST'])
+@app.route('/create_invoice')
 @login_required
 def create_invoice():
-    try:
-        # Get form data
-        client_id = request.form.get('client_id')
-        company_id = request.form.get('company_id')
-        date = datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
-        due_date = datetime.strptime(request.form.get('due_date'), '%Y-%m-%d').date()
-        notes = request.form.get('notes', '')
-        tax_applies_to = request.form.get('tax_applies_to', 'both')
-        sales_tax_id = request.form.get('sales_tax_id')
-        
-        # Get client and company
-        client = db.session.query(Client).filter_by(id=client_id, user_id=session['user_id']).first()
-        if not client:
-            flash('Client not found')
-            return redirect(url_for_with_prefix('dashboard'))
-        
-        company = db.session.query(Business).filter_by(id=company_id, user_id=session['user_id']).first()
-        if not company:
-            flash('Company not found')
-            return redirect(url_for_with_prefix('dashboard'))
-        
-        # Generate invoice number
-        invoice_number = f"INV-{datetime.now().strftime('%Y%m%d')}-{client.id:04d}"
-        
-        # Create invoice
-        invoice = Invoice(
-            invoice_number=invoice_number,
-            date=date,
-            due_date=due_date,
-            status='draft',
-            notes=notes,
-            business_id=company.id,
-            client_id=client.id,
-            sales_tax_id=sales_tax_id,
-            tax_applies_to=tax_applies_to
-        )
-        db.session.add(invoice)
-        db.session.flush()  # Get the invoice ID without committing
-        
-        # Parse line items from JSON
-        line_items_json = request.form.get('line_items_json', '[]')
-        line_items_data = json.loads(line_items_json)
-        
-        # Calculate totals and create line items
-        subtotal = 0
-        taxable_amount = 0
-        line_items = []
-        
-        for item in line_items_data:
-            if item.get('type') == 'item':
-                quantity = int(item.get('quantity', 1))
-                price = float(item.get('price', 0))
-                total = quantity * price
-                subtotal += total
-                
-                line_items.append({
-                    'date': item.get('date', date),
-                    'description': item.get('description', ''),
-                    'quantity': quantity,
-                    'unit_price': price,
-                    'total': total
-                })
-            elif item.get('type') == 'labor':
-                hours_val = float(item.get('hours', 0))
-                minutes_val = float(item.get('minutes', 0))
-                total_hours = hours_val + (minutes_val / 60)
-                rate = float(item.get('rate', get_setting('hourly_rate', '40.00')))
-                total = total_hours * rate
-                subtotal += total
-                
-                line_items.append({
-                    'date': item.get('date', date),
-                    'description': item.get('description', f"Labor - {int(hours_val)}h {int(minutes_val)}m"),
-                    'hours': total_hours,
-                    'rate': rate,
-                    'total': total
-                })
-            elif item.get('type') == 'note':
-                notes_text = item.get('description', notes_text)
-        
-        # Calculate tax
-        tax_amount = 0
-        if sales_tax_id:
-            sales_tax = db.session.query(SalesTax).filter_by(id=sales_tax_id).first()
-            if sales_tax:
-                for item in line_items:
-                    if (tax_applies_to == 'items' and 'h' not in str(item['quantity'])) or \
-                       (tax_applies_to == 'labor' and 'h' in str(item['quantity'])) or \
-                       tax_applies_to == 'both':
-                        taxable_amount += item['total']
-                tax_amount = taxable_amount * (sales_tax.rate / 100)
-        
-        # Insert line items
-        for item in line_items:
-            if 'hours' in item:  # Labor item
-                line_item = InvoiceLabor(
-                    invoice_id=invoice.id,
-                    description=item['description'],
-                    hours=item['hours'],
-                    rate=item['rate'],
-                    total=item['total'],
-                    date=item['date']
-                )
-            else:  # Regular item
-                line_item = InvoiceItem(
-                    invoice_id=invoice.id,
-                    description=item['description'],
-                    quantity=item['quantity'],
-                    unit_price=item['unit_price'],
-                    total=item['total'],
-                    date=item['date']
-                )
-            db.session.add(line_item)
-        
-        # Update invoice totals
-        invoice.subtotal = subtotal
-        invoice.tax_amount = tax_amount
-        invoice.total = subtotal + tax_amount
-        
-        db.session.commit()
-        
-        # Store invoice data in session for preview
-        session['preview_invoice'] = {
-            'invoice_number': invoice_number,
-            'date': date.isoformat(),
-            'due_date': due_date.isoformat(),
-            'client': client.to_dict(),
-            'company': company.to_dict(),
-            'subtotal': subtotal,
-            'tax_amount': tax_amount,
-            'total': subtotal + tax_amount,
-            'notes': notes,
-            'line_items': line_items,
-            'sales_tax': sales_tax.to_dict() if sales_tax else None,
-            'tax_applies_to': tax_applies_to
-        }
-        
-        return redirect(url_for_with_prefix('preview_invoice'))
-        
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Error creating invoice: {str(e)}')
-        return redirect(url_for_with_prefix('dashboard'))
+    companies = db.session.query(Business).filter_by(user_id=session['user_id']).all()
+    clients = db.session.query(Client).filter_by(user_id=session['user_id']).all()
+    labor_items = db.session.query(LaborItem).filter_by(user_id=session['user_id']).all()
+    items = db.session.query(Item).filter_by(user_id=session['user_id']).all()
+    selected_labor_id = request.args.get('selected_labor_id')
+    selected_item_id = request.args.get('selected_item_id')
+    return render_template('create_invoice.html', companies=companies, clients=clients, labor_items=labor_items, items=items, selected_labor_id=selected_labor_id, selected_item_id=selected_item_id)
 
 @app.route('/preview_invoice')
 @login_required
@@ -701,8 +565,9 @@ def update_labor():
         db.session.add(labor)
     
     db.session.commit()
+    print(f"Labor item saved: {labor.description}, Hours: {labor.hours}, Rate: {labor.rate}")  # Log the saved labor item
     flash('Labor details saved successfully!')
-    return redirect(url_for_with_prefix('labor_details'))
+    return redirect(url_for_with_prefix('create_invoice', selected_labor_id=labor.id))
 
 @app.route('/remove_labor_item', methods=['POST'])
 @login_required
@@ -726,29 +591,34 @@ def item_details():
 def update_item():
     item_id = request.form.get('item_id')
     description = request.form.get('description')
-    quantity = int(request.form.get('quantity', 1))
-    unit_price = float(request.form.get('unit_price', 0))
-    
+    unit_price = float(request.form.get('price', 0))
+    quantity = int(request.form.get('quantity', 1)) if 'quantity' in request.form else 1
+
     if item_id:
         # Update existing item
         item = db.session.query(Item).filter_by(id=item_id, user_id=session['user_id']).first()
         if item:
             item.description = description
-            item.quantity = quantity
             item.unit_price = unit_price
+            item.quantity = quantity
     else:
         # Create new item
         item = Item(
             user_id=session['user_id'],
             description=description,
-            quantity=quantity,
-            unit_price=unit_price
+            unit_price=unit_price,
+            quantity=quantity
         )
         db.session.add(item)
-    
+        db.session.flush()  # Get item.id before commit
     db.session.commit()
     flash('Item details saved successfully!')
-    return redirect(url_for_with_prefix('item_details'))
+    return redirect(url_for_with_prefix(
+        'create_invoice',
+        selected_item_id=item.id,
+        open_dialog='add_item',
+        new_item_id=item.id
+    ))
 
 @app.route('/remove_item', methods=['POST'])
 @login_required
@@ -926,12 +796,18 @@ def clients():
     return render_template('clients.html', clients=clients)
 
 @app.route('/remove_business/<int:business_id>', methods=['POST'])
+@login_required
 def remove_business(business_id):
     business = db.session.query(Business).filter_by(id=business_id, user_id=session['user_id']).first()
     if business:
         db.session.delete(business)
         db.session.commit()
+        if request.is_json or request.headers.get('Content-Type') == 'application/json':
+            return jsonify(success=True)
         flash('Business removed successfully!')
+    else:
+        if request.is_json or request.headers.get('Content-Type') == 'application/json':
+            return jsonify(success=False, error="Business not found"), 404
     return redirect(url_for_with_prefix('businesses'))
 
 @app.route('/remove_client/<int:client_id>', methods=['POST'])
@@ -942,6 +818,48 @@ def remove_client(client_id):
         db.session.commit()
         flash('Client removed successfully!')
     return redirect(url_for_with_prefix('clients'))
+
+@app.route('/business_details', methods=['GET', 'POST'])
+@login_required
+def business_details():
+    business_id = request.args.get('business_id') or request.form.get('business_id')
+    business = None
+    if business_id:
+        business = db.session.query(Business).filter_by(id=business_id, user_id=session['user_id']).first()
+    if request.method == 'POST':
+        name = request.form.get('name')
+        address = request.form.get('address')
+        email = request.form.get('email')
+        phone = request.form.get('phone')
+        logo_path = None
+        if 'logo' in request.files:
+            file = request.files['logo']
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                logo_path = filename
+        if business:
+            business.name = name
+            business.address = address
+            business.email = email
+            business.phone = phone
+            if logo_path:
+                business.logo_path = logo_path
+        else:
+            business = Business(
+                user_id=session['user_id'],
+                name=name,
+                address=address,
+                email=email,
+                phone=phone,
+                logo_path=logo_path
+            )
+            db.session.add(business)
+        db.session.commit()
+        flash('Business saved successfully!')
+        return redirect(url_for_with_prefix('businesses'))
+    return render_template('business_details.html', business=business)
 
 if __name__ == '__main__':
     init_app(app)

@@ -50,6 +50,7 @@ class SalesTax(db.Model):
     __tablename__ = 'sales_tax'
     
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     rate = db.Column(db.Float, nullable=False)
     description = db.Column(db.String(100), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
