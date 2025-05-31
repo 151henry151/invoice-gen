@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, render_template_string, session, g, current_app, jsonify, make_response
 from datetime import datetime, timedelta
-import sqlite3
 import os
 # Removed reportlab imports
 # Removed pandas import
@@ -25,6 +24,7 @@ import glob
 import io
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
+from models import User, Business, Setting, Client, Invoice, SalesTax, Item, LaborItem, InvoiceItem, InvoiceLabor
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -39,13 +39,21 @@ migrate = Migrate(app, db)
 
 # Configure static file serving
 app.static_folder = 'static'
-app.static_url_path = '/static'
 
 # Configure upload settings
 UPLOAD_FOLDER = 'static/uploads'  # Changed from user_logos to uploads
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 MAX_LOGO_SIZE = (200, 200)  # Maximum dimensions for logo
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Custom URL generator to ensure /invoice prefix
+def url_for_with_prefix(*args, **kwargs):
+    kwargs['_external'] = True
+    kwargs['_scheme'] = 'https'
+    return url_for(*args, **kwargs)
+
+# Override the default url_for
+app.jinja_env.globals.update(url_for=url_for_with_prefix)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -80,13 +88,13 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash('Please log in to access this page.')
-            return redirect(url_for('login', _external=True, _scheme='https'))
+            return redirect(url_for_with_prefix('login'))
         return f(*args, **kwargs)
     return decorated_function
 
 # Database setup
 def get_db():
-    return db
+    return db.session
 
 def close_db(e=None):
     pass  # SQLAlchemy handles connection cleanup
@@ -96,33 +104,29 @@ def init_db():
     os.makedirs('/app/db', exist_ok=True)
     with app.app_context():
         db.create_all()
-        migrate_settings_to_companies()
-        ensure_invoice_template_column()
-        print("Database initialization and migrations completed")
+        print("Database initialization completed")
 
 def init_app(app):
     with app.app_context():
         init_db()
 
 def get_setting(key, default=None):
-    db = get_db()
     user_id = session.get('user_id')
     if not user_id:
         return default
-    setting = db.execute(
-        'SELECT value FROM settings WHERE user_id = ? AND key = ?',
-        (user_id, key)
-    ).fetchone()
-    return setting['value'] if setting else default
+    setting = db.session.query(Setting).filter_by(user_id=user_id, key=key).first()
+    return setting.value if setting else default
 
 def update_setting(key, value):
     if 'user_id' not in session:
         return
-    conn = get_db()
-    conn.execute('INSERT OR REPLACE INTO settings (user_id, key, value) VALUES (?, ?, ?)',
-                (session['user_id'], key, value))
-    conn.commit()
-    conn.close()
+    setting = db.session.query(Setting).filter_by(user_id=session['user_id'], key=key).first()
+    if setting:
+        setting.value = value
+    else:
+        setting = Setting(user_id=session['user_id'], key=key, value=value)
+        db.session.add(setting)
+    db.session.commit()
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -146,40 +150,37 @@ def register():
         
         if errors:
             for error in errors:
-                flash(error, 'danger') # Use 'danger' category for error messages
-            return render_template('register.html') # Stay on register page
+                flash(error, 'danger')
+            return render_template('register.html')
 
-        # If validation passes, proceed to create user
-        conn = None # Initialize conn to None
         try:
-            conn = get_db() # Assign conn here
             # Create user
-            hashed_password = generate_password_hash(password) # Hash after validation
-            cursor = conn.cursor()
-            cursor.execute('INSERT INTO users (username, password, email) VALUES (?, ?, ?)',
-                        (username, hashed_password, email))
-            user_id = cursor.lastrowid
+            hashed_password = generate_password_hash(password)
+            user = User(
+                username=username,
+                password=hashed_password,
+                email=email
+            )
+            db.session.add(user)
+            db.session.flush()  # Get the user ID without committing
             
             # Set default settings for new user
             default_settings = [
-                (user_id, 'company_name', 'Your Company Name'),
-                (user_id, 'company_address', 'Your Company Address'),
-                (user_id, 'company_email', 'your.company@example.com'),
-                (user_id, 'hourly_rate', '40.00'),
-                (user_id, 'next_invoice_number', '1001'),
-                (user_id, 'logo_path', '')
+                Setting(user_id=user.id, key='company_name', value='Your Company Name'),
+                Setting(user_id=user.id, key='company_address', value='Your Company Address'),
+                Setting(user_id=user.id, key='company_email', value='your.company@example.com'),
+                Setting(user_id=user.id, key='hourly_rate', value='40.00'),
+                Setting(user_id=user.id, key='next_invoice_number', value='1001'),
+                Setting(user_id=user.id, key='logo_path', value='')
             ]
-            cursor.executemany('INSERT INTO settings (user_id, key, value) VALUES (?, ?, ?)',
-                           default_settings)
+            db.session.add_all(default_settings)
             
-            conn.commit()
-            flash('Registration successful! Please log in.', 'success') # Use 'success' category
-            return redirect(url_for('login'))
-        except sqlite3.IntegrityError:
+            db.session.commit()
+            flash('Registration successful! Please log in.', 'success')
+            return redirect(url_for_with_prefix('login'))
+        except Exception as e:
+            db.session.rollback()
             flash('Username or email already exists.', 'danger')
-        finally:
-            if conn: # Ensure conn is defined before trying to close
-                conn.close()
     
     return render_template('register.html')
 
@@ -189,19 +190,20 @@ def login():
         username_or_email = request.form['username']
         password = request.form['password']
         
-        conn = get_db()
-        user = conn.execute('SELECT * FROM users WHERE username = ? OR email = ?', (username_or_email, username_or_email)).fetchone()
+        user = db.session.query(User).filter(
+            (User.username == username_or_email) | (User.email == username_or_email)
+        ).first()
         
-        if user and check_password_hash(user['password'], password):
-            print(f"[DEBUG] User logged in - ID: {user['id']}, Username: {user['username']}")
-            print(f"[DEBUG] User profile picture path: {user['profile_picture']}")
+        if user and check_password_hash(user.password, password):
+            print(f"[DEBUG] User logged in - ID: {user.id}, Username: {user.username}")
+            print(f"[DEBUG] User profile picture path: {user.profile_picture}")
             
-            session['user_id'] = user['id']
-            session['username'] = user['username']
-            session['profile_picture'] = user['profile_picture']
+            session['user_id'] = user.id
+            session['username'] = user.username
+            session['profile_picture'] = user.profile_picture
             
             print(f"[DEBUG] Session after login - user_id: {session['user_id']}, username: {session['username']}, profile_picture: {session['profile_picture']}")
-            return redirect(url_for('dashboard'))
+            return redirect(url_for_with_prefix('dashboard'))
         
         flash('Invalid username/email or password!')
     return render_template('login.html')
@@ -210,51 +212,41 @@ def login():
 def logout():
     session.clear()
     flash('Logged out successfully.')
-    return redirect(url_for('login'))
+    return redirect(url_for_with_prefix('login'))
 
 @app.route('/')
 def root():
-    return redirect(url_for('invoice_list'))
+    if 'user_id' in session:
+        return redirect(url_for_with_prefix('invoice_list'))
+    return redirect(url_for_with_prefix('login'))
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    conn = get_db()
-    clients = conn.execute('SELECT * FROM clients WHERE user_id = ?', 
-                         (session['user_id'],)).fetchall()
-    labor_items = conn.execute('SELECT * FROM labor_items WHERE user_id = ?',
-                             (session['user_id'],)).fetchall()
-    items = conn.execute('SELECT * FROM items WHERE user_id = ?',
-                        (session['user_id'],)).fetchall()
-    companies = conn.execute('SELECT * FROM companies WHERE user_id = ? AND name != ?',
-                           (session['user_id'], 'Your Company Name')).fetchall()
+    clients = db.session.query(Client).filter_by(user_id=session['user_id']).all()
+    labor_items = db.session.query(LaborItem).filter_by(user_id=session['user_id']).all()
+    items = db.session.query(Item).filter_by(user_id=session['user_id']).all()
+    companies = db.session.query(Business).filter_by(user_id=session['user_id']).all()
     
-    # Get selected company from query parameter or session
-    selected_company_id = request.args.get('selected_company') or session.get('selected_company_id')
-    selected_company = None
+    # Get selected company from query params or session
+    selected_company_id = request.args.get('company_id') or session.get('selected_company_id')
     if selected_company_id:
-        selected_company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?',
-                                      (selected_company_id, session['user_id'])).fetchone()
+        selected_company = db.session.query(Business).filter_by(id=selected_company_id, user_id=session['user_id']).first()
         if selected_company:
-            session['selected_company_id'] = selected_company_id
+            session['selected_company_id'] = selected_company.id
     
-    # Get selected client from query parameter or session
-    selected_client_id = request.args.get('selected_client') or session.get('selected_client_id')
-    selected_client = None
+    # Get selected client from query params or session
+    selected_client_id = request.args.get('client_id') or session.get('selected_client_id')
     if selected_client_id:
-        selected_client = conn.execute('SELECT * FROM clients WHERE id = ? AND user_id = ?',
-                                     (selected_client_id, session['user_id'])).fetchone()
+        selected_client = db.session.query(Client).filter_by(id=selected_client_id, user_id=session['user_id']).first()
         if selected_client:
-            session['selected_client_id'] = selected_client_id
+            session['selected_client_id'] = selected_client.id
     
-    return render_template('index.html', 
-                         clients=clients, 
+    return render_template('dashboard.html',
+                         clients=clients,
                          labor_items=labor_items,
                          items=items,
-                         companies=companies,
-                         selected_company=selected_company,
-                         selected_client=selected_client,
-                         get_setting=get_setting)
+                         companies=companies)
 
 @app.route('/new_client', methods=['POST'])
 @login_required
@@ -264,85 +256,76 @@ def new_client():
     email = request.form['email']
     phone = request.form['phone']
     
-    conn = get_db()
-    conn.execute('INSERT INTO clients (user_id, name, address, email, phone) VALUES (?, ?, ?, ?, ?)',
-                (session['user_id'], name, address, email, phone))
-    conn.commit()
+    client = Client(
+        user_id=session['user_id'],
+        name=name,
+        address=address,
+        email=email,
+        phone=phone
+    )
+    db.session.add(client)
+    db.session.commit()
     flash('New client created successfully!', 'success')
-    return redirect(url_for('dashboard'))
+    return redirect(url_for_with_prefix('dashboard'))
 
 @app.route('/create_invoice', methods=['POST'])
 @login_required
 def create_invoice():
     try:
         # Get form data
-        client_id = request.form['client']
-        date = request.form['date']
-        invoice_number = request.form['invoice_number']
-        output_format = 'pdf'  # Always use PDF now
+        client_id = request.form.get('client_id')
+        company_id = request.form.get('company_id')
+        date = datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
+        due_date = datetime.strptime(request.form.get('due_date'), '%Y-%m-%d').date()
         notes = request.form.get('notes', '')
+        tax_applies_to = request.form.get('tax_applies_to', 'both')
         sales_tax_id = request.form.get('sales_tax_id')
-        tax_applies_to = request.form.get('tax_applies_to')
-
+        
+        # Get client and company
+        client = db.session.query(Client).filter_by(id=client_id, user_id=session['user_id']).first()
+        if not client:
+            flash('Client not found')
+            return redirect(url_for_with_prefix('dashboard'))
+        
+        company = db.session.query(Business).filter_by(id=company_id, user_id=session['user_id']).first()
+        if not company:
+            flash('Company not found')
+            return redirect(url_for_with_prefix('dashboard'))
+        
+        # Generate invoice number
+        invoice_number = f"INV-{datetime.now().strftime('%Y%m%d')}-{client.id:04d}"
+        
+        # Create invoice
+        invoice = Invoice(
+            invoice_number=invoice_number,
+            date=date,
+            due_date=due_date,
+            status='draft',
+            notes=notes,
+            business_id=company.id,
+            client_id=client.id,
+            sales_tax_id=sales_tax_id,
+            tax_applies_to=tax_applies_to
+        )
+        db.session.add(invoice)
+        db.session.flush()  # Get the invoice ID without committing
+        
         # Parse line items from JSON
         line_items_json = request.form.get('line_items_json', '[]')
         line_items_data = json.loads(line_items_json)
-
-        # Get client information from database
-        conn = get_db()
-        client = conn.execute('SELECT * FROM clients WHERE id = ? AND user_id = ?',
-                            (client_id, session['user_id'])).fetchone()
-        if not client:
-            flash('Client not found', 'danger')
-            return redirect(url_for('dashboard'))
-
-        # Get business info from selected company
-        company_id = session.get('selected_company_id')
-        if company_id:
-            company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?', (company_id, session['user_id'])).fetchone()
-            if company:
-                business_name = company['name']
-                business_address = company['address']
-                business_phone = company['phone']
-                business_email = company['email']
-                logo_path = company['logo_path']
-                if logo_path:
-                    # Check if logo exists in the upload folder
-                    full_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], logo_path)
-                    if os.path.exists(full_logo_path) and os.path.isfile(full_logo_path):
-                        logo_url = os.path.abspath(full_logo_path)  # Use absolute path for PDF generation
-                    else:
-                        print(f"Logo file not found at {full_logo_path}, using default logo")
-                        logo_url = os.path.abspath(os.path.join(app.static_folder, 'default_logo.png'))
-                else:
-                    logo_url = os.path.abspath(os.path.join(app.static_folder, 'default_logo.png'))
-        else:
-            business_name = get_setting('business_name', 'Business Name')
-            business_address = get_setting('business_address', 'Business Address')
-            business_phone = get_setting('business_phone', 'Business Phone')
-            business_email = get_setting('business_email', 'Business Email')
-            logo_path = get_setting('logo_path')
-            if logo_path:
-                # Check if logo exists in the upload folder
-                full_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], logo_path)
-                if os.path.exists(full_logo_path) and os.path.isfile(full_logo_path):
-                    logo_url = os.path.abspath(full_logo_path)  # Use absolute path for PDF generation
-                else:
-                    print(f"Logo file not found at {full_logo_path}, using default logo")
-                    logo_url = os.path.abspath(os.path.join(app.static_folder, 'default_logo.png'))
-            else:
-                logo_url = os.path.abspath(os.path.join(app.static_folder, 'default_logo.png'))
-
-        # Calculate totals
+        
+        # Calculate totals and create line items
         subtotal = 0
+        taxable_amount = 0
         line_items = []
-        notes_text = notes
+        
         for item in line_items_data:
             if item.get('type') == 'item':
                 quantity = int(item.get('quantity', 1))
                 price = float(item.get('price', 0))
-                total = price * quantity
+                total = quantity * price
                 subtotal += total
+                
                 line_items.append({
                     'date': item.get('date', date),
                     'description': item.get('description', ''),
@@ -353,322 +336,195 @@ def create_invoice():
             elif item.get('type') == 'labor':
                 hours_val = float(item.get('hours', 0))
                 minutes_val = float(item.get('minutes', 0))
-                hours_float = hours_val + (minutes_val / 60)
+                total_hours = hours_val + (minutes_val / 60)
                 rate = float(item.get('rate', get_setting('hourly_rate', '40.00')))
-                total = hours_float * rate
+                total = total_hours * rate
                 subtotal += total
+                
                 line_items.append({
                     'date': item.get('date', date),
                     'description': item.get('description', f"Labor - {int(hours_val)}h {int(minutes_val)}m"),
-                    'quantity': f"{int(hours_val)}h {int(minutes_val)}m",
-                    'unit_price': rate,
+                    'hours': total_hours,
+                    'rate': rate,
                     'total': total
                 })
             elif item.get('type') == 'note':
                 notes_text = item.get('description', notes_text)
-
-        # Calculate sales tax if applicable
-        sales_tax = 0
-        if sales_tax_id and tax_applies_to:
-            tax_rate = conn.execute('SELECT rate FROM sales_tax_rates WHERE id = ?', (sales_tax_id,)).fetchone()
-            if tax_rate:
-                taxable_amount = 0
+        
+        # Calculate tax
+        tax_amount = 0
+        if sales_tax_id:
+            sales_tax = db.session.query(SalesTax).filter_by(id=sales_tax_id).first()
+            if sales_tax:
                 for item in line_items:
                     if (tax_applies_to == 'items' and 'h' not in str(item['quantity'])) or \
                        (tax_applies_to == 'labor' and 'h' in str(item['quantity'])) or \
                        tax_applies_to == 'both':
                         taxable_amount += item['total']
-                sales_tax = taxable_amount * (tax_rate['rate'] / 100)
-
-        grand_total = subtotal + sales_tax
-
-        # Create invoice record
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO invoices (
-                user_id, invoice_number, client_id, date, notes, total,
-                sales_tax_id, tax_applies_to
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            session['user_id'],
-            invoice_number,
-            client_id,
-            date,
-            notes_text,
-            grand_total,
-            sales_tax_id,
-            tax_applies_to
-        ))
-        invoice_id = cursor.lastrowid
-
+                tax_amount = taxable_amount * (sales_tax.rate / 100)
+        
         # Insert line items
         for item in line_items:
-            cursor.execute('''
-                INSERT INTO line_items (
-                    invoice_id, description, quantity, unit_price,
-                    total, date
-                ) VALUES (?, ?, ?, ?, ?, ?)
-            ''', (
-                invoice_id,
-                item['description'],
-                item['quantity'],
-                item['unit_price'],
-                item['total'],
-                item['date']
-            ))
-
-        conn.commit()
-
-        # Prepare data for template
-        invoice_data = {
-            'logo_url': logo_url,
-            'business_name': business_name,
-            'business_address': business_address,
-            'business_phone': business_phone,
-            'business_email': business_email,
-            'client_name': client['name'],
-            'client_address': client['address'],
-            'client_phone': client['phone'],
-            'client_email': client['email'],
-            'invoice_date': date,
-            'invoice_number': invoice_number,
-            'line_items': line_items,
-            'subtotal': subtotal,
-            'sales_tax': sales_tax,
-            'grand_total': grand_total,
-            'notes': notes_text
-        }
-
-        print("INVOICE DATA FOR PDF:", invoice_data)
-
-        if output_format == 'pdf':
-            try:
-                # Render HTML
-                html_content = render_template('invoice_pretty.html', **invoice_data)
-
-                # Generate PDF
-                temp_pdf = None
-                try:
-                    temp_pdf = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
-                    pdf_path = temp_pdf.name
-                    temp_pdf.close()
-
-                    # Use the absolute static directory as base_url
-                    static_dir = os.path.join(app.root_path, 'static')
-                    html = HTML(string=html_content, base_url=static_dir)
-                    html.write_pdf(pdf_path)
-                    
-                    # Send the file and ensure it's deleted after sending
-                    response = send_file(
-                        pdf_path,
-                        as_attachment=True,
-                        download_name=f'invoice_{invoice_number}.pdf',
-                        mimetype='application/pdf'
-                    )
-                    
-                    # Add cleanup callback
-                    @response.call_on_close
-                    def cleanup():
-                        try:
-                            os.unlink(pdf_path)
-                        except Exception as e:
-                            print(f"Error cleaning up temporary PDF file: {str(e)}")
-                    
-                    return response
-                    
-                except Exception as e:
-                    # Clean up the temporary file if it exists
-                    if temp_pdf and os.path.exists(pdf_path):
-                        try:
-                            os.unlink(pdf_path)
-                        except Exception as cleanup_error:
-                            print(f"Error cleaning up temporary PDF file: {str(cleanup_error)}")
-                    raise
-                    
-            except Exception as e:
-                print(f"Error in PDF generation block: {str(e)}")
-                print(f"Error type: {type(e)}")
-                raise
-
-    except Exception as e:
-        flash('An error occurred while generating the invoice: {}'.format(str(e)), 'danger')
-        return redirect(url_for('dashboard'))
-
-@app.route('/preview/<invoice_number>')
-def preview_invoice(invoice_number):
-    conn = get_db()
-    invoice = conn.execute('''
-        SELECT i.*, c.name as client_name, c.address as client_address, c.email as client_email, c.phone as client_phone,
-               co.name as business_name, co.address as business_address, co.email as business_email, co.phone as business_phone,
-               co.logo_path, co.invoice_template
-        FROM invoices i
-        JOIN clients c ON i.client_id = c.id
-        JOIN companies co ON c.user_id = co.user_id
-        WHERE i.invoice_number = ?
-    ''', (invoice_number,)).fetchone()
-    
-    if not invoice:
-        flash('Invoice not found')
-        return redirect(url_for('invoice_list'))
-    
-    line_items = conn.execute('SELECT * FROM line_items WHERE invoice_id = ?', (invoice['id'],)).fetchall()
-    
-    # Calculate totals
-    subtotal = sum(item['total'] for item in line_items)
-    sales_tax = invoice['total'] - subtotal
-    
-    # Get the template path based on the company's preference
-    template_name = invoice['invoice_template'] or 'invoice_pretty'
-    template_path = f'invoice_templates/{template_name}.html'
-    
-    # Check if the template exists, fall back to default if it doesn't
-    if not os.path.exists(os.path.join(app.template_folder, template_path)):
-        template_path = 'invoice_pretty.html'
-    
-    # Get the logo URL
-    logo_url = None
-    if invoice['logo_path']:
-        logo_url = os.path.join(app.static_folder, invoice['logo_path'])
-    
-    return render_template(template_path,
-                         invoice_number=invoice['invoice_number'],
-                         invoice_date=invoice['date'],
-                         client_name=invoice['client_name'],
-                         client_address=invoice['client_address'],
-                         client_phone=invoice['client_phone'],
-                         client_email=invoice['client_email'],
-                         business_name=invoice['business_name'],
-                         business_address=invoice['business_address'],
-                         business_phone=invoice['business_phone'],
-                         business_email=invoice['business_email'],
-                         logo_url=logo_url,
-                         line_items=line_items,
-                         subtotal=subtotal,
-                         sales_tax=sales_tax,
-                         grand_total=invoice['total'],
-                         notes=invoice['notes'])
-
-@app.route('/download/<invoice_number>')
-@login_required
-def download_invoice(invoice_number):
-    conn = get_db()
-    invoice = conn.execute('''
-        SELECT i.*, c.name as client_name, c.address as client_address, c.email as client_email, c.phone as client_phone,
-               co.name as business_name, co.address as business_address, co.email as business_email, co.phone as business_phone,
-               co.logo_path, co.invoice_template
-        FROM invoices i
-        JOIN clients c ON i.client_id = c.id
-        JOIN companies co ON c.user_id = co.user_id
-        WHERE i.invoice_number = ?
-    ''', (invoice_number,)).fetchone()
-    
-    if not invoice:
-        flash('Invoice not found')
-        return redirect(url_for('invoice_list'))
-    
-    line_items = conn.execute('SELECT * FROM line_items WHERE invoice_id = ?', (invoice['id'],)).fetchall()
-    
-    # Calculate totals
-    subtotal = sum(item['total'] for item in line_items)
-    sales_tax = invoice['total'] - subtotal
-    
-    # Get the template path based on the company's preference
-    template_name = invoice['invoice_template'] or 'invoice_pretty'
-    template_path = f'invoice_templates/{template_name}.html'
-    
-    # Check if the template exists, fall back to default if it doesn't
-    if not os.path.exists(os.path.join(app.template_folder, template_path)):
-        template_path = 'invoice_pretty.html'
-    
-    # Get the logo URL
-    logo_url = None
-    if invoice['logo_path']:
-        logo_url = os.path.join(app.static_folder, invoice['logo_path'])
-    
-    # Render the template
-    html_content = render_template(template_path,
-                                 invoice_number=invoice['invoice_number'],
-                                 invoice_date=invoice['date'],
-                                 client_name=invoice['client_name'],
-                                 client_address=invoice['client_address'],
-                                 client_phone=invoice['client_phone'],
-                                 client_email=invoice['client_email'],
-                                 business_name=invoice['business_name'],
-                                 business_address=invoice['business_address'],
-                                 business_phone=invoice['business_phone'],
-                                 business_email=invoice['business_email'],
-                                 logo_url=logo_url,
-                                 line_items=line_items,
-                                 subtotal=subtotal,
-                                 sales_tax=sales_tax,
-                                 grand_total=invoice['total'],
-                                 notes=invoice['notes'])
-    
-    # Create PDF
-    pdf = HTML(string=html_content).write_pdf()
-    
-    # Create response
-    response = make_response(pdf)
-    response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'attachment; filename=invoice_{invoice_number}.pdf'
-    
-    return response
-
-def migrate_settings_to_companies():
-    """Migrate settings to companies table"""
-    try:
-        # Get all users
-        users = db.session.query(User).all()
+            if 'hours' in item:  # Labor item
+                line_item = InvoiceLabor(
+                    invoice_id=invoice.id,
+                    description=item['description'],
+                    hours=item['hours'],
+                    rate=item['rate'],
+                    total=item['total'],
+                    date=item['date']
+                )
+            else:  # Regular item
+                line_item = InvoiceItem(
+                    invoice_id=invoice.id,
+                    description=item['description'],
+                    quantity=item['quantity'],
+                    unit_price=item['unit_price'],
+                    total=item['total'],
+                    date=item['date']
+                )
+            db.session.add(line_item)
         
-        for user in users:
-            # Check if user already has a company
-            existing_company = db.session.query(Business).filter_by(user_id=user.id).first()
-            if existing_company:
-                continue
-                
-            # Get user settings
-            settings = db.session.query(Setting).filter_by(user_id=user.id).all()
-            settings_dict = {s.key: s.value for s in settings}
-            
-            # Create new company
-            company = Business(
-                user_id=user.id,
-                name=settings_dict.get('company_name', ''),
-                address=settings_dict.get('company_address', ''),
-                email=settings_dict.get('company_email', ''),
-                phone=settings_dict.get('company_phone', ''),
-                logo_path=settings_dict.get('logo_path', '')
-            )
-            db.session.add(company)
-            
+        # Update invoice totals
+        invoice.subtotal = subtotal
+        invoice.tax_amount = tax_amount
+        invoice.total = subtotal + tax_amount
+        
         db.session.commit()
-        print("Settings migration completed successfully")
+        
+        # Store invoice data in session for preview
+        session['preview_invoice'] = {
+            'invoice_number': invoice_number,
+            'date': date.isoformat(),
+            'due_date': due_date.isoformat(),
+            'client': client.to_dict(),
+            'company': company.to_dict(),
+            'subtotal': subtotal,
+            'tax_amount': tax_amount,
+            'total': subtotal + tax_amount,
+            'notes': notes,
+            'line_items': line_items,
+            'sales_tax': sales_tax.to_dict() if sales_tax else None,
+            'tax_applies_to': tax_applies_to
+        }
+        
+        return redirect(url_for_with_prefix('preview_invoice'))
+        
     except Exception as e:
         db.session.rollback()
-        print(f"Error during settings migration: {str(e)}")
-        raise
+        flash(f'Error creating invoice: {str(e)}')
+        return redirect(url_for_with_prefix('dashboard'))
 
-def ensure_invoice_template_column():
-    conn = get_db()
+@app.route('/preview_invoice')
+@login_required
+def preview_invoice():
+    invoice_data = session.get('preview_invoice')
+    if not invoice_data:
+        flash('No invoice data found')
+        return redirect(url_for_with_prefix('dashboard'))
+    
+    return render_template('invoice_pretty.html', **invoice_data)
+
+@app.route('/download_invoice/<invoice_id>')
+@login_required
+def download_invoice(invoice_id):
     try:
-        # Check if the column exists
-        cursor = conn.execute("PRAGMA table_info(companies)")
-        columns = [column[1] for column in cursor.fetchall()]
+        # Get invoice data
+        invoice = db.session.query(Invoice).filter_by(id=invoice_id, user_id=session['user_id']).first()
+        if not invoice:
+            flash('Invoice not found')
+            return redirect(url_for_with_prefix('dashboard'))
         
-        if 'invoice_template' not in columns:
-            # Add the column if it doesn't exist
-            conn.execute('ALTER TABLE companies ADD COLUMN invoice_template TEXT DEFAULT "invoice_pretty"')
-            conn.commit()
-            print("Added invoice_template column to companies table")
+        # Get line items
+        line_items = db.session.query(InvoiceItem).filter_by(invoice_id=invoice.id).all()
+        labor_items = db.session.query(InvoiceLabor).filter_by(invoice_id=invoice.id).all()
+        
+        # Calculate subtotal
+        subtotal = sum(item.total for item in line_items) + sum(item.total for item in labor_items)
+        
+        # Get sales tax
+        sales_tax = None
+        tax_amount = 0
+        if invoice.sales_tax_id:
+            sales_tax = db.session.query(SalesTax).filter_by(id=invoice.sales_tax_id).first()
+            if sales_tax:
+                taxable_amount = 0
+                for item in line_items:
+                    if (invoice.tax_applies_to == 'items' and 'h' not in str(item.quantity)) or \
+                       (invoice.tax_applies_to == 'labor' and 'h' in str(item.quantity)) or \
+                       invoice.tax_applies_to == 'both':
+                        taxable_amount += item.total
+                for item in labor_items:
+                    if (invoice.tax_applies_to == 'labor' or invoice.tax_applies_to == 'both'):
+                        taxable_amount += item.total
+                tax_amount = taxable_amount * (sales_tax.rate / 100)
+        
+        # Prepare data for template
+        invoice_data = {
+            'invoice_number': invoice.invoice_number,
+            'date': invoice.date.isoformat(),
+            'due_date': invoice.due_date.isoformat(),
+            'client': invoice.client.to_dict(),
+            'company': invoice.business.to_dict(),
+            'subtotal': subtotal,
+            'tax_amount': tax_amount,
+            'total': subtotal + tax_amount,
+            'notes': invoice.notes,
+            'line_items': [item.to_dict() for item in line_items],
+            'labor_items': [item.to_dict() for item in labor_items],
+            'sales_tax': sales_tax.to_dict() if sales_tax else None,
+            'tax_applies_to': invoice.tax_applies_to
+        }
+        
+        # Render HTML
+        html_content = render_template('invoice_pretty.html', **invoice_data)
+        
+        # Generate PDF
+        temp_pdf = None
+        try:
+            temp_pdf = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+            pdf_path = temp_pdf.name
+            temp_pdf.close()
+            
+            # Use the absolute static directory as base_url
+            static_dir = os.path.join(app.root_path, 'static')
+            html = HTML(string=html_content, base_url=static_dir)
+            html.write_pdf(pdf_path)
+            
+            # Send the file and ensure it's deleted after sending
+            response = send_file(
+                pdf_path,
+                as_attachment=True,
+                download_name=f'invoice_{invoice.invoice_number}.pdf',
+                mimetype='application/pdf'
+            )
+            
+            # Add cleanup callback
+            @response.call_on_close
+            def cleanup():
+                try:
+                    os.unlink(pdf_path)
+                except Exception as e:
+                    print(f"Error cleaning up temporary PDF file: {str(e)}")
+            
+            return response
+            
+        except Exception as e:
+            # Clean up the temporary file if it exists
+            if temp_pdf and os.path.exists(pdf_path):
+                try:
+                    os.unlink(pdf_path)
+                except Exception as cleanup_error:
+                    print(f"Error cleaning up temporary PDF file: {str(cleanup_error)}")
+            raise
+            
     except Exception as e:
-        print(f"Error ensuring invoice_template column: {str(e)}")
-    finally:
-        conn.close()
+        flash(f'Error generating invoice: {str(e)}')
+        return redirect(url_for_with_prefix('dashboard'))
 
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings():
-    conn = get_db()
     if request.method == 'POST':
         company_id = request.form.get('company_id')
         name = request.form.get('name')
@@ -694,53 +550,48 @@ def settings():
                     logo_path = filename
                 else:
                     flash('Error processing logo image.')
-                    return redirect(url_for('settings'))
+                    return redirect(url_for_with_prefix('settings'))
         
         try:
             if company_id:
                 # Update existing company
-                update_data = {
-                    'name': name,
-                    'address': address,
-                    'email': email,
-                    'phone': phone,
-                    'invoice_template': invoice_template
-                }
-                if logo_path:
-                    update_data['logo_path'] = logo_path
-                
-                placeholders = ', '.join([f"{k} = ?" for k in update_data.keys()])
-                query = f"UPDATE companies SET {placeholders} WHERE id = ? AND user_id = ?"
-                values = list(update_data.values()) + [company_id, session['user_id']]
-                
-                conn.execute(query, values)
+                company = db.session.query(Business).filter_by(id=company_id, user_id=session['user_id']).first()
+                if company:
+                    company.name = name
+                    company.address = address
+                    company.email = email
+                    company.phone = phone
+                    company.invoice_template = invoice_template
+                    if logo_path:
+                        company.logo_path = logo_path
             else:
                 # Create new company
-                cursor = conn.execute(
-                    'INSERT INTO companies (user_id, name, address, email, phone, logo_path, invoice_template) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                    (session['user_id'], name, address, email, phone, logo_path, invoice_template)
+                company = Business(
+                    user_id=session['user_id'],
+                    name=name,
+                    address=address,
+                    email=email,
+                    phone=phone,
+                    logo_path=logo_path,
+                    invoice_template=invoice_template
                 )
-                new_company_id = cursor.lastrowid
-                conn.commit()
-                flash('Company details saved successfully!')
-                return redirect(url_for('dashboard', selected_company=new_company_id))
+                db.session.add(company)
             
-            conn.commit()
+            db.session.commit()
             flash('Company details saved successfully!')
-            return redirect(url_for('dashboard'))
+            return redirect(url_for_with_prefix('dashboard'))
         except Exception as e:
             flash(f'Error saving company details: {str(e)}')
-            return redirect(url_for('settings'))
+            return redirect(url_for_with_prefix('settings'))
     
     # Get companies for the current user
-    companies = conn.execute('SELECT * FROM companies WHERE user_id = ?', (session['user_id'],)).fetchall()
+    companies = db.session.query(Business).filter_by(user_id=session['user_id']).all()
     
     # Get selected company from query parameter or session
     selected_company_id = request.args.get('company_id') or session.get('selected_company_id')
     selected_company = None
     if selected_company_id:
-        selected_company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?',
-                                      (selected_company_id, session['user_id'])).fetchone()
+        selected_company = db.session.query(Business).filter_by(id=selected_company_id, user_id=session['user_id']).first()
     
     return render_template('settings.html', companies=companies, selected_company=selected_company)
 
@@ -750,14 +601,11 @@ def client_details():
     client_id = request.args.get('client_id')
     is_new = request.args.get('new') == 'true'
     
-    conn = get_db()
-    clients = conn.execute('SELECT * FROM clients WHERE user_id = ?', 
-                         (session['user_id'],)).fetchall()
+    clients = db.session.query(Client).filter_by(user_id=session['user_id']).all()
     
     selected_client = None
     if client_id and not is_new:
-        selected_client = conn.execute('SELECT * FROM clients WHERE id = ? AND user_id = ?',
-                                    (client_id, session['user_id'])).fetchone()
+        selected_client = db.session.query(Client).filter_by(id=client_id, user_id=session['user_id']).first()
     
     return render_template('client_details.html', clients=clients, selected_client=selected_client, is_new=is_new)
 
@@ -770,24 +618,28 @@ def update_client():
     email = request.form.get('email')
     phone = request.form.get('phone')
     
-    conn = get_db()
     if client_id:
         # Update existing client
-        conn.execute('''UPDATE clients 
-                       SET name = ?, address = ?, email = ?, phone = ?
-                       WHERE id = ? AND user_id = ?''',
-                    (name, address, email, phone, client_id, session['user_id']))
-        selected_client_id = client_id
+        client = db.session.query(Client).filter_by(id=client_id, user_id=session['user_id']).first()
+        if client:
+            client.name = name
+            client.address = address
+            client.email = email
+            client.phone = phone
     else:
         # Create new client
-        cursor = conn.execute('''INSERT INTO clients (user_id, name, address, email, phone)
-                       VALUES (?, ?, ?, ?, ?)''',
-                    (session['user_id'], name, address, email, phone))
-        selected_client_id = cursor.lastrowid
+        client = Client(
+            user_id=session['user_id'],
+            name=name,
+            address=address,
+            email=email,
+            phone=phone
+        )
+        db.session.add(client)
     
-    conn.commit()
+    db.session.commit()
     flash('Client details saved successfully!', 'success')
-    return redirect(url_for('dashboard', selected_client=selected_client_id))
+    return redirect(url_for_with_prefix('dashboard', selected_client=client.id))
 
 @app.route('/update_company', methods=['POST'])
 @login_required
@@ -797,399 +649,249 @@ def update_company():
     company_email = request.form.get('company_email')
     hourly_rate = request.form.get('hourly_rate')
     
-    # Update company settings
-    update_setting('company_name', company_name)
-    update_setting('company_address', company_address)
-    update_setting('company_email', company_email)
-    update_setting('hourly_rate', hourly_rate)
+    company = db.session.query(Business).filter_by(user_id=session['user_id']).first()
+    if company:
+        company.name = company_name
+        company.address = company_address
+        company.email = company_email
+        company.hourly_rate = hourly_rate
+    else:
+        company = Business(
+            user_id=session['user_id'],
+            name=company_name,
+            address=company_address,
+            email=company_email,
+            hourly_rate=hourly_rate
+        )
+        db.session.add(company)
     
-    # Handle logo upload
-    if 'logo' in request.files:
-        file = request.files['logo']
-        if file and file.filename and allowed_file(file.filename):
-            # Create logos directory if it doesn't exist
-            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-            
-            filename = secure_filename(f"{session['user_id']}_{file.filename}")
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-            update_setting('logo_path', filename)
-    
+    db.session.commit()
     flash('Company details saved successfully!')
-    return redirect(url_for('dashboard'))
+    return redirect(url_for_with_prefix('dashboard'))
 
 @app.route('/labor_details')
 @login_required
 def labor_details():
-    item_id = request.args.get('item_id')
-    is_new = request.args.get('new') == 'true'
-    
-    conn = get_db()
-    labor_items = conn.execute('SELECT * FROM labor_items WHERE user_id = ?', 
-                         (session['user_id'],)).fetchall()
-    
-    selected_item = None
-    if item_id and not is_new:
-        selected_item = conn.execute('SELECT * FROM labor_items WHERE id = ? AND user_id = ?',
-                                    (item_id, session['user_id'])).fetchone()
-    
-    return render_template('labor_details.html', labor_items=labor_items, selected_item=selected_item, is_new=is_new)
+    labor_items = db.session.query(LaborItem).filter_by(user_id=session['user_id']).all()
+    return render_template('labor_details.html', labor_items=labor_items)
 
 @app.route('/update_labor', methods=['POST'])
 @login_required
 def update_labor():
-    item_id = request.form.get('item_id')
+    labor_id = request.form.get('labor_id')
     description = request.form.get('description')
-    rate = request.form.get('rate')
+    hours = float(request.form.get('hours', 0))
+    rate = float(request.form.get('rate', 0))
     
-    conn = get_db()
-    if item_id:
+    if labor_id:
         # Update existing labor item
-        conn.execute('''UPDATE labor_items 
-                       SET description = ?, rate = ?
-                       WHERE id = ? AND user_id = ?''',
-                    (description, rate, item_id, session['user_id']))
-        new_id = item_id
+        labor = db.session.query(LaborItem).filter_by(id=labor_id, user_id=session['user_id']).first()
+        if labor:
+            labor.description = description
+            labor.hours = hours
+            labor.rate = rate
     else:
         # Create new labor item
-        cursor = conn.execute('''INSERT INTO labor_items (user_id, description, rate, hours)
-                       VALUES (?, ?, ?, ?)''',
-                    (session['user_id'], description, rate, 0))
-        new_id = cursor.lastrowid
+        labor = LaborItem(
+            user_id=session['user_id'],
+            description=description,
+            hours=hours,
+            rate=rate
+        )
+        db.session.add(labor)
     
-    conn.commit()
-    flash('Labor item saved successfully!')
-    return redirect(url_for('dashboard', open_dialog='add_labor', new_labor_id=new_id))
+    db.session.commit()
+    flash('Labor details saved successfully!')
+    return redirect(url_for_with_prefix('labor_details'))
 
 @app.route('/remove_labor_item', methods=['POST'])
 @login_required
 def remove_labor_item():
-    data = request.get_json()
-    item_id = data.get('item_id')
-    
-    if not item_id:
-        return jsonify({'success': False, 'error': 'No item ID provided'})
-    
-    conn = get_db()
-    try:
-        conn.execute('DELETE FROM labor_items WHERE id = ? AND user_id = ?',
-                    (item_id, session['user_id']))
-        conn.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+    labor_id = request.form.get('labor_id')
+    labor = db.session.query(LaborItem).filter_by(id=labor_id, user_id=session['user_id']).first()
+    if labor:
+        db.session.delete(labor)
+        db.session.commit()
+    flash('Labor item removed successfully!')
+    return redirect(url_for_with_prefix('labor_details'))
 
 @app.route('/item_details')
 @login_required
 def item_details():
-    item_id = request.args.get('item_id')
-    is_new = request.args.get('new') == 'true'
-    
-    conn = get_db()
-    items = conn.execute('SELECT * FROM items WHERE user_id = ?', 
-                        (session['user_id'],)).fetchall()
-    
-    selected_item = None
-    if item_id and not is_new:
-        selected_item = conn.execute('SELECT * FROM items WHERE id = ? AND user_id = ?',
-                                   (item_id, session['user_id'])).fetchone()
-    
-    return render_template('item_details.html', items=items, selected_item=selected_item, is_new=is_new)
+    items = db.session.query(Item).filter_by(user_id=session['user_id']).all()
+    return render_template('item_details.html', items=items)
 
 @app.route('/update_item', methods=['POST'])
 @login_required
 def update_item():
     item_id = request.form.get('item_id')
     description = request.form.get('description')
-    price = request.form.get('price')
+    quantity = int(request.form.get('quantity', 1))
+    unit_price = float(request.form.get('unit_price', 0))
     
-    conn = get_db()
     if item_id:
         # Update existing item
-        conn.execute('''UPDATE items 
-                       SET description = ?, price = ?
-                       WHERE id = ? AND user_id = ?''',
-                    (description, price, item_id, session['user_id']))
-        new_id = item_id
+        item = db.session.query(Item).filter_by(id=item_id, user_id=session['user_id']).first()
+        if item:
+            item.description = description
+            item.quantity = quantity
+            item.unit_price = unit_price
     else:
         # Create new item
-        cursor = conn.execute('''INSERT INTO items (user_id, description, price, quantity)
-                       VALUES (?, ?, ?, ?)''',
-                    (session['user_id'], description, price, 1))
-        new_id = cursor.lastrowid
+        item = Item(
+            user_id=session['user_id'],
+            description=description,
+            quantity=quantity,
+            unit_price=unit_price
+        )
+        db.session.add(item)
     
-    conn.commit()
-    flash('Item saved successfully!')
-    return redirect(url_for('dashboard', open_dialog='add_item', new_item_id=new_id))
+    db.session.commit()
+    flash('Item details saved successfully!')
+    return redirect(url_for_with_prefix('item_details'))
 
 @app.route('/remove_item', methods=['POST'])
 @login_required
 def remove_item():
-    data = request.get_json()
-    item_id = data.get('item_id')
-    
-    if not item_id:
-        return jsonify({'success': False, 'error': 'No item ID provided'})
-    
-    conn = get_db()
-    try:
-        conn.execute('DELETE FROM items WHERE id = ? AND user_id = ?',
-                    (item_id, session['user_id']))
-        conn.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+    item_id = request.form.get('item_id')
+    item = db.session.query(Item).filter_by(id=item_id, user_id=session['user_id']).first()
+    if item:
+        db.session.delete(item)
+        db.session.commit()
+        flash('Item removed successfully!')
+    return redirect(url_for_with_prefix('item_details'))
 
 @app.route('/get_company/<int:company_id>')
 @login_required
 def get_company(company_id):
-    conn = get_db()
-    company = conn.execute('SELECT * FROM companies WHERE id = ? AND user_id = ?',
-                         (company_id, session['user_id'])).fetchone()
+    company = db.session.query(Business).filter_by(id=company_id, user_id=session['user_id']).first()
     if company:
         return jsonify({
-            'name': company['name'],
-            'address': company['address'],
-            'email': company['email'],
-            'phone': company['phone'],
-            'logo_path': company['logo_path']
+            'name': company.name,
+            'address': company.address,
+            'email': company.email,
+            'phone': company.phone,
+            'logo_path': company.logo_path
         })
     return jsonify({'error': 'Company not found'}), 404
 
 @app.route('/get_client/<int:client_id>')
 @login_required
 def get_client(client_id):
-    conn = get_db()
-    client = conn.execute('SELECT * FROM clients WHERE id = ? AND user_id = ?',
-                         (client_id, session['user_id'])).fetchone()
+    client = db.session.query(Client).filter_by(id=client_id, user_id=session['user_id']).first()
     if client:
         return jsonify({
-            'name': client['name'],
-            'address': client['address'],
-            'email': client['email'],
-            'phone': client['phone']
+            'name': client.name,
+            'address': client.address,
+            'email': client.email,
+            'phone': client.phone
         })
     return jsonify({'error': 'Client not found'}), 404
 
 @app.route('/check_invoice_number/<invoice_number>')
 @login_required
 def check_invoice_number(invoice_number):
-    conn = get_db()
-    # Check if the invoice number exists in the database
-    invoice = conn.execute('SELECT id FROM invoices WHERE invoice_number = ? AND user_id = ?',
-                         (invoice_number, session['user_id'])).fetchone()
+    invoice = db.session.query(Invoice).filter_by(invoice_number=invoice_number, user_id=session['user_id']).first()
     return jsonify({'exists': invoice is not None})
 
 @app.route('/save_selections', methods=['POST'])
 @login_required
 def save_selections():
-    data = request.get_json()
-    if data:
-        if 'businessId' in data:
-            session['selected_company_id'] = data['businessId']
-        if 'clientId' in data:
-            session['selected_client_id'] = data['clientId']
+    business_id = request.form.get('businessId')
+    client_id = request.form.get('clientId')
+    
+    session['selected_company_id'] = business_id
+    session['selected_client_id'] = client_id
+    
     return jsonify({'success': True})
 
 @app.route('/api/sales-tax', methods=['GET'])
 @login_required
 def get_sales_tax_rates():
-    conn = get_db()
-    rates = conn.execute('SELECT * FROM sales_tax_rates ORDER BY description').fetchall()
+    tax_rates = db.session.query(SalesTax).filter_by(user_id=session['user_id']).all()
     return jsonify([{
-        'id': rate['id'],
-        'rate': rate['rate'],
-        'description': rate['description']
-    } for rate in rates])
+        'id': tax.id,
+        'rate': tax.rate,
+        'description': tax.description
+    } for tax in tax_rates])
 
 @app.route('/api/sales-tax', methods=['DELETE'])
 @login_required
 def delete_all_sales_tax_rates():
-    conn = get_db()
-    try:
-        # Delete all tax rates
-        conn.execute('DELETE FROM sales_tax_rates')
-        conn.commit()
-        return jsonify({'message': 'All tax rates have been cleared'}), 200
-    except sqlite3.Error as e:
-        conn.rollback()
-        return jsonify({'error': 'Database error occurred'}), 500
+    db.session.query(SalesTax).filter_by(user_id=session['user_id']).delete()
+    db.session.commit()
+    return jsonify({'message': 'All sales tax rates deleted'})
 
 @app.route('/api/sales-tax', methods=['POST'])
 @login_required
 def create_sales_tax_rate():
-    data = request.get_json()
-    print("Received data:", data)  # Debug log
+    rate = request.form.get('rate')
+    description = request.form.get('description')
     
-    if not data or 'rate' not in data or 'description' not in data:
-        print("Missing required fields. Data:", data)  # Debug log
-        return jsonify({'error': 'Missing required fields'}), 400
+    tax_rate = SalesTax(
+        user_id=session['user_id'],
+        rate=rate,
+        description=description
+    )
+    db.session.add(tax_rate)
+    db.session.commit()
     
-    try:
-        rate = float(data['rate'])
-        if rate < 0:
-            print("Invalid rate value (negative):", rate)  # Debug log
-            return jsonify({'error': 'Rate must be positive'}), 400
-    except ValueError as e:
-        print("Invalid rate value:", data['rate'], "Error:", str(e))  # Debug log
-        return jsonify({'error': 'Invalid rate value'}), 400
-    
-    conn = get_db()
-    try:
-        # Check for duplicate description
-        existing = conn.execute('SELECT id FROM sales_tax_rates WHERE description = ?', 
-                              (data['description'],)).fetchone()
-        if existing:
-            print("Duplicate description found:", data['description'])  # Debug log
-            return jsonify({'error': 'A tax rate with this description already exists'}), 400
-        
-        # Insert new tax rate
-        cursor = conn.execute('INSERT INTO sales_tax_rates (user_id, rate, description) VALUES (?, ?, ?)',
-                            (session['user_id'], rate, data['description']))
-        conn.commit()
-        
-        # Get the newly created tax rate
-        new_rate = conn.execute('SELECT * FROM sales_tax_rates WHERE id = ?', 
-                              (cursor.lastrowid,)).fetchone()
-        
-        print("Successfully created tax rate:", new_rate)  # Debug log
-        return jsonify({
-            'id': new_rate['id'],
-            'rate': new_rate['rate'],
-            'description': new_rate['description']
-        }), 201
-        
-    except sqlite3.Error as e:
-        print("Database error:", str(e))  # Debug log
-        conn.rollback()
-        return jsonify({'error': 'Database error occurred'}), 500
+    return jsonify({
+        'id': tax_rate.id,
+        'rate': tax_rate.rate,
+        'description': tax_rate.description
+    })
 
 @app.route('/api/invoice/<int:invoice_id>/sales-tax', methods=['PUT'])
 @login_required
 def update_invoice_sales_tax(invoice_id):
-    data = request.get_json()
+    sales_tax_id = request.form.get('sales_tax_id')
+    tax_applies_to = request.form.get('tax_applies_to')
     
-    if not data or 'sales_tax_id' not in data or 'tax_applies_to' not in data:
-        return jsonify({'error': 'Missing required fields'}), 400
-    
-    if data['tax_applies_to'] not in ['items', 'labor', 'both']:
-        return jsonify({'error': 'Invalid tax_applies_to value'}), 400
-    
-    conn = get_db()
-    try:
-        # Check if invoice exists and belongs to user
-        invoice = conn.execute('SELECT id FROM invoices WHERE id = ? AND user_id = ?',
-                             (invoice_id, session['user_id'])).fetchone()
-        if not invoice:
-            return jsonify({'error': 'Invoice not found'}), 404
+    invoice = db.session.query(Invoice).filter_by(id=invoice_id, user_id=session['user_id']).first()
+    if invoice:
+        invoice.sales_tax_id = sales_tax_id
+        invoice.tax_applies_to = tax_applies_to
+        db.session.commit()
         
-        # Check if sales tax rate exists
-        tax_rate = conn.execute('SELECT id FROM sales_tax_rates WHERE id = ?',
-                              (data['sales_tax_id'],)).fetchone()
-        if not tax_rate:
-            return jsonify({'error': 'Sales tax rate not found'}), 404
-        
-        # Update invoice with sales tax information
-        conn.execute('''
-            UPDATE invoices 
-            SET sales_tax_id = ?, tax_applies_to = ?
-            WHERE id = ? AND user_id = ?
-        ''', (data['sales_tax_id'], data['tax_applies_to'], invoice_id, session['user_id']))
-        
-        conn.commit()
-        
-        # Get updated invoice data
-        updated_invoice = conn.execute('''
-            SELECT i.*, st.rate as tax_rate, st.description as tax_description
-            FROM invoices i
-            LEFT JOIN sales_tax_rates st ON i.sales_tax_id = st.id
-            WHERE i.id = ? AND i.user_id = ?
-        ''', (invoice_id, session['user_id'])).fetchone()
-        
+        tax_rate = db.session.query(SalesTax).filter_by(id=sales_tax_id).first()
         return jsonify({
-            'id': updated_invoice['id'],
-            'sales_tax_id': updated_invoice['sales_tax_id'],
-            'tax_applies_to': updated_invoice['tax_applies_to'],
-            'tax_rate': updated_invoice['tax_rate'],
-            'tax_description': updated_invoice['tax_description']
+            'id': invoice.id,
+            'sales_tax_id': invoice.sales_tax_id,
+            'tax_applies_to': invoice.tax_applies_to,
+            'tax_rate': tax_rate.rate if tax_rate else None,
+            'tax_description': tax_rate.description if tax_rate else None
         })
-        
-    except sqlite3.Error as e:
-        conn.rollback()
-        return jsonify({'error': 'Database error occurred'}), 500
+    return jsonify({'error': 'Invoice not found'}), 404
 
-@app.route('/invoices')
+@app.route('/invoice_list')
 @login_required
 def invoice_list():
-    conn = get_db()
-    invoices = conn.execute('''
-        SELECT i.*, c.name as client_name
-        FROM invoices i
-        JOIN clients c ON i.client_id = c.id
-        WHERE i.user_id = ?
-        ORDER BY i.date DESC
-    ''', (session['user_id'],)).fetchall()
-    if not invoices:
-        return redirect(url_for('dashboard'))
+    # Get all invoices for the user
+    invoices = db.session.query(Invoice).filter_by(user_id=session['user_id']).all()
+    
+    # Get all clients and companies for the user
+    clients = db.session.query(Client).filter_by(user_id=session['user_id']).all()
+    companies = db.session.query(Business).filter_by(user_id=session['user_id']).all()
+    
+    # Create dictionaries for quick lookup
+    client_dict = {client.id: client for client in clients}
+    company_dict = {company.id: company for company in companies}
+    
+    # Add client and company names to each invoice
+    for invoice in invoices:
+        invoice.client_name = client_dict.get(invoice.client_id, Client()).name
+        invoice.company_name = company_dict.get(invoice.business_id, Business()).name
+    
     return render_template('invoice_list.html', invoices=invoices)
 
 @app.route('/invoice/<invoice_number>')
 @login_required
 def view_invoice(invoice_number):
-    conn = get_db()
-    
-    # Get invoice details
-    invoice = conn.execute('''
-        SELECT i.*, c.name as client_name, c.address as client_address, 
-               c.email as client_email, c.phone as client_phone
-        FROM invoices i
-        JOIN clients c ON i.client_id = c.id
-        WHERE i.invoice_number = ? AND i.user_id = ?
-    ''', (invoice_number, session['user_id'])).fetchone()
-    
-    if not invoice:
-        flash('Invoice not found', 'danger')
-        return redirect(url_for('invoice_list'))
-    
-    # Get company info for the current user
-    company = conn.execute('''
-        SELECT name, address, email, phone FROM companies WHERE user_id = ? LIMIT 1
-    ''', (session['user_id'],)).fetchone()
-    
-    # Get line items
-    line_items = conn.execute('''
-        SELECT * FROM line_items
-        WHERE invoice_id = ?
-        ORDER BY date
-    ''', (invoice['id'],)).fetchall()
-    
-    # Calculate totals
-    subtotal = sum(item['total'] for item in line_items)
-    sales_tax = 0
-    if invoice['sales_tax_id']:
-        tax_rate = conn.execute('SELECT rate FROM sales_tax_rates WHERE id = ?',
-                              (invoice['sales_tax_id'],)).fetchone()
-        if tax_rate:
-            taxable_amount = 0
-            for item in line_items:
-                if (invoice['tax_applies_to'] == 'items' and 'h' not in str(item['quantity'])) or \
-                   (invoice['tax_applies_to'] == 'labor' and 'h' in str(item['quantity'])) or \
-                   invoice['tax_applies_to'] == 'both':
-                    taxable_amount += item['total']
-            sales_tax = taxable_amount * (tax_rate['rate'] / 100)
-    
-    grand_total = subtotal + sales_tax
-    
-    return render_template('view_invoice.html',
-                         invoice=invoice,
-                         company=company,
-                         line_items=line_items,
-                         subtotal=subtotal,
-                         sales_tax=sales_tax,
-                         grand_total=grand_total,
-                         notes=invoice['notes'])
+    invoice = db.session.query(Invoice).filter_by(invoice_number=invoice_number, user_id=session['user_id']).first()
+    if invoice:
+        return render_template('view_invoice.html', invoice=invoice)
+    return redirect(url_for_with_prefix('invoice_list'))
 
 @app.route('/edit_profile', methods=['GET', 'POST'])
 @login_required
@@ -1197,107 +899,16 @@ def edit_profile():
     if request.method == 'POST':
         username = request.form.get('username')
         email = request.form.get('email')
-        current_password = request.form.get('current_password')
-        new_password = request.form.get('new_password')
-        profile_picture = request.files.get('profile_picture')
         
-        print(f"[DEBUG] Profile update request - Username: {username}, Email: {email}")
-        print(f"[DEBUG] Profile picture in request: {profile_picture is not None}")
-        
-        conn = get_db()
-        try:
-            # Check if username is already taken by another user
-            existing_user = conn.execute('SELECT id FROM users WHERE username = ? AND id != ?',
-                                      (username, session['user_id'])).fetchone()
-            if existing_user:
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return jsonify({'success': False, 'message': 'Username already taken'})
-                flash('Username already taken')
-                return redirect(url_for('edit_profile'))
-            
-            # Check if email is already taken by another user
-            existing_email = conn.execute('SELECT id FROM users WHERE email = ? AND id != ?',
-                                       (email, session['user_id'])).fetchone()
-            if existing_email:
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return jsonify({'success': False, 'message': 'Email already taken'})
-                flash('Email already taken')
-                return redirect(url_for('edit_profile'))
-            
-            # Handle profile picture upload
-            profile_picture_path = None
-            if profile_picture and profile_picture.filename:
-                print(f"[DEBUG] Processing profile picture upload - Filename: {profile_picture.filename}")
-                
-                # Create uploads directory if it doesn't exist
-                upload_dir = os.path.join(app.root_path, 'static', 'uploads')
-                os.makedirs(upload_dir, exist_ok=True)
-                print(f"[DEBUG] Upload directory: {upload_dir}")
-                
-                # Generate unique filename
-                filename = secure_filename(profile_picture.filename)
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                unique_filename = f"{timestamp}_{filename}"
-                print(f"[DEBUG] Generated unique filename: {unique_filename}")
-                
-                # Save the file
-                filepath = os.path.join(upload_dir, unique_filename)
-                profile_picture.save(filepath)
-                print(f"[DEBUG] Saved file to: {filepath}")
-                
-                # Store only the filename in the database (no 'uploads/' prefix)
-                # logo_path is already just the filename
-                
-                conn.execute('UPDATE users SET profile_picture = ? WHERE id = ?',
-                           (filename, session['user_id']))
-                
-                # Update session with filename
-                session['profile_picture'] = filename
-                profile_picture_path = filename
-                print(f"[DEBUG] Updated session with profile picture path: {filename}")
-            
-            # Update username and email
-            conn.execute('UPDATE users SET username = ?, email = ? WHERE id = ?',
-                       (username, email, session['user_id']))
-            
-            # Handle password change if provided
-            if current_password and new_password:
-                user = conn.execute('SELECT password FROM users WHERE id = ?',
-                                  (session['user_id'],)).fetchone()
-                if not check_password_hash(user['password'], current_password):
-                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                        return jsonify({'success': False, 'message': 'Current password is incorrect'})
-                    flash('Current password is incorrect')
-                    return redirect(url_for('edit_profile'))
-                
-                conn.execute('UPDATE users SET password = ? WHERE id = ?',
-                           (generate_password_hash(new_password), session['user_id']))
-            
-            conn.commit()
-            
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({
-                    'success': True,
-                    'message': 'Profile updated successfully',
-                    'profile_picture': url_for('static', filename=profile_picture_path) if profile_picture_path else None
-                })
-            
-            flash('Profile updated successfully')
-            return redirect(url_for('dashboard'))
-            
-        except Exception as e:
-            print(f"[ERROR] Exception during profile update: {str(e)}")
-            conn.rollback()
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({'success': False, 'message': f'Error updating profile: {str(e)}'})
-            flash(f'Error updating profile: {str(e)}')
-            return redirect(url_for('edit_profile'))
+        user = db.session.query(User).filter_by(id=session['user_id']).first()
+        if user:
+            user.username = username
+            user.email = email
+            db.session.commit()
+            flash('Profile updated successfully!')
+        return redirect(url_for_with_prefix('dashboard'))
     
-    # GET request - show edit form
-    conn = get_db()
-    user = conn.execute('SELECT username, email, profile_picture FROM users WHERE id = ?',
-                       (session['user_id'],)).fetchone()
-    print(f"[DEBUG] Loading edit profile page - User data: {dict(user)}")
+    user = db.session.query(User).filter_by(id=session['user_id']).first()
     return render_template('edit_profile.html', user=user)
 
 @app.context_processor
@@ -1306,92 +917,31 @@ def inject_app_root():
 
 @app.route('/businesses')
 def businesses():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    conn = get_db()
-    businesses = conn.execute('''
-        SELECT * FROM companies 
-        WHERE user_id = (SELECT id FROM users WHERE username = ?)
-        ORDER BY name
-    ''', (session['username'],)).fetchall()
-    conn.close()
-    
+    businesses = db.session.query(Business).filter_by(user_id=session['user_id']).all()
     return render_template('businesses.html', businesses=businesses)
 
 @app.route('/clients')
 def clients():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    conn = get_db()
-    clients = conn.execute('''
-        SELECT * FROM clients 
-        WHERE user_id = (SELECT id FROM users WHERE username = ?)
-        ORDER BY name
-    ''', (session['username'],)).fetchall()
-    conn.close()
-    
+    clients = db.session.query(Client).filter_by(user_id=session['user_id']).all()
     return render_template('clients.html', clients=clients)
 
 @app.route('/remove_business/<int:business_id>', methods=['POST'])
 def remove_business(business_id):
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'error': 'Not logged in'})
-    
-    conn = get_db()
-    try:
-        # First check if this business belongs to the current user
-        business = conn.execute('''
-            SELECT * FROM companies 
-            WHERE id = ? AND user_id = ?
-        ''', (business_id, session['user_id'])).fetchone()
-        
-        if not business:
-            return jsonify({'success': False, 'error': 'Business not found or unauthorized'})
-        
-        # Delete the business
-        conn.execute('DELETE FROM companies WHERE id = ?', (business_id,))
-        conn.commit()
-        
-        # If there was a logo, delete it from the filesystem
-        if business['logo_path']:
-            try:
-                os.remove(os.path.join(app.static_folder, business['logo_path']))
-            except OSError:
-                pass  # Ignore if file doesn't exist
-        
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-    finally:
-        conn.close()
+    business = db.session.query(Business).filter_by(id=business_id, user_id=session['user_id']).first()
+    if business:
+        db.session.delete(business)
+        db.session.commit()
+        flash('Business removed successfully!')
+    return redirect(url_for_with_prefix('businesses'))
 
 @app.route('/remove_client/<int:client_id>', methods=['POST'])
 def remove_client(client_id):
-    if 'username' not in session:
-        return jsonify({'success': False, 'error': 'Not logged in'})
-    
-    conn = get_db()
-    try:
-        # First check if this client belongs to the current user
-        client = conn.execute('''
-            SELECT * FROM clients 
-            WHERE id = ? AND user_id = (SELECT id FROM users WHERE username = ?)
-        ''', (client_id, session['username'])).fetchone()
-        
-        if not client:
-            return jsonify({'success': False, 'error': 'Client not found or unauthorized'})
-        
-        # Delete the client
-        conn.execute('DELETE FROM clients WHERE id = ?', (client_id,))
-        conn.commit()
-        
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-    finally:
-        conn.close()
+    client = db.session.query(Client).filter_by(id=client_id, user_id=session['user_id']).first()
+    if client:
+        db.session.delete(client)
+        db.session.commit()
+        flash('Client removed successfully!')
+    return redirect(url_for_with_prefix('clients'))
 
 if __name__ == '__main__':
     init_app(app)

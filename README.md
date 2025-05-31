@@ -477,6 +477,66 @@ When you need to update your database schema (e.g., adding a new table or column
 
 This workflow ensures that your database schema evolves safely in production without data loss.
 
+## URL Prefix Configuration
+
+This application is configured to run under the `/invoice` URL prefix (e.g., `https://example.com/invoice/`). This configuration is handled through the WSGI server (Gunicorn) using the `SCRIPT_NAME` environment variable, which is the recommended way to handle URL prefixes in Flask applications.
+
+### How it works
+
+1. The `SCRIPT_NAME` environment variable is set in `docker-compose.yml`:
+   ```yaml
+   environment:
+     - SCRIPT_NAME=/invoice
+   ```
+
+2. Nginx is configured to pass this prefix to Gunicorn in `nginx/conf.d/hromp.com.conf`:
+   ```nginx
+   location /invoice/ {
+       proxy_pass http://172.20.0.2:8080;  # No trailing slash to preserve prefix
+       proxy_set_header SCRIPT_NAME /invoice;
+       # ... other proxy settings ...
+   }
+   ```
+
+### Changing the URL Prefix
+
+To serve the application under a different URL prefix or without a prefix:
+
+1. Update the `SCRIPT_NAME` environment variable in `docker-compose.yml`:
+   - For a different prefix (e.g., `/billing`): `SCRIPT_NAME=/billing`
+   - For no prefix: Remove the `SCRIPT_NAME` line entirely
+
+2. Update the Nginx configuration in `nginx/conf.d/hromp.com.conf`:
+   - For a different prefix:
+     ```nginx
+     location /billing/ {
+         proxy_pass http://172.20.0.2:8080;
+         proxy_set_header SCRIPT_NAME /billing;
+         # ... other proxy settings ...
+     }
+     ```
+   - For no prefix:
+     ```nginx
+     location / {
+         proxy_pass http://172.20.0.2:8080;
+         # Remove the SCRIPT_NAME header
+         # ... other proxy settings ...
+     }
+     ```
+
+3. Restart both services:
+   ```bash
+   systemctl restart nginx
+   docker-compose down && docker-compose up -d
+   ```
+
+### Important Notes
+
+- The Flask application itself doesn't need to know about the URL prefix - it's handled entirely by the WSGI server and reverse proxy
+- All URLs in templates should use `url_for()` to generate links, which will automatically include the correct prefix
+- Static files are automatically handled through the `SCRIPT_NAME` configuration
+- The application will work correctly whether served from the root path or any prefix
+
 ---
 
 For questions or contributions, please open an issue or pull request on [GitHub](https://github.com/151henry151/invoice-gen). 

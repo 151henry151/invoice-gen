@@ -1,12 +1,16 @@
-#!/bin/sh
-set -e
-echo "Checking for invoices table in /app/db/invoice_gen.db..."
-if ! sqlite3 /app/db/invoice_gen.db "SELECT name FROM sqlite_master WHERE type='table' AND name='invoices';" | grep -q invoices; then
-  echo "Initializing database schema..."
-  python -c "from app import init_db; init_db()"
-  echo "Schema initialization complete. Tables in /app/db/invoice_gen.db:"
-  sqlite3 /app/db/invoice_gen.db ".tables"
+#!/bin/bash
+
+# Check if the database file exists
+if [ ! -f /app/db/invoice_gen.db ]; then
+    echo "Database file not found. Initializing database..."
+    # Initialize the database
+    flask db init
+    flask db migrate -m "Initial migration"
+    flask db upgrade
 else
-  echo "Invoices table already exists."
+    echo "Database file exists. Running migrations..."
+    flask db upgrade
 fi
-exec gunicorn --bind 0.0.0.0:8080 --workers 4 --timeout 120 wsgi:application 
+
+# Start the application
+exec gunicorn --bind 0.0.0.0:8080 wsgi:application 

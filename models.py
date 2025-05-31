@@ -87,12 +87,14 @@ class Invoice(db.Model):
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
     sales_tax_id = db.Column(db.Integer, db.ForeignKey('sales_tax.id'), nullable=True)
     tax_applies_to = db.Column(db.String(20), nullable=True)  # 'items', 'labor', or 'both'
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     
     # Relationships
     business = db.relationship('Business', backref='invoices')
     client = db.relationship('Client', backref='invoices')
     items = db.relationship('InvoiceItem', backref='invoice', cascade='all, delete-orphan')
     labor_items = db.relationship('InvoiceLabor', backref='invoice', cascade='all, delete-orphan')
+    user = db.relationship('User', backref='invoices')
     
     def __repr__(self):
         return f'<Invoice {self.invoice_number}>'
@@ -163,6 +165,62 @@ class Setting(db.Model):
             'user_id': self.user_id,
             'key': self.key,
             'value': self.value,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
+
+class Item(db.Model):
+    __tablename__ = 'items'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    description = db.Column(db.String(200), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+    unit_price = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = db.relationship('User', backref='items')
+    
+    def __repr__(self):
+        return f'<Item {self.description}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'description': self.description,
+            'quantity': self.quantity,
+            'unit_price': self.unit_price,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
+
+class LaborItem(db.Model):
+    __tablename__ = 'labor_items'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    description = db.Column(db.String(200), nullable=False)
+    hours = db.Column(db.Float, nullable=False)
+    rate = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = db.relationship('User', backref='labor_items')
+    
+    def __repr__(self):
+        return f'<LaborItem {self.description}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'description': self.description,
+            'hours': self.hours,
+            'rate': self.rate,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         } 

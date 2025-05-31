@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3'
 
 services:
   web:
@@ -19,13 +19,21 @@ services:
       - FLASK_ENV=production
       - SECRET_KEY=your-secure-secret-key-here
       - DATABASE_URL=sqlite:///db/invoice_gen.db
+      - SCRIPT_NAME=/invoice
     restart: unless-stopped
+    networks:
+      - invoice_network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/static/css/style.css"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    command: gunicorn --bind 0.0.0.0:8080 app:app
+
+networks:
+  invoice_network:
+    driver: bridge
 
 volumes:
   invoice_db_data:
