@@ -9,22 +9,32 @@
                 <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th>Invoice #</th>
-                            <th>Date</th>
-                            <th>Client</th>
-                            <th>Total</th>
-                            <th>Actions</th>
+                            <th class="invoice-header-label">Invoice #</th>
+                            <th class="desktop-date">Date</th>
+                            <th class="desktop-client">Client</th>
+                            <th class="desktop-total">Total</th>
+                            <th class="desktop-actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for invoice in invoices %}
                         <tr>
-                            <td>{{ invoice.invoice_number }}</td>
-                            <td>{{ invoice.date }}</td>
-                            <td>{{ invoice.client_name }}</td>
-                            <td>${{ "%.2f"|format(invoice.total) }}</td>
-                            <td>
-                                <div class="btn-group">
+                            <td class="invoice-number-cell">
+                                <div class="mobile-invoice-details">
+                                    <div class="mobile-invoice-number"><span class="mobile-label">Invoice #:</span> {{ invoice.invoice_number }}</div>
+                                    <div><span class="mobile-label">Date:</span> {{ invoice.date }}</div>
+                                    <div><span class="mobile-label">Client:</span> {{ invoice.client_name }}</div>
+                                    <div><span class="mobile-label">Total:</span> ${{ "%.2f"|format(invoice.total) }}</div>
+                                    <div class="mobile-btn-group">
+                                        <a href="{{ url_for('view_invoice', invoice_number=invoice.invoice_number) }}" class="btn btn-sm btn-outline-primary" title="View Invoice"><i class="fas fa-eye"></i></a><a href="{{ url_for('download_invoice', invoice_number=invoice.invoice_number) }}" class="btn btn-sm btn-outline-success" title="Download Invoice"><i class="fas fa-download"></i></a><form action="{{ url_for('delete_invoice', invoice_number=invoice.invoice_number) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete invoice #{{ invoice.invoice_number }}? This action cannot be undone.');"><button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Invoice"><i class="fas fa-trash"></i></button></form>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="desktop-date">{{ invoice.date }}</td>
+                            <td class="desktop-client">{{ invoice.client_name }}</td>
+                            <td class="desktop-total">${{ "%.2f"|format(invoice.total) }}</td>
+                            <td class="desktop-actions">
+                                <div class="btn-group invoice-btn-group">
                                     <a href="{{ url_for('view_invoice', invoice_number=invoice.invoice_number) }}" 
                                        class="btn btn-sm btn-outline-primary" 
                                        title="View Invoice">
@@ -35,6 +45,16 @@
                                        title="Download Invoice">
                                         <i class="fas fa-download"></i>
                                     </a>
+                                    <form action="{{ url_for('delete_invoice', invoice_number=invoice.invoice_number) }}" 
+                                          method="POST" 
+                                          style="display: inline;"
+                                          onsubmit="return confirm('Are you sure you want to delete invoice #{{ invoice.invoice_number }}? This action cannot be undone.');">
+                                        <button type="submit" 
+                                                class="btn btn-sm btn-outline-danger" 
+                                                title="Delete Invoice">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
@@ -108,8 +128,23 @@
         white-space: nowrap;
     }
     
+    .table .btn-group form {
+        display: inline-block;
+        vertical-align: middle;
+        margin: 0;
+        padding: 0;
+    }
+    
     .table .btn-group .btn {
         margin: 0 2px;
+        border-radius: 8px !important;
+        height: 38px;
+        min-width: 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        vertical-align: middle;
     }
     
     .table .btn-group .btn:first-child {
@@ -118,6 +153,130 @@
     
     .table .btn-group .btn:last-child {
         margin-right: 0;
+    }
+    
+    .table .btn-group .btn + form {
+        margin-left: 4px;
+    }
+    
+    .invoice-number-cell {
+        vertical-align: top;
+    }
+    .invoice-number-text {
+        font-weight: bold;
+        display: block;
+    }
+    .mobile-invoice-details {
+        display: none;
+        font-size: 0.9em;
+        color: var(--text-muted, #888);
+        margin-top: 2px;
+        margin-bottom: 2px;
+        background: rgba(0,0,0,0.03);
+        border-radius: 4px;
+        padding: 2px 6px;
+    }
+    .mobile-invoice-number {
+        font-size: 0.95em;
+        color: var(--text-muted, #888);
+        font-weight: 600;
+        margin-bottom: 0;
+    }
+    .mobile-label {
+        font-weight: 600;
+        margin-right: 4px;
+    }
+    .mobile-btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        margin-top: 4px;
+        align-items: center;
+    }
+    .mobile-btn-group form {
+        display: flex;
+        align-items: center;
+        margin: 0;
+        padding: 0;
+        border: none;
+        background: none;
+    }
+    .mobile-btn-group .btn {
+        font-size: 0.85em;
+        height: 32px;
+        min-width: 32px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        vertical-align: middle;
+    }
+    .invoice-number-cell {
+        min-width: 90px;
+        max-width: 120px;
+        word-break: break-all;
+    }
+    @media (max-width: 600px) {
+        .invoice-header-label {
+            display: none;
+        }
+        th:nth-child(2), td.desktop-date,
+        th:nth-child(3), td.desktop-client,
+        th:nth-child(4), td.desktop-total,
+        th:nth-child(5), td.desktop-actions {
+            display: none;
+        }
+        .mobile-invoice-details {
+            display: block;
+            font-size: 0.90em;
+            margin-top: 2px;
+            margin-bottom: 2px;
+            padding: 2px 4px 4px 4px;
+        }
+        .mobile-invoice-details > div {
+            margin-bottom: 0.1em;
+            line-height: 1.2;
+        }
+        .mobile-invoice-number {
+            font-size: 0.95em;
+            color: var(--text-muted, #888);
+            font-weight: 600;
+            margin-bottom: 0;
+        }
+        .mobile-label {
+            font-weight: 600;
+            margin-right: 4px;
+        }
+        .mobile-btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            margin-top: 4px;
+            align-items: center;
+        }
+        .mobile-btn-group form {
+            display: flex;
+            align-items: center;
+            margin: 0;
+            padding: 0;
+            border: none;
+            background: none;
+        }
+        .mobile-btn-group .btn {
+            font-size: 0.85em;
+            height: 32px;
+            min-width: 32px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+        }
+        .invoice-number-cell {
+            min-width: 90px;
+            max-width: 120px;
+            word-break: break-all;
+        }
     }
 </style>
 {% endblock %} 

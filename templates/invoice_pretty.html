@@ -140,7 +140,7 @@
 <div class="invoice-container">
     <div class="header">
         {% if company and company.logo_path %}
-        <img src="file://{{ company.logo_path }}" alt="Business Logo" class="logo">
+        <img src="/invoice/uploads/{{ company.logo_path }}" alt="Business Logo" class="logo">
         {% endif %}
         <div class="business-info">
             <h2>{{ company.name }}</h2>

@@ -16,7 +16,7 @@
                 <div class="card-body">
                     {% if business.logo_path %}
                     <div class="text-center mb-3">
-                        <img src="{{ APP_ROOT }}/uploads/{{ business.logo_path }}" 
+                        <img src="/invoice/uploads/{{ business.logo_path }}" 
                              alt="{{ business.name }} logo" 
                              class="img-fluid rounded" 
                              style="max-height: 100px;">
@@ -123,17 +123,61 @@
         gap: 0.5rem;
     }
 
+    /* Custom modal styling for delete confirmation */
     .modal-content {
-        background-color: var(--card-bg);
-        color: var(--text-color);
+        background: #fff;
+        color: #222;
+        border-radius: 16px;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        padding: 0;
+        position: relative;
     }
-
+    .modal-header, .modal-footer {
+        border: none;
+        background: transparent;
+    }
     .modal-header {
-        border-bottom-color: var(--border-color);
+        border-bottom: 1px solid #e0e0e0;
+        border-radius: 16px 16px 0 0;
+        padding-top: 1.2rem;
+        padding-bottom: 0.7rem;
     }
-
     .modal-footer {
-        border-top-color: var(--border-color);
+        border-top: 1px solid #e0e0e0;
+        border-radius: 0 0 16px 16px;
+        padding-bottom: 1.2rem;
+        padding-top: 0.7rem;
+    }
+    .modal-body {
+        background: #fff;
+        color: #222;
+        padding: 1.5rem 1.5rem 1rem 1.5rem;
+    }
+    .modal-title {
+        font-weight: 600;
+        font-size: 1.3rem;
+    }
+    .btn-close {
+        filter: none;
+    }
+    .modal.fade .modal-dialog {
+        display: flex;
+        align-items: center;
+        min-height: 100vh;
+        justify-content: center;
+    }
+    .modal-dialog {
+        margin: 0 auto;
+        max-width: 400px;
+    }
+    @media (max-width: 600px) {
+        .modal-dialog {
+            max-width: 95vw;
+        }
+        .modal-content {
+            border-radius: 12px;
+        }
     }
 </style>
 
@@ -144,7 +188,7 @@ function confirmDelete(businessId, businessName) {
     
     const confirmBtn = document.getElementById('confirmDeleteBtn');
     confirmBtn.onclick = function() {
-        fetch(`/remove_business/${businessId}`, {
+        fetch("{{ app_root }}/remove_business/" + businessId, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

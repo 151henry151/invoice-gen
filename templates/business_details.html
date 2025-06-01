@@ -29,10 +29,19 @@
             <input type="text" id="address" name="address" placeholder="Address" value="{{ selected_business.address if selected_business else '' }}" required>
             <input type="email" id="email" name="email" placeholder="Email" value="{{ selected_business.email if selected_business else '' }}">
             <input type="tel" id="phone" name="phone" placeholder="Phone Number" value="{{ selected_business.phone if selected_business else '' }}" required>
+            
+            <div class="mb-3">
+                <label for="invoice_template">Invoice Template:</label>
+                <select id="invoice_template" name="invoice_template" class="form-control">
+                    <option value="invoice_pretty" {% if selected_business and selected_business.invoice_template == 'invoice_pretty' %}selected{% endif %}>Pretty</option>
+                    <option value="invoice_template" {% if selected_business and selected_business.invoice_template == 'invoice_template' %}selected{% endif %}>Classic</option>
+                </select>
+            </div>
+            
             {% if selected_business and selected_business.logo_path %}
                 <div class="mb-2" id="logo-preview-container">
                     <label>Current Logo:</label><br>
-                    <img id="logo-preview" src="{{ APP_ROOT }}/uploads/{{ selected_business.logo_path }}" alt="Business Logo" style="max-height: 100px;">
+                    <img id="logo-preview" src="/invoice/uploads/{{ selected_business.logo_path }}" alt="Business Logo" style="max-height: 100px;">
                 </div>
             {% else %}
                 <div class="mb-2" id="logo-preview-container" style="display:none;">

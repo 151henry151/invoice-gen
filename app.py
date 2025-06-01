@@ -445,65 +445,26 @@ def download_invoice(invoice_number):
 def settings():
     if request.method == 'POST':
         company_id = request.form.get('company_id')
-        name = request.form.get('name')
-        address = request.form.get('address')
-        email = request.form.get('email')
-        phone = request.form.get('phone')
-        invoice_template = request.form.get('invoice_template', 'invoice_pretty')
-        
-        # Handle logo upload
-        logo_path = None
-        if 'logo' in request.files:
-            file = request.files['logo']
-            if file and file.filename and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                # Create a unique filename
-                timestamp = int(time.time())
-                filename = f"{timestamp}_{filename}"
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(filepath)
-                
-                # Resize the logo
-                if resize_logo(filepath):
-                    logo_path = filename
-                else:
-                    flash('Error processing logo image.')
-                    return redirect(url_for_with_prefix('settings'))
+        invoice_template = request.form.get('invoice_template')
         
         try:
             if company_id:
                 # Update existing company
                 company = db.session.query(Business).filter_by(id=company_id, user_id=session['user_id']).first()
                 if company:
-                    company.name = name
-                    company.address = address
-                    company.email = email
-                    company.phone = phone
                     company.invoice_template = invoice_template
-                    if logo_path:
-                        company.logo_path = logo_path
+                    db.session.commit()
+                    flash('Invoice template updated successfully!')
+                    next_url = request.form.get('next')
+                    if next_url:
+                        return redirect(next_url)
+                    return redirect(url_for('businesses'))
             else:
-                # Create new company
-                company = Business(
-                    user_id=session['user_id'],
-                    name=name,
-                    address=address,
-                    email=email,
-                    phone=phone,
-                    logo_path=logo_path,
-                    invoice_template=invoice_template
-                )
-                db.session.add(company)
-            
-            db.session.commit()
-            flash('Company details saved successfully!')
-            next_url = request.form.get('next')
-            if next_url:
-                return redirect(next_url)
-            return redirect(url_for('businesses'))
+                flash('No business selected')
+                return redirect(url_for('settings'))
         except Exception as e:
-            flash(f'Error saving company details: {str(e)}')
-            return redirect(url_for_with_prefix('settings'))
+            flash(f'Error updating invoice template: {str(e)}')
+            return redirect(url_for('settings'))
     
     # Get companies for the current user
     companies = db.session.query(Business).filter_by(user_id=session['user_id']).all()
@@ -577,6 +538,8 @@ def update_company():
     address = request.form.get('address')
     email = request.form.get('email')
     phone = request.form.get('phone')
+    invoice_template = request.form.get('invoice_template', 'invoice_pretty')
+    
     # Handle logo upload
     logo_path = None
     if 'logo' in request.files:
@@ -604,6 +567,7 @@ def update_company():
             company.address = address
             company.email = email
             company.phone = phone
+            company.invoice_template = invoice_template
             if logo_path:
                 company.logo_path = logo_path
     else:
@@ -613,7 +577,8 @@ def update_company():
             address=address,
             email=email,
             phone=phone,
-            logo_path=logo_path
+            logo_path=logo_path,
+            invoice_template=invoice_template
         )
         db.session.add(company)
         db.session.flush()  # Get the new company ID
@@ -962,13 +927,18 @@ def clients():
     return render_template('clients.html', clients=clients)
 
 @app.route('/remove_business/<int:business_id>', methods=['POST'])
+@login_required
 def remove_business(business_id):
-    business = db.session.query(Business).filter_by(id=business_id, user_id=session['user_id']).first()
-    if business:
-        db.session.delete(business)
-        db.session.commit()
-        flash('Business removed successfully!')
-    return redirect(url_for_with_prefix('businesses'))
+    try:
+        business = db.session.query(Business).filter_by(id=business_id, user_id=session['user_id']).first()
+        if business:
+            db.session.delete(business)
+            db.session.commit()
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'error': 'Business not found'}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/remove_client/<int:client_id>', methods=['POST'])
 def remove_client(client_id):
@@ -983,17 +953,19 @@ def remove_client(client_id):
 @login_required
 def business_details():
     if request.method == 'POST':
-        # Handle new business creation
+        # Get form data
+        business_id = request.form.get('business_id')
         name = request.form.get('name')
         address = request.form.get('address')
         email = request.form.get('email')
         phone = request.form.get('phone')
+        invoice_template = request.form.get('invoice_template', 'invoice_pretty')
         
         # Handle logo upload
         logo_path = None
         if 'logo' in request.files:
             file = request.files['logo']
-            if file and allowed_file(file.filename):
+            if file and file.filename and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
                 # Create a unique filename
                 timestamp = int(time.time())
@@ -1001,20 +973,42 @@ def business_details():
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(filepath)
                 # Resize the logo
-                resize_logo(filepath)
-                logo_path = filename
+                if resize_logo(filepath):
+                    logo_path = filename
+                else:
+                    flash('Error processing logo image.')
+                    if business_id:
+                        return redirect(url_for('business_details', business_id=business_id))
+                    else:
+                        return redirect(url_for('business_details', new='true'))
         
-        # Create new business
-        business = Business(
-            user_id=session['user_id'],
-            name=name,
-            address=address,
-            email=email,
-            phone=phone,
-            logo_path=logo_path
-        )
-        db.session.add(business)
-        db.session.commit()
+        if business_id:
+            # Update existing business
+            business = db.session.query(Business).filter_by(id=business_id, user_id=session['user_id']).first()
+            if business:
+                business.name = name
+                business.address = address
+                business.email = email
+                business.phone = phone
+                business.invoice_template = invoice_template
+                if logo_path:
+                    business.logo_path = logo_path
+                db.session.commit()
+                flash('Business details updated successfully!')
+        else:
+            # Create new business
+            business = Business(
+                user_id=session['user_id'],
+                name=name,
+                address=address,
+                email=email,
+                phone=phone,
+                logo_path=logo_path,
+                invoice_template=invoice_template
+            )
+            db.session.add(business)
+            db.session.commit()
+            flash('New business created successfully!')
         
         # Handle redirection based on source
         source = request.form.get('source')
@@ -1040,6 +1034,26 @@ def business_details():
 @login_required
 def serve_upload(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/delete_invoice/<invoice_number>', methods=['POST'])
+@login_required
+def delete_invoice(invoice_number):
+    try:
+        # Get the invoice
+        invoice = db.session.query(Invoice).filter_by(invoice_number=invoice_number, user_id=session['user_id']).first()
+        if not invoice:
+            flash('Invoice not found', 'danger')
+            return redirect(url_for_with_prefix('invoice_list'))
+        
+        # Delete the invoice (cascade will handle related items)
+        db.session.delete(invoice)
+        db.session.commit()
+        flash('Invoice deleted successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting invoice: {str(e)}', 'danger')
+    
+    return redirect(url_for_with_prefix('invoice_list'))
 
 if __name__ == '__main__':
     # Start the application
