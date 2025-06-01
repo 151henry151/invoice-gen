@@ -65,6 +65,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    width: 100%;
     margin-bottom: 20px;
 }
 
@@ -979,6 +980,23 @@ form {
   .details-content {
     padding: 0.5rem !important;
   }
+  .logo-upload-info,
+  .file-upload-info {
+    width: 90vw;
+    max-width: 90vw;
+    overflow: hidden;
+    display: block;
+  }
+  .logo-upload-info input[type="file"],
+  .file-upload-info input[type="file"] {
+    width: 90vw;
+    max-width: 100%;
+    box-sizing: border-box;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 [data-theme="dark"] .company-details,
@@ -1110,5 +1128,20 @@ form {
     }
     #invoice-totals .totals-row:last-child {
         margin-bottom: 0 !important;
+    }
+}
+
+.header-logo-container {
+    flex-shrink: 0;
+}
+.header-user-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+@media (max-width: 600px) {
+    .header-user-controls {
+        gap: 6px;
     }
 }

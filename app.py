@@ -443,39 +443,55 @@ def download_invoice(invoice_number):
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings():
+    user = db.session.query(User).filter_by(id=session['user_id']).first()
     if request.method == 'POST':
-        company_id = request.form.get('company_id')
-        invoice_template = request.form.get('invoice_template')
-        
         try:
-            if company_id:
-                # Update existing company
-                company = db.session.query(Business).filter_by(id=company_id, user_id=session['user_id']).first()
-                if company:
-                    company.invoice_template = invoice_template
-                    db.session.commit()
-                    flash('Invoice template updated successfully!')
-                    next_url = request.form.get('next')
-                    if next_url:
-                        return redirect(next_url)
-                    return redirect(url_for('businesses'))
-            else:
-                flash('No business selected')
-                return redirect(url_for('settings'))
-        except Exception as e:
-            flash(f'Error updating invoice template: {str(e)}')
+            username = request.form.get('username')
+            email = request.form.get('email')
+            # Handle profile picture upload
+            if 'profile_picture' in request.files:
+                file = request.files['profile_picture']
+                if file and file.filename and allowed_file(file.filename):
+                    filename = secure_filename(f"profile_{session['user_id']}_{file.filename}")
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(filepath)
+                    user.profile_picture = filename
+            # Handle password change
+            current_password = request.form.get('current_password')
+            new_password = request.form.get('new_password')
+            if username:
+                user.username = username
+            if email:
+                user.email = email
+            if new_password:
+                if not current_password or not check_password_hash(user.password, current_password):
+                    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({'success': False, 'message': 'Current password is incorrect.'})
+                    flash('Current password is incorrect.', 'danger')
+                    return render_template('edit_profile.html', user=user)
+                user.password = generate_password_hash(new_password)
+            db.session.commit()
+            if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                profile_picture_url = url_for('serve_upload', filename=user.profile_picture) if user.profile_picture else ''
+                return jsonify({
+                    'success': True,
+                    'profile_picture': profile_picture_url
+                })
+            flash('Profile updated successfully!')
             return redirect(url_for('settings'))
-    
-    # Get companies for the current user
-    companies = db.session.query(Business).filter_by(user_id=session['user_id']).all()
-    
-    # Get selected company from query parameter or session
-    selected_company_id = request.args.get('company_id') or session.get('selected_company_id')
-    selected_company = None
-    if selected_company_id:
-        selected_company = db.session.query(Business).filter_by(id=selected_company_id, user_id=session['user_id']).first()
-    
-    return render_template('settings.html', companies=companies, selected_company=selected_company)
+        except Exception as e:
+            import traceback
+            error_message = f"{str(e)}\n{traceback.format_exc()}"
+            if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': error_message}), 500
+            flash(f'Error updating profile: {error_message}', 'danger')
+            return render_template('edit_profile.html', user=user)
+    return render_template('edit_profile.html', user=user)
+
+@app.route('/edit_profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    return redirect(url_for('settings'))
 
 @app.route('/client_details')
 @login_required
@@ -528,7 +544,7 @@ def update_client():
         session['selected_client_id'] = client.id
         return redirect(url_for_with_prefix('create_invoice'))
     else:
-        return redirect(url_for_with_prefix('dashboard', selected_client=client.id))
+        return redirect(url_for_with_prefix('clients'))
 
 @app.route('/update_company', methods=['POST'])
 @login_required
@@ -889,24 +905,6 @@ def view_invoice(invoice_number):
     except Exception as e:
         flash(f'Error viewing invoice: {str(e)}', 'danger')
         return redirect(url_for_with_prefix('invoice_list'))
-
-@app.route('/edit_profile', methods=['GET', 'POST'])
-@login_required
-def edit_profile():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        email = request.form.get('email')
-        
-        user = db.session.query(User).filter_by(id=session['user_id']).first()
-        if user:
-            user.username = username
-            user.email = email
-            db.session.commit()
-            flash('Profile updated successfully!')
-        return redirect(url_for_with_prefix('dashboard'))
-    
-    user = db.session.query(User).filter_by(id=session['user_id']).first()
-    return render_template('edit_profile.html', user=user)
 
 @app.context_processor
 def inject_app_root():

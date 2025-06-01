@@ -5,21 +5,7 @@
 {% block page_subtitle %}Settings{% endblock %}
 
 {% block content %}
-    <div class="container">
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <div class="flash-messages">
-                {% for message in messages %}
-                    <div class="flash-message">{{ message }}</div>
-                {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
-
-        <div class="mb-3">
-            <a href="{{ url_for('edit_profile') }}" class="btn btn-secondary">Edit user profile</a>
-        </div>
-    </div>
+<script>window.location.href = "{{ url_for('settings') }}";</script>
 {% endblock %}
 
 {% block scripts %}
