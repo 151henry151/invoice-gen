@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Business Details - Invoice Generator{% endblock %}
+
+{% block page_subtitle %}Business Details{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash-messages">
+            {% for message in messages %}
+                <div class="flash-message">{{ message }}</div>
+            {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="form-group">
+        <form action="{{ url_for('business_details') }}" method="post" id="business-form" enctype="multipart/form-data">
+            {% if request.args.get('next') %}
+                <input type="hidden" name="next" value="{{ request.args.get('next') }}">
+            {% endif %}
+            <input type="hidden" name="source" value="{{ request.args.get('source', 'businesses') }}">
+            {% if selected_business %}
+                <input type="hidden" name="business_id" value="{{ selected_business.id }}">
+            {% endif %}
+            <input type="text" id="name" name="name" placeholder="Business Name" value="{{ selected_business.name if selected_business else '' }}" required>
+            <input type="text" id="address" name="address" placeholder="Address" value="{{ selected_business.address if selected_business else '' }}" required>
+            <input type="email" id="email" name="email" placeholder="Email" value="{{ selected_business.email if selected_business else '' }}">
+            <input type="tel" id="phone" name="phone" placeholder="Phone Number" value="{{ selected_business.phone if selected_business else '' }}" required>
+            {% if selected_business and selected_business.logo_path %}
+                <div class="mb-2" id="logo-preview-container">
+                    <label>Current Logo:</label><br>
+                    <img id="logo-preview" src="{{ APP_ROOT }}/uploads/{{ selected_business.logo_path }}" alt="Business Logo" style="max-height: 100px;">
+                </div>
+            {% else %}
+                <div class="mb-2" id="logo-preview-container" style="display:none;">
+                    <label>Current Logo:</label><br>
+                    <img id="logo-preview" src="" alt="Business Logo" style="max-height: 100px;">
+                </div>
+            {% endif %}
+            <div class="mb-2">
+                <label for="logo">Upload Logo:</label>
+                <input type="file" id="logo" name="logo" accept="image/*">
+            </div>
+            <div class="button-container">
+                <input type="submit" value="Save Business Details" class="file-input-style">
+                <a href="{{ url_for('dashboard') }}" class="file-input-style">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.getElementById('business-form').addEventListener('submit', function(event) {
+        const name = document.getElementById('name').value.trim();
+        const address = document.getElementById('address').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const phone = document.getElementById('phone').value.trim();
+
+        if (!name) {
+            event.preventDefault();
+            alert('Please enter a business name');
+            return;
+        }
+        if (!address) {
+            event.preventDefault();
+            alert('Please enter an address');
+            return;
+        }
+        if (email && !isValidEmail(email)) {
+            event.preventDefault();
+            alert('Please enter a valid email address');
+            return;
+        }
+        if (!phone) {
+            event.preventDefault();
+            alert('Please enter a phone number');
+            return;
+        }
+        if (!isValidPhone(phone)) {
+            event.preventDefault();
+            alert('Please enter a valid phone number');
+            return;
+        }
+    });
+    function isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+    function isValidPhone(phone) {
+        const phoneRegex = /^[\d\s\-\(\)\.]+$/;
+        return phoneRegex.test(phone);
+    }
+    document.getElementById('logo').addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        const previewContainer = document.getElementById('logo-preview-container');
+        const preview = document.getElementById('logo-preview');
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                previewContainer.style.display = '';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            preview.src = '';
+            previewContainer.style.display = 'none';
+        }
+    });
+</script>
+{% endblock %} 

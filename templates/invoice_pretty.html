@@ -139,24 +139,27 @@
 <body>
 <div class="invoice-container">
     <div class="header">
-        <img src="file://{{ logo_url }}" alt="Business Logo" class="logo">
+        {% if company and company.logo_path %}
+        <img src="file://{{ company.logo_path }}" alt="Business Logo" class="logo">
+        {% endif %}
         <div class="business-info">
-            <h2>{{ business_name }}</h2>
-            <div>{{ business_address }}</div>
-            <div>{{ business_phone }}</div>
-            <div>{{ business_email }}</div>
+            <h2>{{ company.name }}</h2>
+            <div>{{ company.address }}</div>
+            <div>{{ company.phone }}</div>
+            <div>{{ company.email }}</div>
         </div>
     </div>
     <div class="invoice-details">
         <div class="bill-to">
             <strong>BILL TO</strong><br>
-            {{ client_name }}<br>
-            {{ client_address }}<br>
-            {{ client_phone }}<br>
-            {{ client_email }}
+            {{ client.name }}<br>
+            {{ client.address }}<br>
+            {{ client.phone }}<br>
+            {{ client.email }}
         </div>
         <div class="invoice-meta">
-            <div><strong>Invoice Date:</strong> {{ invoice_date }}</div>
+            <div><strong>Invoice Date:</strong> {{ date }}</div>
+            <div><strong>Due Date:</strong> {{ due_date }}</div>
             <div><strong>Invoice Number:</strong> {{ invoice_number }}</div>
         </div>
     </div>
@@ -180,19 +183,30 @@
             <td>${{ '%.2f'|format(item.total) }}</td>
         </tr>
         {% endfor %}
+        {% for item in labor_items %}
+        <tr>
+            <td>{{ item.date }}</td>
+            <td>{{ item.description }}</td>
+            <td>{{ '%.2f'|format(item.hours) }} hours</td>
+            <td>${{ '%.2f'|format(item.rate) }}/hr</td>
+            <td>${{ '%.2f'|format(item.total) }}</td>
+        </tr>
+        {% endfor %}
         </tbody>
         <tfoot class="totals-section">
             <tr>
                 <td colspan="4" class="label" style="text-align: right;">Subtotal:</td>
                 <td class="value">${{ '%.2f'|format(subtotal) }}</td>
             </tr>
+            {% if tax_amount > 0 %}
             <tr>
-                <td colspan="4" class="label" style="text-align: right;">Sales Tax:</td>
-                <td class="value">${{ '%.2f'|format(sales_tax) }}</td>
+                <td colspan="4" class="label" style="text-align: right;">Tax:</td>
+                <td class="value">${{ '%.2f'|format(tax_amount) }}</td>
             </tr>
+            {% endif %}
             <tr>
-                <td colspan="4" class="label" style="text-align: right;"><strong>Grand Total:</strong></td>
-                <td class="value"><strong>${{ '%.2f'|format(grand_total) }}</strong></td>
+                <td colspan="4" class="label" style="text-align: right;"><strong>Total:</strong></td>
+                <td class="value"><strong>${{ '%.2f'|format(total) }}</strong></td>
             </tr>
         </tfoot>
     </table>

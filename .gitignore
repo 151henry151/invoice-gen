@@ -57,4 +57,7 @@ migrations_backup_*/
 
 # Ignore Python cache files
 __pycache__/
-*.pyc 
+*.pyc uploads/
+static/uploads/
+*.db
+*.db.backup

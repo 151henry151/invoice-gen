@@ -22,6 +22,8 @@
                 <input type="hidden" name="client_id" value="{{ selected_client.id }}">
             {% endif %}
             
+            <input type="hidden" name="from_create_invoice" value="{{ request.args.get('from_create_invoice', 'false') }}">
+            
             <input type="text" id="name" name="name" placeholder="Client Name" value="{{ selected_client.name if selected_client else '' }}" required>
             
             <input type="text" id="address" name="address" placeholder="Address" value="{{ selected_client.address if selected_client else '' }}" required>

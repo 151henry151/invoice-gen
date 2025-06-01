@@ -28,6 +28,7 @@
                 <div class="col-md-6 text-md-end">
                     <h5 class="card-title">Invoice Details</h5>
                     <p class="mb-1"><strong>Date:</strong> {{ invoice.date }}</p>
+                    <p class="mb-1"><strong>Due Date:</strong> {{ invoice.due_date }}</p>
                     <p class="mb-1"><strong>Status:</strong> 
                         <span class="badge {% if invoice.status == 'paid' %}bg-success{% elif invoice.status == 'pending' %}bg-warning{% else %}bg-secondary{% endif %}">
                             {{ invoice.status|title }}
@@ -41,10 +42,10 @@
     <div class="card mb-4">
         <div class="card-body">
             <h5 class="card-title">Client Information</h5>
-            <p class="mb-1"><strong>{{ invoice.client_name }}</strong></p>
-            <p class="mb-1">{{ invoice.client_address }}</p>
-            <p class="mb-1">{{ invoice.client_phone }}</p>
-            <p class="mb-0">{{ invoice.client_email }}</p>
+            <p class="mb-1"><strong>{{ invoice.client.name }}</strong></p>
+            <p class="mb-1">{{ invoice.client.address }}</p>
+            <p class="mb-1">{{ invoice.client.phone }}</p>
+            <p class="mb-0">{{ invoice.client.email }}</p>
         </div>
     </div>
 
@@ -55,38 +56,44 @@
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Date</th>
                             <th>Description</th>
-                            <th class="text-end">Quantity</th>
-                            <th class="text-end">Unit Price</th>
-                            <th class="text-end">Total</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Total</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in line_items %}
                         <tr>
-                            <td>{{ item.date }}</td>
                             <td>{{ item.description }}</td>
-                            <td class="text-end">{{ item.quantity }}</td>
-                            <td class="text-end">${{ "%.2f"|format(item.unit_price) }}</td>
-                            <td class="text-end">${{ "%.2f"|format(item.total) }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>${{ "%.2f"|format(item.unit_price) }}</td>
+                            <td>${{ "%.2f"|format(item.total) }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% for item in labor_items %}
+                        <tr>
+                            <td>{{ item.description }}</td>
+                            <td>{{ "%.2f"|format(item.hours) }} hours</td>
+                            <td>${{ "%.2f"|format(item.rate) }}/hr</td>
+                            <td>${{ "%.2f"|format(item.total) }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
-                            <td class="text-end">${{ "%.2f"|format(subtotal) }}</td>
+                            <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
+                            <td>${{ "%.2f"|format(subtotal) }}</td>
                         </tr>
-                        {% if sales_tax > 0 %}
+                        {% if tax_amount > 0 %}
                         <tr>
-                            <td colspan="4" class="text-end"><strong>Sales Tax:</strong></td>
-                            <td class="text-end">${{ "%.2f"|format(sales_tax) }}</td>
+                            <td colspan="3" class="text-end"><strong>Tax:</strong></td>
+                            <td>${{ "%.2f"|format(tax_amount) }}</td>
                         </tr>
                         {% endif %}
                         <tr>
-                            <td colspan="4" class="text-end"><strong>Total:</strong></td>
-                            <td class="text-end"><strong>${{ "%.2f"|format(grand_total) }}</strong></td>
+                            <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                            <td>${{ "%.2f"|format(total) }}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -94,11 +101,11 @@
         </div>
     </div>
 
-    {% if notes %}
-    <div class="card">
+    {% if invoice.notes %}
+    <div class="card mb-4">
         <div class="card-body">
             <h5 class="card-title">Notes</h5>
-            <p class="mb-0">{{ notes }}</p>
+            <p class="mb-0">{{ invoice.notes }}</p>
         </div>
     </div>
     {% endif %}

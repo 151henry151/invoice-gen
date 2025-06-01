@@ -4,7 +4,7 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Your Clients</h2>
-        <a href="{{ url_for('dashboard') }}" class="btn btn-success">
+        <a href="{{ url_for('client_details', new='true') }}" class="btn btn-success">
             <i class="fas fa-plus"></i> Add New Client
         </a>
     </div>
@@ -34,7 +34,7 @@
                             <td>{{ client.address }}</td>
                             <td>
                                 <div class="btn-group">
-                                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-success btn-sm" title="Edit">
+                                    <a href="{{ url_for('client_details', client_id=client.id) }}" class="btn btn-outline-success btn-sm" title="Edit">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     <a href="{{ url_for('dashboard') }}" class="btn btn-outline-success btn-sm">
@@ -53,7 +53,7 @@
                             <td colspan="4" class="text-center">
                                 <div class="alert alert-info mb-0">
                                     <i class="fas fa-info-circle"></i> You haven't added any clients yet. 
-                                    <a href="{{ url_for('dashboard') }}" class="alert-link">Add your first client</a> to start creating invoices.
+                                    <a href="{{ url_for('client_details', new='true') }}" class="alert-link">Add your first client</a> to start creating invoices.
                                 </div>
                             </td>
                         </tr>
@@ -113,9 +113,16 @@
     .alert-link {
         color: var(--primary-color);
     }
-    
     .alert-link:hover {
         color: var(--primary-color-hover);
+    }
+    @media (prefers-color-scheme: dark) {
+        .alert-link {
+            color: #66bfff !important;
+        }
+        .alert-link:hover {
+            color: #a3d8ff !important;
+        }
     }
     
     .btn-group {

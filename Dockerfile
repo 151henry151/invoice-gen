@@ -4,17 +4,10 @@ FROM python:3.9-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file into the container at /app
-COPY requirements.txt .
-
-# Copy alembic.ini into /app
-COPY migrations/alembic.ini ./alembic.ini
-
-# Install any needed packages specified in requirements.txt
-# We'll also install libreoffice here for the PDF conversion, and other OS-level dependencies.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    sqlite3 \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
     libcairo2 \
@@ -24,32 +17,41 @@ RUN apt-get update && \
     libxslt1.1 \
     libjpeg-dev \
     libfontconfig1 \
-    curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir -r requirements.txt
+    libgirepository1.0-dev \
+    gir1.2-gtk-3.0 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Create necessary directories
-RUN mkdir -p /app/static/logos && \
-    mkdir -p /app/db && \
-    chmod -R 777 /app/static/logos && \
-    chmod -R 777 /app/db
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code into the container at /app
+# Copy the rest of the application
 COPY . .
 
-# Copy entrypoint script and make it executable
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+# Create necessary directories
+RUN mkdir -p /app/db /app/migrations /app/static
 
-# Make port 8080 available to the world outside this container
-EXPOSE 8080
+# Create a script to initialize database and start the app
+RUN echo '#!/bin/bash\n\
+if [ ! -f /app/db/invoice_gen.db ]; then\n\
+    echo "Initializing database..."\n\
+    export FLASK_APP=app.py\n\
+    export FLASK_ENV=production\n\
+    if [ ! -f /app/migrations/alembic.ini ]; then\n\
+        flask db init\n\
+    fi\n\
+    flask db migrate -m "Initial migration"\n\
+    flask db upgrade\n\
+fi\n\
+gunicorn --bind 0.0.0.0:8080 --workers 4 app:app\n' > /app/start.sh && chmod +x /app/start.sh
 
-# Define environment variables
-ENV FLASK_APP=wsgi.py
-ENV FLASK_RUN_HOST=0.0.0.0
-ENV FLASK_RUN_PORT=8080
+# Set environment variables
+ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 
-# Use entrypoint.sh as the container's CMD
-CMD ["/app/entrypoint.sh"]
+# Expose port
+EXPOSE 8080
+
+# Run the start script
+CMD ["/app/start.sh"]

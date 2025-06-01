@@ -30,6 +30,17 @@ class Business(db.Model):
     
     # Relationships
     user = db.relationship('User', backref='businesses')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'address': self.address,
+            'email': self.email,
+            'phone': self.phone,
+            'logo_path': self.logo_path,
+            'invoice_template': self.invoice_template
+        }
 
 class Client(db.Model):
     __tablename__ = 'client'
@@ -45,6 +56,15 @@ class Client(db.Model):
     
     # Relationships
     user = db.relationship('User', backref='clients')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'address': self.address,
+            'email': self.email,
+            'phone': self.phone
+        }
 
 class SalesTax(db.Model):
     __tablename__ = 'sales_tax'
@@ -57,6 +77,7 @@ class SalesTax(db.Model):
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
+    user = db.relationship('User', backref='sales_taxes')
     invoices = db.relationship('Invoice', backref='sales_tax', lazy=True)
     
     def __repr__(self):
@@ -65,6 +86,7 @@ class SalesTax(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'user_id': self.user_id,
             'rate': self.rate,
             'description': self.description,
             'created_at': self.created_at.isoformat(),
@@ -101,22 +123,48 @@ class Invoice(db.Model):
         return f'<Invoice {self.invoice_number}>'
     
     def to_dict(self):
-        return {
-            'id': self.id,
-            'invoice_number': self.invoice_number,
-            'date': self.date.isoformat(),
-            'due_date': self.due_date.isoformat(),
-            'status': self.status,
-            'notes': self.notes,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'business': self.business.to_dict() if self.business else None,
-            'client': self.client.to_dict() if self.client else None,
-            'sales_tax': self.sales_tax.to_dict() if self.sales_tax else None,
-            'tax_applies_to': self.tax_applies_to,
-            'items': [item.to_dict() for item in self.items],
-            'labor_items': [item.to_dict() for item in self.labor_items]
-        }
+        try:
+            # Calculate subtotal from items and labor
+            items_subtotal = sum(float(item.total) for item in self.items)
+            labor_subtotal = sum(float(item.total) for item in self.labor_items)
+            subtotal = items_subtotal + labor_subtotal
+            
+            # Calculate tax amount
+            tax_amount = 0
+            if self.sales_tax:
+                if self.tax_applies_to == 'items':
+                    taxable_amount = items_subtotal
+                elif self.tax_applies_to == 'labor':
+                    taxable_amount = labor_subtotal
+                else:  # 'both'
+                    taxable_amount = subtotal
+                tax_amount = round(taxable_amount * (float(self.sales_tax.rate) / 100), 2)
+            
+            # Calculate total
+            total = round(subtotal + tax_amount, 2)
+            
+            return {
+                'id': self.id,
+                'invoice_number': self.invoice_number,
+                'date': self.date.isoformat() if self.date else None,
+                'due_date': self.due_date.isoformat() if self.due_date else None,
+                'status': self.status,
+                'notes': self.notes,
+                'created_at': self.created_at.isoformat() if self.created_at else None,
+                'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+                'business': self.business.to_dict() if self.business else None,
+                'client': self.client.to_dict() if self.client else None,
+                'sales_tax': self.sales_tax.to_dict() if self.sales_tax else None,
+                'tax_applies_to': self.tax_applies_to,
+                'items': [item.to_dict() for item in self.items],
+                'labor_items': [item.to_dict() for item in self.labor_items],
+                'subtotal': subtotal,
+                'tax_amount': tax_amount,
+                'total': total
+            }
+        except Exception as e:
+            print(f"Error in Invoice.to_dict(): {str(e)}")
+            raise
 
 class InvoiceItem(db.Model):
     __tablename__ = 'invoice_item'
@@ -130,6 +178,19 @@ class InvoiceItem(db.Model):
     date = db.Column(db.Date, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<InvoiceItem {self.description}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'description': self.description,
+            'quantity': self.quantity,
+            'unit_price': float(self.unit_price),
+            'total': float(self.total),
+            'date': self.date.isoformat() if self.date else None
+        }
 
 class InvoiceLabor(db.Model):
     __tablename__ = 'invoice_labor'
@@ -143,6 +204,19 @@ class InvoiceLabor(db.Model):
     date = db.Column(db.Date, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<InvoiceLabor {self.description}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'description': self.description,
+            'hours': float(self.hours),
+            'rate': float(self.rate),
+            'total': float(self.total),
+            'date': self.date.isoformat() if self.date else None
+        }
 
 class Setting(db.Model):
     __tablename__ = 'settings'

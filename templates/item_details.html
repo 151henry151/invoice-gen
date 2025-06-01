@@ -17,9 +17,7 @@
             <option value="" disabled selected>Edit Item</option>
             <option value="new">Create New Item</option>
             {% for item in items %}
-                <option value="{{ item.id }}" data-description="{{ item.description }}" data-price="{{ item.unit_price }}">
-                    {{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}
-                </option>
+                <option value="{{ item.id }}">{{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}</option>
             {% endfor %}
         </select>
     </div>
@@ -28,6 +26,7 @@
         {% if selected_item %}
             <input type="hidden" name="item_id" value="{{ selected_item.id }}">
         {% endif %}
+        <input type="hidden" name="source" value="{{ request.args.get('source', 'item_details') }}">
         
         <input type="text" id="description" name="description" placeholder="Item Description" value="{{ selected_item.description if selected_item else '' }}" required>
         

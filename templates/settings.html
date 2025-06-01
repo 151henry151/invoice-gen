@@ -20,42 +20,17 @@
             {% if selected_company %}
                 <input type="hidden" name="company_id" value="{{ selected_company.id }}">
             {% endif %}
-            <input type="text" id="name" name="name" placeholder="Name" value="{{ selected_company.name if selected_company else '' }}" required>
-            
-            <input type="text" id="address" name="address" placeholder="Address" value="{{ selected_company.address if selected_company else '' }}" required>
-            
-            <input type="email" id="email" name="email" placeholder="Email" value="{{ selected_company.email if selected_company else '' }}" required>
-            
-            <input type="tel" id="phone" name="phone" placeholder="Phone Number" value="{{ selected_company.phone if selected_company else '' }}" required>
-            
-            <label for="invoice_template">Invoice Template:</label>
-            <select id="invoice_template" name="invoice_template" required>
-                <option value="invoice_pretty" {% if selected_company and selected_company.invoice_template == 'invoice_pretty' %}selected{% endif %}>Classic Green</option>
-                <option value="modern_minimal" {% if selected_company and selected_company.invoice_template == 'modern_minimal' %}selected{% endif %}>Modern Minimal</option>
-                <option value="classic_professional" {% if selected_company and selected_company.invoice_template == 'classic_professional' %}selected{% endif %}>Classic Professional</option>
-                <option value="bold_contemporary" {% if selected_company and selected_company.invoice_template == 'bold_contemporary' %}selected{% endif %}>Bold Contemporary</option>
-            </select>
-            
-            <label for="logo">Logo:</label>
-            <div class="logo-upload-info">
-                <p class="logo-size-info">Recommended size: 200x200 pixels. Images will be automatically resized while maintaining aspect ratio.</p>
-                <input type="file" id="logo" name="logo" accept="image/*" onchange="previewLogo(this)">
+            <div class="mb-3">
+                <a href="{{ url_for('edit_profile') }}" class="btn btn-secondary">Edit user profile</a>
             </div>
-            <div id="logo-preview" class="current-logo" style="display: none;">
-                <p>Selected Logo:</p>
-                <img id="preview-image" src="" alt="Selected Logo" style="max-width: 200px; max-height: 200px;">
+            <div class="form-group mb-3">
+                <label for="invoice_template">Invoice Template:</label>
+                <select id="invoice_template" name="invoice_template" class="form-control">
+                    <option value="invoice_pretty" {% if selected_company and selected_company.invoice_template == 'invoice_pretty' %}selected{% endif %}>Pretty</option>
+                    <option value="invoice_template" {% if selected_company and selected_company.invoice_template == 'invoice_template' %}selected{% endif %}>Classic</option>
+                </select>
             </div>
-            {% if selected_company and selected_company.logo_path %}
-                <div class="current-logo">
-                    <p>Current Logo:</p>
-                    <img src="{{ url_for('static', filename=selected_company.logo_path) }}" alt="Current Logo" style="max-width: 200px; max-height: 200px;">
-                </div>
-            {% endif %}
-
-            <div class="button-container">
-                <input type="submit" value="Save Details" class="file-input-style" form="company-form">
-                <a href="{{ url_for('dashboard') }}" class="file-input-style">Cancel</a>
-            </div>
+            <button type="submit" class="btn btn-primary">Save</button>
         </form>
     </div>
 {% endblock %}

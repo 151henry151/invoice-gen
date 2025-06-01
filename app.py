@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file, render_template_string, session, g, current_app, jsonify, make_response
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, render_template_string, session, g, current_app, jsonify, make_response, send_from_directory
 from datetime import datetime, timedelta
 import os
 # Removed reportlab imports
@@ -24,17 +24,17 @@ import glob
 import io
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
-from models import User, Business, Setting, Client, Invoice, SalesTax, Item, LaborItem, InvoiceItem, InvoiceLabor
+from models import db, User, Business, Setting, Client, Invoice, SalesTax, Item, LaborItem, InvoiceItem, InvoiceLabor
 
 app = Flask(__name__)
-app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))  # Use environment variable for secret key
 
 # Configure SQLAlchemy
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////app/db/invoice_gen.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///db/invoice_gen.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+db.init_app(app)
 migrate = Migrate(app, db)
 
 # Configure static file serving
@@ -42,7 +42,7 @@ app.static_folder = 'static'
 app.static_url_path = '/invoice/static'  # Update static URL path to include /invoice prefix
 
 # Configure upload settings
-UPLOAD_FOLDER = 'static/uploads'  # Changed from user_logos to uploads
+UPLOAD_FOLDER = 'uploads'  # Changed from static/uploads to uploads
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 MAX_LOGO_SIZE = (200, 200)  # Maximum dimensions for logo
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -50,7 +50,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 # Custom URL generator to ensure /invoice prefix
 def url_for_with_prefix(*args, **kwargs):
     kwargs['_external'] = True
-    kwargs['_scheme'] = 'https'
+    kwargs['_scheme'] = request.environ.get('HTTP_X_FORWARDED_PROTO', 'https')
     return url_for(*args, **kwargs)
 
 def allowed_file(filename):
@@ -97,17 +97,6 @@ def get_db():
 def close_db(e=None):
     pass  # SQLAlchemy handles connection cleanup
 
-def init_db():
-    # Ensure the directory exists
-    os.makedirs('/app/db', exist_ok=True)
-    with app.app_context():
-        db.create_all()
-        print("Database initialization completed")
-
-def init_app(app):
-    with app.app_context():
-        init_db()
-
 def get_setting(key, default=None):
     user_id = session.get('user_id')
     if not user_id:
@@ -125,8 +114,6 @@ def update_setting(key, value):
         setting = Setting(user_id=session['user_id'], key=key, value=value)
         db.session.add(setting)
     db.session.commit()
-
-app.jinja_env.globals.update(get_setting=get_setting)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -268,16 +255,100 @@ def new_client():
     flash('New client created successfully!', 'success')
     return redirect(url_for_with_prefix('dashboard'))
 
-@app.route('/create_invoice')
+@app.route('/create_invoice', methods=['GET', 'POST'])
 @login_required
 def create_invoice():
-    companies = db.session.query(Business).filter_by(user_id=session['user_id']).all()
+    if request.method == 'POST':
+        try:
+            # Extract form data
+            invoice_number = request.form.get('invoice_number')
+            date = datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
+            due_date = datetime.strptime(request.form.get('due_date'), '%Y-%m-%d').date()
+            client_id = request.form.get('client_id') or session.get('selected_client_id')
+            business_id = request.form.get('business_id') or session.get('selected_company_id')
+            notes = request.form.get('notes')
+            sales_tax_id = request.form.get('sales_tax_id')
+            tax_applies_to = request.form.get('tax_applies_to')
+            
+            # Validate required fields
+            if not client_id:
+                flash('Please select a client.')
+                return redirect(url_for_with_prefix('create_invoice'))
+            
+            if not business_id:
+                flash('Please select a business.')
+                return redirect(url_for_with_prefix('create_invoice'))
+            
+            # Create new invoice
+            invoice = Invoice(
+                user_id=session['user_id'],
+                invoice_number=invoice_number,
+                date=date,
+                due_date=due_date,
+                client_id=client_id,
+                business_id=business_id,
+                notes=notes,
+                sales_tax_id=sales_tax_id,
+                tax_applies_to=tax_applies_to
+            )
+            db.session.add(invoice)
+            db.session.flush()  # Get the new invoice ID
+            
+            # Parse line items JSON
+            line_items_json = request.form.get('line_items_json')
+            if line_items_json:
+                line_items = json.loads(line_items_json)
+                for item in line_items:
+                    if item['type'] == 'item':
+                        invoice_item = InvoiceItem(
+                            invoice_id=invoice.id,
+                            description=item['description'],
+                            quantity=item['quantity'],
+                            unit_price=item['price'],
+                            total=item['total'],
+                            date=date
+                        )
+                        db.session.add(invoice_item)
+                    elif item['type'] == 'labor':
+                        invoice_labor = InvoiceLabor(
+                            invoice_id=invoice.id,
+                            description=item['description'],
+                            date=datetime.strptime(item['date'], '%Y-%m-%d').date(),
+                            hours=float(item['hours']) + float(item.get('minutes', 0)) / 60,
+                            rate=item['rate'],
+                            total=item['total']
+                        )
+                        db.session.add(invoice_labor)
+            
+            db.session.commit()
+            flash('Invoice generated successfully!')
+            return redirect(url_for_with_prefix('invoice_list'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error generating invoice: {str(e)}')
+            return redirect(url_for_with_prefix('create_invoice'))
+    
+    # GET request handling
+    business_id = request.args.get('business_id')
+    businesses = db.session.query(Business).filter_by(user_id=session['user_id']).all()
+    selected_business = None
+    if business_id:
+        selected_business = db.session.query(Business).filter_by(id=business_id, user_id=session['user_id']).first()
+    
     clients = db.session.query(Client).filter_by(user_id=session['user_id']).all()
-    labor_items = db.session.query(LaborItem).filter_by(user_id=session['user_id']).all()
-    items = db.session.query(Item).filter_by(user_id=session['user_id']).all()
-    selected_labor_id = request.args.get('selected_labor_id')
-    selected_item_id = request.args.get('selected_item_id')
-    return render_template('create_invoice.html', companies=companies, clients=clients, labor_items=labor_items, items=items, selected_labor_id=selected_labor_id, selected_item_id=selected_item_id)
+    selected_client_id = session.get('selected_client_id')
+    selected_client = None
+    if selected_client_id:
+        selected_client = db.session.query(Client).filter_by(id=selected_client_id, user_id=session['user_id']).first()
+    
+    tax_rates = db.session.query(SalesTax).filter_by(user_id=session['user_id']).all()
+    
+    return render_template('create_invoice.html',
+                         businesses=businesses,
+                         selected_business=selected_business,
+                         clients=clients,
+                         selected_client=selected_client,
+                         tax_rates=tax_rates)
 
 @app.route('/preview_invoice')
 @login_required
@@ -289,53 +360,65 @@ def preview_invoice():
     
     return render_template('invoice_pretty.html', **invoice_data)
 
-@app.route('/download_invoice/<invoice_id>')
+@app.route('/download_invoice/<invoice_number>')
 @login_required
-def download_invoice(invoice_id):
+def download_invoice(invoice_number):
     try:
-        # Get invoice data
-        invoice = db.session.query(Invoice).filter_by(id=invoice_id, user_id=session['user_id']).first()
+        # Get invoice details
+        invoice = db.session.query(Invoice).filter_by(invoice_number=invoice_number).first()
         if not invoice:
             flash('Invoice not found')
-            return redirect(url_for_with_prefix('dashboard'))
+            return redirect(url_for_with_prefix('invoice_list'))
         
-        # Get line items
+        # Get line items and labor items
         line_items = db.session.query(InvoiceItem).filter_by(invoice_id=invoice.id).all()
         labor_items = db.session.query(InvoiceLabor).filter_by(invoice_id=invoice.id).all()
         
         # Calculate subtotal
-        subtotal = sum(item.total for item in line_items) + sum(item.total for item in labor_items)
+        subtotal = sum(float(item.total) for item in line_items) + sum(float(item.total) for item in labor_items)
         
         # Get sales tax
-        sales_tax = None
-        tax_amount = 0
-        if invoice.sales_tax_id:
-            sales_tax = db.session.query(SalesTax).filter_by(id=invoice.sales_tax_id).first()
-            if sales_tax:
-                taxable_amount = 0
-                for item in line_items:
-                    if (invoice.tax_applies_to == 'items' and 'h' not in str(item.quantity)) or \
-                       (invoice.tax_applies_to == 'labor' and 'h' in str(item.quantity)) or \
-                       invoice.tax_applies_to == 'both':
-                        taxable_amount += item.total
-                for item in labor_items:
-                    if (invoice.tax_applies_to == 'labor' or invoice.tax_applies_to == 'both'):
-                        taxable_amount += item.total
-                tax_amount = taxable_amount * (sales_tax.rate / 100)
+        sales_tax = db.session.query(SalesTax).filter_by(id=invoice.sales_tax_id).first() if invoice.sales_tax_id else None
+        tax_amount = float(subtotal * sales_tax.rate / 100) if sales_tax else 0
+        
+        # Get company details
+        company = invoice.business
+        if company and company.logo_path:
+            logo_path = os.path.abspath(os.path.join(app.config['UPLOAD_FOLDER'], company.logo_path))
+        else:
+            logo_path = None
         
         # Prepare data for template
         invoice_data = {
             'invoice_number': invoice.invoice_number,
-            'date': invoice.date.isoformat(),
-            'due_date': invoice.due_date.isoformat(),
-            'client': invoice.client.to_dict(),
-            'company': invoice.business.to_dict(),
-            'subtotal': subtotal,
-            'tax_amount': tax_amount,
-            'total': subtotal + tax_amount,
+            'date': invoice.date.isoformat() if invoice.date else None,
+            'due_date': invoice.due_date.isoformat() if invoice.due_date else None,
+            'client': invoice.client.to_dict() if invoice.client else None,
+            'company': {
+                'name': company.name,
+                'address': company.address,
+                'phone': company.phone,
+                'email': company.email,
+                'logo_path': logo_path
+            } if company else None,
+            'subtotal': float(subtotal),
+            'tax_amount': float(tax_amount),
+            'total': float(subtotal + tax_amount),
             'notes': invoice.notes,
-            'line_items': [item.to_dict() for item in line_items],
-            'labor_items': [item.to_dict() for item in labor_items],
+            'line_items': [{
+                'description': item.description,
+                'quantity': item.quantity,
+                'unit_price': float(item.unit_price),
+                'total': float(item.total),
+                'date': item.date.isoformat() if item.date else None
+            } for item in line_items],
+            'labor_items': [{
+                'description': item.description,
+                'hours': float(item.hours),
+                'rate': float(item.rate),
+                'total': float(item.total),
+                'date': item.date.isoformat() if item.date else None
+            } for item in labor_items],
             'sales_tax': sales_tax.to_dict() if sales_tax else None,
             'tax_applies_to': invoice.tax_applies_to
         }
@@ -344,47 +427,18 @@ def download_invoice(invoice_id):
         html_content = render_template('invoice_pretty.html', **invoice_data)
         
         # Generate PDF
-        temp_pdf = None
-        try:
-            temp_pdf = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
-            pdf_path = temp_pdf.name
-            temp_pdf.close()
-            
-            # Use the absolute static directory as base_url
-            static_dir = os.path.join(app.root_path, 'static')
-            html = HTML(string=html_content, base_url=static_dir)
-            html.write_pdf(pdf_path)
-            
-            # Send the file and ensure it's deleted after sending
-            response = send_file(
-                pdf_path,
-                as_attachment=True,
-                download_name=f'invoice_{invoice.invoice_number}.pdf',
-                mimetype='application/pdf'
-            )
-            
-            # Add cleanup callback
-            @response.call_on_close
-            def cleanup():
-                try:
-                    os.unlink(pdf_path)
-                except Exception as e:
-                    print(f"Error cleaning up temporary PDF file: {str(e)}")
-            
-            return response
-            
-        except Exception as e:
-            # Clean up the temporary file if it exists
-            if temp_pdf and os.path.exists(pdf_path):
-                try:
-                    os.unlink(pdf_path)
-                except Exception as cleanup_error:
-                    print(f"Error cleaning up temporary PDF file: {str(cleanup_error)}")
-            raise
-            
+        pdf = HTML(string=html_content).write_pdf()
+        
+        # Create response
+        response = make_response(pdf)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename=invoice_{invoice_number}.pdf'
+        
+        return response
+        
     except Exception as e:
         flash(f'Error generating invoice: {str(e)}')
-        return redirect(url_for_with_prefix('dashboard'))
+        return redirect(url_for_with_prefix('invoice_list'))
 
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
@@ -443,7 +497,10 @@ def settings():
             
             db.session.commit()
             flash('Company details saved successfully!')
-            return redirect(url_for_with_prefix('dashboard'))
+            next_url = request.form.get('next')
+            if next_url:
+                return redirect(next_url)
+            return redirect(url_for('businesses'))
         except Exception as e:
             flash(f'Error saving company details: {str(e)}')
             return redirect(url_for_with_prefix('settings'))
@@ -481,6 +538,7 @@ def update_client():
     address = request.form.get('address')
     email = request.form.get('email')
     phone = request.form.get('phone')
+    from_create_invoice = request.form.get('from_create_invoice') == 'true'
     
     if client_id:
         # Update existing client
@@ -503,35 +561,69 @@ def update_client():
     
     db.session.commit()
     flash('Client details saved successfully!', 'success')
-    return redirect(url_for_with_prefix('dashboard', selected_client=client.id))
+    
+    if from_create_invoice:
+        # Store the selected client ID in the session
+        session['selected_client_id'] = client.id
+        return redirect(url_for_with_prefix('create_invoice'))
+    else:
+        return redirect(url_for_with_prefix('dashboard', selected_client=client.id))
 
 @app.route('/update_company', methods=['POST'])
 @login_required
 def update_company():
-    company_name = request.form.get('company_name')
-    company_address = request.form.get('company_address')
-    company_email = request.form.get('company_email')
-    hourly_rate = request.form.get('hourly_rate')
-    
-    company = db.session.query(Business).filter_by(user_id=session['user_id']).first()
-    if company:
-        company.name = company_name
-        company.address = company_address
-        company.email = company_email
-        company.hourly_rate = hourly_rate
+    company_id = request.form.get('company_id')
+    name = request.form.get('name')
+    address = request.form.get('address')
+    email = request.form.get('email')
+    phone = request.form.get('phone')
+    # Handle logo upload
+    logo_path = None
+    if 'logo' in request.files:
+        file = request.files['logo']
+        if file and file.filename and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            # Create a unique filename
+            timestamp = int(time.time())
+            filename = f"{timestamp}_{filename}"
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            # Resize the logo
+            if resize_logo(filepath):
+                logo_path = filename
+            else:
+                flash('Error processing logo image.')
+                if company_id:
+                    return redirect(url_for('business_details', business_id=company_id))
+                else:
+                    return redirect(url_for('business_details', new='true'))
+    if company_id:
+        company = db.session.query(Business).filter_by(id=company_id, user_id=session['user_id']).first()
+        if company:
+            company.name = name
+            company.address = address
+            company.email = email
+            company.phone = phone
+            if logo_path:
+                company.logo_path = logo_path
     else:
         company = Business(
             user_id=session['user_id'],
-            name=company_name,
-            address=company_address,
-            email=company_email,
-            hourly_rate=hourly_rate
+            name=name,
+            address=address,
+            email=email,
+            phone=phone,
+            logo_path=logo_path
         )
         db.session.add(company)
-    
+        db.session.flush()  # Get the new company ID
+        company_id = company.id
     db.session.commit()
     flash('Company details saved successfully!')
-    return redirect(url_for_with_prefix('dashboard'))
+    next_url = request.form.get('next')
+    if next_url:
+        return redirect(next_url)
+    return redirect(url_for('businesses'))
 
 @app.route('/labor_details')
 @login_required
@@ -546,6 +638,7 @@ def update_labor():
     description = request.form.get('description')
     hours = float(request.form.get('hours', 0))
     rate = float(request.form.get('rate', 0))
+    source = request.form.get('source', 'labor_details')
     
     if labor_id:
         # Update existing labor item
@@ -563,11 +656,14 @@ def update_labor():
             rate=rate
         )
         db.session.add(labor)
+        db.session.flush()  # Get the new labor ID without committing
     
     db.session.commit()
-    print(f"Labor item saved: {labor.description}, Hours: {labor.hours}, Rate: {labor.rate}")  # Log the saved labor item
     flash('Labor details saved successfully!')
-    return redirect(url_for_with_prefix('create_invoice', selected_labor_id=labor.id))
+    
+    if source == 'create_invoice':
+        return redirect(url_for_with_prefix('create_invoice', open_dialog='add_labor', new_labor_id=labor.id))
+    return redirect(url_for_with_prefix('labor_details'))
 
 @app.route('/remove_labor_item', methods=['POST'])
 @login_required
@@ -591,34 +687,32 @@ def item_details():
 def update_item():
     item_id = request.form.get('item_id')
     description = request.form.get('description')
-    unit_price = float(request.form.get('price', 0))
-    quantity = int(request.form.get('quantity', 1)) if 'quantity' in request.form else 1
-
+    price = float(request.form.get('price', 0))
+    source = request.form.get('source', 'item_details')
+    
     if item_id:
         # Update existing item
         item = db.session.query(Item).filter_by(id=item_id, user_id=session['user_id']).first()
         if item:
             item.description = description
-            item.unit_price = unit_price
-            item.quantity = quantity
+            item.unit_price = price
     else:
         # Create new item
         item = Item(
             user_id=session['user_id'],
             description=description,
-            unit_price=unit_price,
-            quantity=quantity
+            unit_price=price,
+            quantity=1
         )
         db.session.add(item)
-        db.session.flush()  # Get item.id before commit
+        db.session.flush()  # Get the new item ID without committing
+    
     db.session.commit()
     flash('Item details saved successfully!')
-    return redirect(url_for_with_prefix(
-        'create_invoice',
-        selected_item_id=item.id,
-        open_dialog='add_item',
-        new_item_id=item.id
-    ))
+    
+    if source == 'create_invoice':
+        return redirect(url_for_with_prefix('create_invoice', open_dialog='add_item', new_item_id=item.id))
+    return redirect(url_for_with_prefix('item_details'))
 
 @app.route('/remove_item', methods=['POST'])
 @login_required
@@ -631,7 +725,7 @@ def remove_item():
         flash('Item removed successfully!')
     return redirect(url_for_with_prefix('item_details'))
 
-@app.route('/get_company/<int:company_id>')
+@app.route('/invoice/get_company/<int:company_id>')
 @login_required
 def get_company(company_id):
     company = db.session.query(Business).filter_by(id=company_id, user_id=session['user_id']).first()
@@ -667,8 +761,9 @@ def check_invoice_number(invoice_number):
 @app.route('/save_selections', methods=['POST'])
 @login_required
 def save_selections():
-    business_id = request.form.get('businessId')
-    client_id = request.form.get('clientId')
+    data = request.get_json()
+    business_id = data.get('businessId')
+    client_id = data.get('clientId')
     
     session['selected_company_id'] = business_id
     session['selected_client_id'] = client_id
@@ -695,8 +790,13 @@ def delete_all_sales_tax_rates():
 @app.route('/api/sales-tax', methods=['POST'])
 @login_required
 def create_sales_tax_rate():
-    rate = request.form.get('rate')
-    description = request.form.get('description')
+    if request.is_json:
+        data = request.get_json()
+        rate = data.get('rate')
+        description = data.get('description')
+    else:
+        rate = request.form.get('rate')
+        description = request.form.get('description')
     
     tax_rate = SalesTax(
         user_id=session['user_id'],
@@ -752,16 +852,78 @@ def invoice_list():
     for invoice in invoices:
         invoice.client_name = client_dict.get(invoice.client_id, Client()).name
         invoice.company_name = company_dict.get(invoice.business_id, Business()).name
+        # Calculate total for each invoice
+        line_items = db.session.query(InvoiceItem).filter_by(invoice_id=invoice.id).all()
+        labor_items = db.session.query(InvoiceLabor).filter_by(invoice_id=invoice.id).all()
+        subtotal = sum(item.total for item in line_items) + sum(item.total for item in labor_items)
+        tax_amount = 0
+        if invoice.sales_tax_id:
+            sales_tax = db.session.query(SalesTax).filter_by(id=invoice.sales_tax_id).first()
+            if sales_tax:
+                taxable_amount = 0
+                for item in line_items:
+                    if (invoice.tax_applies_to == 'items' and 'h' not in str(item.quantity)) or \
+                       (invoice.tax_applies_to == 'labor' and 'h' in str(item.quantity)) or \
+                       invoice.tax_applies_to == 'both':
+                        taxable_amount += item.total
+                for item in labor_items:
+                    if (invoice.tax_applies_to == 'labor' or invoice.tax_applies_to == 'both'):
+                        taxable_amount += item.total
+                tax_amount = taxable_amount * (sales_tax.rate / 100)
+        invoice.total = subtotal + tax_amount
     
     return render_template('invoice_list.html', invoices=invoices)
 
 @app.route('/invoice/<invoice_number>')
 @login_required
 def view_invoice(invoice_number):
-    invoice = db.session.query(Invoice).filter_by(invoice_number=invoice_number, user_id=session['user_id']).first()
-    if invoice:
-        return render_template('view_invoice.html', invoice=invoice)
-    return redirect(url_for_with_prefix('invoice_list'))
+    try:
+        # Get invoice data
+        invoice = db.session.query(Invoice).filter_by(invoice_number=invoice_number, user_id=session['user_id']).first()
+        if not invoice:
+            flash('Invoice not found', 'danger')
+            return redirect(url_for_with_prefix('invoice_list'))
+        
+        # Get company info
+        company = db.session.query(Business).filter_by(id=invoice.business_id).first()
+        if not company:
+            flash('Company information not found', 'danger')
+            return redirect(url_for_with_prefix('invoice_list'))
+        
+        # Get line items
+        line_items = db.session.query(InvoiceItem).filter_by(invoice_id=invoice.id).all()
+        labor_items = db.session.query(InvoiceLabor).filter_by(invoice_id=invoice.id).all()
+        
+        # Calculate totals
+        subtotal = sum(float(item.total) for item in line_items) + sum(float(item.total) for item in labor_items)
+        tax_amount = 0
+        if invoice.sales_tax_id:
+            sales_tax = db.session.query(SalesTax).filter_by(id=invoice.sales_tax_id).first()
+            if sales_tax:
+                taxable_amount = 0
+                for item in line_items:
+                    if (invoice.tax_applies_to == 'items' and 'h' not in str(item.quantity)) or \
+                       (invoice.tax_applies_to == 'labor' and 'h' in str(item.quantity)) or \
+                       invoice.tax_applies_to == 'both':
+                        taxable_amount += float(item.total)
+                for item in labor_items:
+                    if (invoice.tax_applies_to == 'labor' or invoice.tax_applies_to == 'both'):
+                        taxable_amount += float(item.total)
+                tax_amount = taxable_amount * (float(sales_tax.rate) / 100)
+        
+        total = subtotal + tax_amount
+        
+        return render_template('view_invoice.html', 
+                             invoice=invoice,
+                             company=company,
+                             line_items=line_items,
+                             labor_items=labor_items,
+                             subtotal=subtotal,
+                             tax_amount=tax_amount,
+                             total=total)
+    except Exception as e:
+        flash(f'Error viewing invoice: {str(e)}', 'danger')
+        return redirect(url_for_with_prefix('invoice_list'))
 
 @app.route('/edit_profile', methods=['GET', 'POST'])
 @login_required
@@ -783,7 +945,11 @@ def edit_profile():
 
 @app.context_processor
 def inject_app_root():
-    return dict(APP_ROOT='/invoice')
+    return dict(app_root='/invoice')
+
+@app.context_processor
+def inject_get_setting():
+    return dict(get_setting=get_setting)
 
 @app.route('/businesses')
 def businesses():
@@ -796,18 +962,12 @@ def clients():
     return render_template('clients.html', clients=clients)
 
 @app.route('/remove_business/<int:business_id>', methods=['POST'])
-@login_required
 def remove_business(business_id):
     business = db.session.query(Business).filter_by(id=business_id, user_id=session['user_id']).first()
     if business:
         db.session.delete(business)
         db.session.commit()
-        if request.is_json or request.headers.get('Content-Type') == 'application/json':
-            return jsonify(success=True)
         flash('Business removed successfully!')
-    else:
-        if request.is_json or request.headers.get('Content-Type') == 'application/json':
-            return jsonify(success=False, error="Business not found"), 404
     return redirect(url_for_with_prefix('businesses'))
 
 @app.route('/remove_client/<int:client_id>', methods=['POST'])
@@ -822,46 +982,65 @@ def remove_client(client_id):
 @app.route('/business_details', methods=['GET', 'POST'])
 @login_required
 def business_details():
-    business_id = request.args.get('business_id') or request.form.get('business_id')
-    business = None
-    if business_id:
-        business = db.session.query(Business).filter_by(id=business_id, user_id=session['user_id']).first()
     if request.method == 'POST':
+        # Handle new business creation
         name = request.form.get('name')
         address = request.form.get('address')
         email = request.form.get('email')
         phone = request.form.get('phone')
+        
+        # Handle logo upload
         logo_path = None
         if 'logo' in request.files:
             file = request.files['logo']
-            if file and file.filename:
+            if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
+                # Create a unique filename
+                timestamp = int(time.time())
+                filename = f"{timestamp}_{filename}"
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(filepath)
+                # Resize the logo
+                resize_logo(filepath)
                 logo_path = filename
-        if business:
-            business.name = name
-            business.address = address
-            business.email = email
-            business.phone = phone
-            if logo_path:
-                business.logo_path = logo_path
-        else:
-            business = Business(
-                user_id=session['user_id'],
-                name=name,
-                address=address,
-                email=email,
-                phone=phone,
-                logo_path=logo_path
-            )
-            db.session.add(business)
+        
+        # Create new business
+        business = Business(
+            user_id=session['user_id'],
+            name=name,
+            address=address,
+            email=email,
+            phone=phone,
+            logo_path=logo_path
+        )
+        db.session.add(business)
         db.session.commit()
-        flash('Business saved successfully!')
+        
+        # Handle redirection based on source
+        source = request.form.get('source')
+        if source == 'create_invoice':
+            return redirect(url_for_with_prefix('create_invoice', business_id=business.id))
         return redirect(url_for_with_prefix('businesses'))
-    return render_template('business_details.html', business=business)
+    
+    # GET request handling
+    business_id = request.args.get('business_id')
+    is_new = request.args.get('new') == 'true'
+    source = request.args.get('source')  # Get source from query parameters
+    businesses = db.session.query(Business).filter_by(user_id=session['user_id']).all()
+    selected_business = None
+    if business_id and not is_new:
+        selected_business = db.session.query(Business).filter_by(id=business_id, user_id=session['user_id']).first()
+    return render_template('business_details.html', 
+                         businesses=businesses, 
+                         selected_business=selected_business, 
+                         is_new=is_new,
+                         source=source)  # Pass source to template
+
+@app.route('/uploads/<path:filename>')
+@login_required
+def serve_upload(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 if __name__ == '__main__':
-    init_app(app)
     # Start the application
     app.run(debug=True, port=8080) 

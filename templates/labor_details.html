@@ -51,6 +51,7 @@
         {% if selected_item %}
             <input type="hidden" name="item_id" value="{{ selected_item.id }}">
         {% endif %}
+        <input type="hidden" name="source" value="{{ request.args.get('source', 'labor_details') }}">
         
         <input type="text" id="description" name="description" placeholder="Labor Description" value="{{ selected_item.description if selected_item else '' }}" required>
         

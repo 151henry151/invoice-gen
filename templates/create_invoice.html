@@ -506,7 +506,7 @@
         }
     </style>
 <script>
-    const APP_ROOT = "{{ APP_ROOT }}";
+    const APP_ROOT = "{{ app_root }}";
     
     // Function to calculate total cost
     window.calculateTotalCost = function(itemDiv) {
@@ -532,7 +532,7 @@
     window.handleLaborItemSelection = function(selectElement) {
         const value = selectElement.value;
         if (value === 'new') {
-            window.location.href = "{{ url_for('labor_details') }}?new=true";
+            window.location.href = "{{ url_for('labor_details') }}?new=true&source=create_invoice";
         } else {
             const option = selectElement.options[selectElement.selectedIndex];
             const rate = option.getAttribute('data-rate');
@@ -812,7 +812,7 @@
             if (selectionData.clientId) {
                 url.searchParams.set('selected_client', selectionData.clientId);
             }
-            window.history.replaceState({}, '', url);
+            window.history.replaceState({}, '', url.pathname + url.search);
             
             // Save to session via AJAX
             fetch(`${APP_ROOT}/save_selections`, {
@@ -863,39 +863,38 @@
         if (!/^[0-9]+$/.test(value)) {
             return;
         }
-        fetch(`${APP_ROOT}/get_company/${value}`)
+        fetch(`${APP_ROOT}/invoice/get_company/${value}`)
             .then(response => response.json())
             .then(company => {
-                // Update company details
-                const nameElement = document.querySelector('.detail-value[data-placeholder="Business Name"]');
-                const addressElement = document.querySelector('.detail-value[data-placeholder="Business Address"]');
-                const emailElement = document.querySelector('.detail-value[data-placeholder="business@example.com"]');
-                const phoneElement = document.querySelector('.detail-value[data-placeholder="(xxx) xxx-xxxx"]');
-                
-                if (nameElement) nameElement.textContent = company.name;
-                if (addressElement) addressElement.textContent = company.address;
-                if (emailElement) emailElement.textContent = company.email;
-                if (phoneElement) phoneElement.textContent = company.phone;
-                
+                // Update all company details
+                document.querySelectorAll('.detail-value[data-placeholder="Business Name"]').forEach(el => el.textContent = company.name);
+                document.querySelectorAll('.detail-value[data-placeholder="Business Address"]').forEach(el => el.textContent = company.address);
+                document.querySelectorAll('.detail-value[data-placeholder="business@example.com"]').forEach(el => el.textContent = company.email);
+                document.querySelectorAll('.detail-value[data-placeholder="(xxx) xxx-xxxx"]').forEach(el => el.textContent = company.phone);
+
                 // Update logo if it exists
-                const logoPlaceholder = document.querySelector('.logo-placeholder');
-                if (logoPlaceholder) {
+                document.querySelectorAll('.logo-placeholder').forEach(logoPlaceholder => {
                     if (company.logo_path) {
                         logoPlaceholder.innerHTML = '<img src="' + APP_ROOT + '/uploads/' + company.logo_path + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
                     } else {
                         logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
                     }
-                }
+                });
 
                 // Enable the Edit Details button
-                const editButton = document.querySelector('.settings-link');
-                if (editButton) {
+                document.querySelectorAll('.settings-link').forEach(editButton => {
                     editButton.classList.remove('disabled');
                     editButton.href = `${APP_ROOT}/settings?company_id=${value}`;
                     editButton.style.pointerEvents = 'auto';
                     editButton.style.opacity = '1';
+                });
+
+                // Update the hidden business_id input
+                const businessIdInput = document.getElementById('business_id');
+                if (businessIdInput) {
+                    businessIdInput.value = value;
                 }
-                
+
                 // Save the selection
                 saveSelectedBusinessAndClient();
             })
@@ -914,10 +913,11 @@
         if (!/^[0-9]+$/.test(value)) {
             return;
         }
-        // Update the hidden client input field
-        const clientInput = document.querySelector('input[name="client"]');
-        if (clientInput) {
-            clientInput.value = value;
+        
+        // Update the hidden client_id input field
+        const clientIdInput = document.querySelector('input[name="client_id"]');
+        if (clientIdInput) {
+            clientIdInput.value = value;
         }
         
         // Otherwise, update the client details on the page
@@ -929,59 +929,55 @@
                 }
                 return response.json();
             })
-            .then(client => {
-                console.log('Received client details:', client);
-                // Get the client details container
-                const clientDetails = document.querySelector('.client-details .details-content');
-                if (!clientDetails) {
-                    console.error('Could not find client details container');
-                    return;
+            .then(data => {
+                // Update client details display
+                const clientDetails = document.querySelector('.client-details');
+                if (clientDetails) {
+                    clientDetails.innerHTML = `
+                        <p><strong>${data.name}</strong></p>
+                        <p>${data.address}</p>
+                        <p>${data.phone}</p>
+                        <p>${data.email}</p>
+                    `;
                 }
                 
-                // Update the content with the client details
-                clientDetails.innerHTML = `
-                    <div class="detail-item">
-                        <span class="detail-label">Client Name:</span>
-                        <span class="detail-value">${client.name}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Address:</span>
-                        <span class="detail-value">${client.address}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Email:</span>
-                        <span class="detail-value">${client.email}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Phone Number:</span>
-                        <span class="detail-value">${client.phone}</span>
-                    </div>
-                    <a href="${APP_ROOT}/client_details?client_id=${value}" class="btn btn-outline-secondary btn-sm settings-link edit-client-btn-responsive" style="margin-top: 1rem; width: 200px; max-width: 100%;">Edit Client Details</a>
-                `;
-                console.log('Updated client details in the DOM');
+                // Enable edit button if it exists
+                const editButton = document.querySelector('.edit-client-btn-responsive');
+                if (editButton) {
+                    editButton.classList.remove('disabled');
+                    editButton.href = `${APP_ROOT}/client_details?client_id=${value}`;
+                    editButton.style.pointerEvents = 'auto';
+                    editButton.style.opacity = '1';
+                }
                 
                 // Save the selection
                 saveSelectedBusinessAndClient();
             })
             .catch(error => {
-                console.error('Error fetching or updating client details:', error);
+                console.error('Error fetching client details:', error);
             });
     }
 
     // Function to handle item selection
-    window.handleItemSelection = function(selectElement) {
-        const value = selectElement.value;
-        if (value === 'new') {
-            window.location.href = "{{ url_for('item_details') }}?new=true";
-        } else {
-            const option = selectElement.options[selectElement.selectedIndex];
-            const price = option.getAttribute('data-price');
-            const itemDiv = selectElement.closest('.item');
+    function handleItemSelection(select) {
+        const selectedValue = select.value;
+        if (selectedValue === 'new') {
+            window.location.href = "{{ url_for('item_details') }}?new=true&source=create_invoice";
+            return;
+        }
+
+        const selectedOption = select.options[select.selectedIndex];
+        const itemDiv = select.closest('.item');
+        if (selectedOption && selectedOption.value !== 'new') {
+            const description = selectedOption.text.split(' - $')[0];
+            const price = selectedOption.text.split(' - $')[1];
             const priceInput = itemDiv.querySelector('input[name="item_price[]"]');
+            const descriptionInput = itemDiv.querySelector('input[name="item_description[]"]');
             priceInput.value = price;
+            descriptionInput.value = description;
             calculateItemTotal(itemDiv);
         }
-    };
+    }
 
     // Function to calculate item total
     window.calculateItemTotal = function(itemDiv) {
@@ -1483,9 +1479,9 @@
                     console.log('Form submit handler triggered');
                     
                     // Check if client is selected
-                    const clientSelector = document.querySelector('.client-selector');
-                    if (!clientSelector.value || clientSelector.value.startsWith('/client_details')) {
-                e.preventDefault();
+                    const clientIdInput = document.querySelector('input[name="client_id"]');
+                    if (!clientIdInput || !clientIdInput.value) {
+                        e.preventDefault();
                         alert('Please select a client first');
                         return;
                     }
@@ -1834,9 +1830,68 @@
     }
 
     function showAddLaborDialog() {
-                const itemsDiv = document.getElementById('items');
-                const newItem = document.createElement('div');
-                newItem.className = 'item';
+        const itemsDiv = document.getElementById('items');
+        const newItem = document.createElement('div');
+        newItem.className = 'item';
+        
+        // Fetch latest labor items
+        fetch(`${APP_ROOT}/labor_details`)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const laborItems = doc.querySelectorAll('select[name="labor_item"] option');
+                
+                let optionsHtml = '<option value="" disabled selected>Select Labor Item</option>' +
+                                '<option value="new">Create New Labor Item</option>';
+                
+                laborItems.forEach(option => {
+                    if (option.value && option.value !== 'new') {
+                        optionsHtml += `<option value="${option.value}" data-rate="${option.dataset.rate}">${option.text}</option>`;
+                    }
+                });
+                
+                newItem.innerHTML = 
+                    '<label>Labor Item:</label>' +
+                    '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
+                    optionsHtml +
+                    '</select>' +
+                    '<label>Date labor performed:</label>' +
+                    '<input type="date" name="item_date[]" required>' +
+                    '<label>Hours:</label>' +
+                    '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+                    '<label>Minutes:</label>' +
+                    '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+                    '<input type="hidden" name="labor_rate[]" value="0.00">' +
+                    '<div class="total-cost">' +
+                    '<span>Total Cost: $0.00</span>' +
+                    '</div>' +
+                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                    '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '</div>';
+                
+                itemsDiv.appendChild(newItem);
+                document.querySelector('.main-action-buttons').classList.add('hidden');
+                
+                // Check if we need to pre-select a new labor item
+                const urlParams = new URLSearchParams(window.location.search);
+                const newLaborId = urlParams.get('new_labor_id');
+                if (newLaborId) {
+                    const select = newItem.querySelector('select[name="labor_item[]"]');
+                    select.value = newLaborId;
+                    select.dispatchEvent(new Event('change'));
+                    
+                    // Clear the URL parameters
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('new_labor_id');
+                    url.searchParams.delete('open_dialog');
+                    window.history.replaceState({}, document.title, url.pathname + url.search);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching labor items:', error);
+                // Fallback to static options if fetch fails
                 newItem.innerHTML = 
                     '<label>Labor Item:</label>' +
                     '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
@@ -1862,19 +1917,77 @@
                     '</div>';
                 itemsDiv.appendChild(newItem);
                 document.querySelector('.main-action-buttons').classList.add('hidden');
-        }
+            });
+    }
 
     function showAddItemDialog() {
-                const itemsDiv = document.getElementById('items');
-                const newItem = document.createElement('div');
-                newItem.className = 'item';
+        const itemsDiv = document.getElementById('items');
+        const newItem = document.createElement('div');
+        newItem.className = 'item';
+        
+        // Fetch latest items
+        fetch(`${APP_ROOT}/item_details`)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const items = doc.querySelectorAll('select[name="item"] option');
+                
+                let optionsHtml = '<option value="" disabled selected>Select Item</option>' +
+                                '<option value="new">Create New Item</option>';
+                
+                items.forEach(option => {
+                    if (option.value && option.value !== 'new') {
+                        const description = option.text.split(' - $')[0];
+                        const price = option.text.split(' - $')[1];
+                        optionsHtml += `<option value="${option.value}" data-price="${price}">${option.text}</option>`;
+                    }
+                });
+                
+                newItem.innerHTML = 
+                    '<label>Item:</label>' +
+                    '<select name="item[]" required onchange="handleItemSelection(this)">' +
+                    optionsHtml +
+                    '</select>' +
+                    '<label>Quantity:</label>' +
+                    '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
+                    '<input type="hidden" name="item_price[]" value="0.00">' +
+                    '<div class="total-cost">' +
+                    '<span>Total Cost: $0.00</span>' +
+                    '</div>' +
+                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                    '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '</div>';
+                
+                itemsDiv.appendChild(newItem);
+                document.querySelector('.main-action-buttons').classList.add('hidden');
+                
+                // Check if we need to pre-select a new item
+                const urlParams = new URLSearchParams(window.location.search);
+                const newItemId = urlParams.get('new_item_id');
+                if (newItemId) {
+                    const select = newItem.querySelector('select[name="item[]"]');
+                    select.value = newItemId;
+                    select.dispatchEvent(new Event('change'));
+                    
+                    // Clear the URL parameters
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('new_item_id');
+                    url.searchParams.delete('open_dialog');
+                    window.history.replaceState({}, document.title, url.pathname + url.search);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching items:', error);
+                // Fallback to static options if fetch fails
                 newItem.innerHTML = 
                     '<label>Item:</label>' +
                     '<select name="item[]" required onchange="handleItemSelection(this)">' +
                     '<option value="" disabled selected>Select Item</option>' +
                     '<option value="new">Create New Item</option>' +
                     '{% for item in items %}' +
-                    '<option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.description }} - ${{ "%.2f"|format(item.price) }}</option>' +
+                    '<option value="{{ item.id }}" data-price="{{ item.unit_price }}">{{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}</option>' +
                     '{% endfor %}' +
                     '</select>' +
                     '<label>Quantity:</label>' +
@@ -1889,7 +2002,8 @@
                     '</div>';
                 itemsDiv.appendChild(newItem);
                 document.querySelector('.main-action-buttons').classList.add('hidden');
-        }
+            });
+    }
 
     function showAddNoteDialog() {
         const notesSection = document.getElementById('notesSection');
@@ -1973,9 +2087,9 @@
                 <div class="selector-container">
                   <select class="company-selector" onchange="handleCompanySelection(this.value)">
                     <option value="" disabled selected>Select Your Business</option>
-                    <option value="{{ url_for('settings') }}?new=true">Create New Business</option>
-                    {% for company in companies %}
-                      <option value="{{ company.id }}" {% if selected_company and selected_company.id == company.id %}selected{% endif %}>{{ company.name }}</option>
+                    <option value="{{ url_for('business_details', new='true', source='create_invoice') }}">Create New Business</option>
+                    {% for business in businesses %}
+                      <option value="{{ business.id }}" {% if selected_business and selected_business.id == business.id %}selected{% endif %}>{{ business.name }}</option>
                     {% endfor %}
                   </select>
                 </div>
@@ -2026,9 +2140,9 @@
             <div class="selector-container">
                 <select class="company-selector" onchange="handleCompanySelection(this.value)">
                     <option value="" disabled selected>Select Your Business</option>
-                    <option value="{{ url_for('settings') }}?new=true">Create New Business</option>
-                    {% for company in companies %}
-                        <option value="{{ company.id }}" {% if selected_company and selected_company.id == company.id %}selected{% endif %}>{{ company.name }}</option>
+                    <option value="{{ url_for('business_details', new='true', source='create_invoice') }}">Create New Business</option>
+                    {% for business in businesses %}
+                        <option value="{{ business.id }}" {% if selected_business and selected_business.id == business.id %}selected{% endif %}>{{ business.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -2089,7 +2203,7 @@
             <div class="selector-container">
               <select class="client-selector" onchange="handleClientSelection(this.value)">
                 <option value="" disabled selected>Select Client</option>
-                <option value="{{ url_for('client_details') }}?new=true">Create New Client</option>
+                <option value="{{ url_for('client_details') }}?new=true&from_create_invoice=true">Create New Client</option>
                 {% for client in clients %}
                   <option value="{{ client.id }}" {% if selected_client and selected_client.id == client.id %}selected{% endif %}>{{ client.name }}</option>
                 {% endfor %}
@@ -2148,7 +2262,7 @@
       <div class="selector-container">
         <select class="client-selector" onchange="handleClientSelection(this.value)">
           <option value="" disabled selected>Select Client</option>
-          <option value="{{ url_for('client_details') }}?new=true">Create New Client</option>
+          <option value="{{ url_for('client_details') }}?new=true&from_create_invoice=true">Create New Client</option>
           {% for client in clients %}
             <option value="{{ client.id }}" {% if selected_client and selected_client.id == client.id %}selected{% endif %}>{{ client.name }}</option>
           {% endfor %}
@@ -2168,14 +2282,20 @@
             {% endif %}
         {% endwith %}
         
-            <form action="{{ url_for('create_invoice') }}" method="post">
-                <input type="hidden" name="client" value="{{ selected_client.id if selected_client else '' }}">
+            <form id="businessForm" action="{{ url_for('create_invoice') }}" method="POST" enctype="multipart/form-data">
+                <input type="hidden" id="business_id" name="business_id" value="{{ selected_business.id if selected_business else '' }}">
+                <input type="hidden" name="from_create_invoice" value="true">
+                <input type="hidden" name="client_id" value="{{ selected_client.id if selected_client else '' }}">
                 <input type="hidden" id="line_items_json" name="line_items_json" value="">
                 <div class="invoice-header"> 
                     <div class="invoice-fields row"> 
                         <div class="form-group col-md-6"> 
                             <label for="date">Invoice Date:</label>
                             <input type="date" id="date" name="date" class="form-control" required> 
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="due_date">Due Date:</label>
+                            <input type="date" id="due_date" name="due_date" class="form-control" required>
                         </div>
                         <div class="form-group col-md-6 invoice-number-group"> 
                             <label for="invoice_number">Invoice Number:</label>

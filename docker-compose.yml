@@ -6,30 +6,26 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Mount the static/logos directory to persist uploaded logos
-      # This is important so that uploaded logos are not lost when the container restarts.
-      # We'll create a local directory named 'user_logos' to store these.
-      - ./invoice/static/user_logos:/app/invoice/static/user_logos
-      # Use a named volume for uploads
-      - uploads_data:/app/static/uploads
+      - ./static:/app/static:ro
+      - ./uploads:/app/uploads
       - invoice_db_data:/app/db
+      - invoice_migrations_data:/app/migrations
     environment:
-      # Ensure Flask and Gunicorn use the correct settings
-      - FLASK_APP=wsgi.py
+      - FLASK_APP=app.py
       - FLASK_ENV=production
       - SECRET_KEY=your-secure-secret-key-here
-      - DATABASE_URL=sqlite:///db/invoice_gen.db
+      - DATABASE_URL=sqlite:////app/db/invoice_gen.db
       - SCRIPT_NAME=/invoice
+      - PYTHONUNBUFFERED=1
     restart: unless-stopped
     networks:
       - invoice_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/static/css/style.css"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/invoice/static/css/style.css"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    command: gunicorn --bind 0.0.0.0:8080 app:app
 
 networks:
   invoice_network:
@@ -37,7 +33,9 @@ networks:
 
 volumes:
   invoice_db_data:
-  uploads_data:
+    driver: local
+  invoice_migrations_data:
+    driver: local
 
 # Optional: Define a volume for persistent data if not mounting a host directory
 # volumes:

@@ -19,8 +19,10 @@
             <div class="header d-flex align-items-center justify-content-between w-100 flex-row flex-nowrap" style="min-height:60px; padding: 0.5rem 0;">
                 <div class="d-flex align-items-center flex-row flex-nowrap w-100">
                     <div class="header-logo-container ms-0 me-2">
-                        <img src="{{ url_for('static', filename='logos/ig-logo.png') }}" alt="Invoice Generator Logo" class="img-fluid logo-img logo-img-light">
-                        <img src="{{ url_for('static', filename='logos/ig-logo-dark.png') }}" alt="Invoice Generator Logo Dark" class="img-fluid logo-img logo-img-dark">
+                        <a href="{{ url_for('dashboard') }}">
+                            <img src="{{ url_for('static', filename='logos/ig-logo.png') }}" alt="Invoice Generator Logo" class="img-fluid logo-img logo-img-light">
+                            <img src="{{ url_for('static', filename='logos/ig-logo-dark.png') }}" alt="Invoice Generator Logo Dark" class="img-fluid logo-img logo-img-dark">
+                        </a>
                     </div>
                     {% if session.username %}
                         <span class="user-info d-flex align-items-center ms-2">
@@ -47,7 +49,7 @@
                     <div class="collapse navbar-collapse" id="navbarNav">
                         <ul class="navbar-nav">
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('dashboard') }}">
+                                <a class="nav-link" href="{{ url_for('create_invoice') }}">
                                     <i class="fas fa-plus"></i> Create New Invoice
                                 </a>
                             </li>
