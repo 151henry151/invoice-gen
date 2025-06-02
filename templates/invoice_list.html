@@ -179,127 +179,91 @@
         color: var(--text-muted, #888);
         margin-top: 2px;
         margin-bottom: 2px;
-        background: rgba(0,0,0,0.03);
+        background: var(--section-bg);
         border-radius: 4px;
-        padding: 2px 6px;
+        padding: 8px;
     }
     
     .mobile-invoice-number {
         font-size: 0.95em;
-        color: var(--text-muted, #888);
+        color: var(--text-color);
         font-weight: 600;
-        margin-bottom: 0;
+        margin-bottom: 4px;
     }
     
     .mobile-label {
         font-weight: 600;
         margin-right: 4px;
+        color: var(--text-color);
     }
     
     .mobile-btn-group {
         display: flex;
-        flex-wrap: wrap;
-        gap: 2px;
-        margin-top: 4px;
-        align-items: center;
-    }
-    
-    .mobile-btn-group form {
-        display: flex;
-        align-items: center;
-        margin: 0;
-        padding: 0;
-        border: none;
-        background: none;
+        gap: 8px;
+        margin-top: 8px;
     }
     
     .mobile-btn-group .btn {
-        font-size: 0.85em;
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         height: 32px;
         min-width: 32px;
         padding: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        vertical-align: middle;
     }
     
-    .invoice-number-cell {
-        min-width: 90px;
-        max-width: 120px;
-        word-break: break-all;
+    .mobile-btn-group form {
+        flex: 1;
+        margin: 0;
+        padding: 0;
     }
     
-    @media (max-width: 600px) {
+    .mobile-btn-group form button {
+        width: 100%;
+        height: 32px;
+        min-width: 32px;
+        padding: 0;
+    }
+    
+    @media (max-width: 768px) {
+        .desktop-date,
+        .desktop-client,
+        .desktop-total,
+        .desktop-actions,
         .invoice-header-label {
-            display: none;
-        }
-        
-        th:nth-child(1), td.invoice-number-cell,
-        th:nth-child(2), td.desktop-date,
-        th:nth-child(3), td.desktop-client,
-        th:nth-child(4), td.desktop-total,
-        th:nth-child(5), td.desktop-actions {
-            display: none;
+            display: none !important;
         }
         
         .mobile-invoice-details {
-            display: block;
-            font-size: 0.90em;
-            margin-top: 2px;
-            margin-bottom: 2px;
-            padding: 2px 4px 4px 4px;
-        }
-        
-        .mobile-invoice-details > div {
-            margin-bottom: 0.1em;
-            line-height: 1.2;
-        }
-        
-        .mobile-invoice-number {
-            font-size: 0.95em;
-            color: var(--text-muted, #888);
-            font-weight: 600;
-            margin-bottom: 0;
-        }
-        
-        .mobile-label {
-            font-weight: 600;
-            margin-right: 4px;
-        }
-        
-        .mobile-btn-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 2px;
-            margin-top: 4px;
-            align-items: center;
-        }
-        
-        .mobile-btn-group form {
-            display: flex;
-            align-items: center;
-            margin: 0;
-            padding: 0;
-            border: none;
-            background: none;
-        }
-        
-        .mobile-btn-group .btn {
-            font-size: 0.85em;
-            height: 32px;
-            min-width: 32px;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            vertical-align: middle;
+            display: block !important;
         }
         
         .invoice-number-cell {
-            min-width: 90px;
-            max-width: 120px;
-            word-break: break-all;
+            width: 100%;
+            padding: 8px;
+        }
+        
+        .invoice-number-text {
+            display: none;
+        }
+        
+        .table tbody tr {
+            display: block;
+            margin-bottom: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--card-bg);
+        }
+        
+        .table tbody td {
+            display: block;
+            border: none;
+            padding: 0;
+        }
+        
+        .table thead {
+            display: none;
         }
     }
 </style>

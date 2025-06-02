@@ -12,6 +12,8 @@
     --button-hover: #6c757d;
     --button-text: #f8f9fa;
     --button-border: #6c757d;
+    --card-bg: #2c3034;
+    --text-muted: #adb5bd;
 }
 
 [data-theme="light"] {
@@ -27,6 +29,8 @@
     --button-hover: #dee2e6;
     --button-text: #212529;
     --button-border: #ced4da;
+    --card-bg: #ffffff;
+    --text-muted: #6c757d;
 }
 
 body {
@@ -1142,5 +1146,56 @@ form {
 @media (max-width: 600px) {
     .header-user-controls {
         gap: 6px;
+    }
+}
+
+@media (max-width: 768px) {
+    .desktop-date,
+    .desktop-client,
+    .desktop-total,
+    .desktop-actions {
+        display: none !important;
+    }
+    
+    .mobile-invoice-details {
+        display: block !important;
+        margin-top: 8px;
+        padding: 8px;
+        background: var(--section-bg);
+        border-radius: 4px;
+    }
+    
+    .mobile-invoice-details > div {
+        margin-bottom: 4px;
+    }
+    
+    .mobile-invoice-details > div:last-child {
+        margin-bottom: 0;
+    }
+    
+    .mobile-btn-group {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+    }
+    
+    .mobile-btn-group .btn {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .mobile-label {
+        font-weight: 600;
+        color: var(--text-color);
+    }
+    
+    .invoice-number-cell {
+        width: 100%;
+    }
+    
+    .invoice-number-text {
+        display: none;
     }
 }

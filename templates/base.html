@@ -196,6 +196,44 @@
                 themeIcon.className = 'fas fa-moon';
             }
         }
+
+        // Handle page transitions
+        document.addEventListener('DOMContentLoaded', function() {
+            const overlay = document.getElementById('page-transition-overlay');
+            
+            // Add overlay to the page if it doesn't exist
+            if (!overlay) {
+                const newOverlay = document.createElement('div');
+                newOverlay.id = 'page-transition-overlay';
+                document.body.appendChild(newOverlay);
+            }
+
+            // Handle visibility change
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                    // Remove blur when tab becomes visible
+                    const overlay = document.getElementById('page-transition-overlay');
+                    if (overlay) {
+                        overlay.classList.remove('active');
+                    }
+                }
+            });
+
+            // Handle page transitions
+            document.addEventListener('click', function(e) {
+                const target = e.target;
+                const isDownloadLink = target.closest('a[href*="download_invoice"]');
+                const isExternalLink = target.closest('a[target="_blank"]');
+                
+                if (!isDownloadLink && !isExternalLink) {
+                    const overlay = document.getElementById('page-transition-overlay');
+                    if (overlay) {
+                        overlay.classList.add('active');
+                    }
+                }
+            });
+        });
+
         // Auto-dismiss flash messages
         document.addEventListener('DOMContentLoaded', function() {
             const flashMessages = document.querySelectorAll('.flash-message');
@@ -234,33 +272,6 @@
                 updateMobileIcons();
             }
         });
-        // Page transition blur overlay
-        (function() {
-          function showOverlay() {
-            var overlay = document.getElementById('page-transition-overlay');
-            if (overlay) overlay.classList.add('active');
-          }
-
-          document.addEventListener('DOMContentLoaded', function() {
-            document.body.addEventListener('click', function(e) {
-              var a = e.target.closest('a');
-              if (
-                a &&
-                a.href &&
-                a.target !== '_blank' &&
-                !a.href.startsWith('javascript:') &&
-                a.href !== window.location.href &&
-                !a.hasAttribute('data-no-transition')
-              ) {
-                showOverlay();
-              }
-            });
-            document.body.addEventListener('submit', function(e) {
-              showOverlay();
-            });
-          });
-          window.addEventListener('beforeunload', showOverlay);
-        })();
     </script>
     <style>
         .header {
