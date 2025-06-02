@@ -25,18 +25,13 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 
 # Install Python dependencies including development tools
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir \
-    flask-debugtoolbar \
-    pytest \
-    pytest-cov \
-    black \
-    flake8
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Create necessary directories
 RUN mkdir -p /app/db /app/migrations /app/static
 
 # Set environment variables
+ENV PYTHONPATH=/app
 ENV FLASK_APP=app.py
 ENV FLASK_ENV=development
 ENV FLASK_DEBUG=1
@@ -46,4 +41,10 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
 
 # The actual application code will be mounted as a volume
-# This allows for live code changes without rebuilding the container 
+# This allows for live code changes without rebuilding the container
+
+COPY . .
+
+RUN chmod +x entrypoint.dev.sh
+
+ENTRYPOINT ["./entrypoint.dev.sh"] 
