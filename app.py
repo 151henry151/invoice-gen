@@ -952,33 +952,20 @@ def remove_client(client_id):
 def business_details():
     if request.method == 'POST':
         # Get form data
-        business_id = request.form.get('business_id')
         name = request.form.get('name')
         address = request.form.get('address')
         email = request.form.get('email')
         phone = request.form.get('phone')
-        invoice_template = request.form.get('invoice_template', 'invoice_pretty')
+        business_id = request.form.get('business_id')
+        logo_path = None
         
         # Handle logo upload
-        logo_path = None
         if 'logo' in request.files:
-            file = request.files['logo']
-            if file and file.filename and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                # Create a unique filename
-                timestamp = int(time.time())
-                filename = f"{timestamp}_{filename}"
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(filepath)
-                # Resize the logo
-                if resize_logo(filepath):
-                    logo_path = filename
-                else:
-                    flash('Error processing logo image.')
-                    if business_id:
-                        return redirect(url_for('business_details', business_id=business_id))
-                    else:
-                        return redirect(url_for('business_details', new='true'))
+            logo = request.files['logo']
+            if logo and logo.filename:
+                filename = secure_filename(logo.filename)
+                logo_path = filename
+                logo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
         
         if business_id:
             # Update existing business
@@ -988,7 +975,6 @@ def business_details():
                 business.address = address
                 business.email = email
                 business.phone = phone
-                business.invoice_template = invoice_template
                 if logo_path:
                     business.logo_path = logo_path
                 db.session.commit()
@@ -1001,8 +987,7 @@ def business_details():
                 address=address,
                 email=email,
                 phone=phone,
-                logo_path=logo_path,
-                invoice_template=invoice_template
+                logo_path=logo_path
             )
             db.session.add(business)
             db.session.commit()
