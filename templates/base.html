@@ -26,20 +26,6 @@
       [data-theme="dark"] .user-link {
         color: #e9ecef !important;
       }
-      #page-transition-overlay {
-        position: fixed;
-        z-index: 9999;
-        top: 0; left: 0; right: 0; bottom: 0;
-        pointer-events: none;
-        background: rgba(30, 30, 30, 0.05); /* subtle dark overlay */
-        backdrop-filter: blur(6px);
-        opacity: 0;
-        transition: opacity 0.3s;
-      }
-      #page-transition-overlay.active {
-        opacity: 1;
-        pointer-events: all;
-      }
     </style>
     <script>
       // Show only the correct logo for the theme as early as possible
@@ -196,43 +182,6 @@
                 themeIcon.className = 'fas fa-moon';
             }
         }
-
-        // Handle page transitions
-        document.addEventListener('DOMContentLoaded', function() {
-            const overlay = document.getElementById('page-transition-overlay');
-            
-            // Add overlay to the page if it doesn't exist
-            if (!overlay) {
-                const newOverlay = document.createElement('div');
-                newOverlay.id = 'page-transition-overlay';
-                document.body.appendChild(newOverlay);
-            }
-
-            // Handle visibility change
-            document.addEventListener('visibilitychange', function() {
-                if (document.visibilityState === 'visible') {
-                    // Remove blur when tab becomes visible
-                    const overlay = document.getElementById('page-transition-overlay');
-                    if (overlay) {
-                        overlay.classList.remove('active');
-                    }
-                }
-            });
-
-            // Handle page transitions
-            document.addEventListener('click', function(e) {
-                const target = e.target;
-                const isDownloadLink = target.closest('a[href*="download_invoice"]');
-                const isExternalLink = target.closest('a[target="_blank"]');
-                
-                if (!isDownloadLink && !isExternalLink) {
-                    const overlay = document.getElementById('page-transition-overlay');
-                    if (overlay) {
-                        overlay.classList.add('active');
-                    }
-                }
-            });
-        });
 
         // Auto-dismiss flash messages
         document.addEventListener('DOMContentLoaded', function() {
@@ -498,5 +447,4 @@
         }
     </style>
 </body>
-<div id="page-transition-overlay"></div>
 </html> 
