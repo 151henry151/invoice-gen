@@ -1,6 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+      // Set theme before CSS loads to prevent flash
+      (function() {
+        try {
+          var theme = localStorage.getItem('theme') || 'dark'; // Default to dark if no theme is set
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      /* Prevent background flash for dark mode */
+      html[data-theme="dark"] {
+        background: #181a1b !important;
+      }
+      body {
+        background: transparent !important;
+      }
+      /* Prevent user-link flash */
+      .user-link {
+        color: #333 !important;
+        text-decoration: none !important;
+      }
+      [data-theme="dark"] .user-link {
+        color: #e9ecef !important;
+      }
+      #page-transition-overlay {
+        position: fixed;
+        z-index: 9999;
+        top: 0; left: 0; right: 0; bottom: 0;
+        pointer-events: none;
+        background: rgba(30, 30, 30, 0.05); /* subtle dark overlay */
+        backdrop-filter: blur(6px);
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      #page-transition-overlay.active {
+        opacity: 1;
+        pointer-events: all;
+      }
+    </style>
+    <script>
+      // Show only the correct logo for the theme as early as possible
+      (function() {
+        var theme = document.documentElement.getAttribute('data-theme');
+        var lightLogo = document.getElementById('logo-light');
+        var darkLogo = document.getElementById('logo-dark');
+        if (theme === 'dark') {
+          if (lightLogo) lightLogo.style.display = 'none';
+          if (darkLogo) darkLogo.style.display = 'block';
+        } else {
+          if (lightLogo) lightLogo.style.display = 'block';
+          if (darkLogo) darkLogo.style.display = 'none';
+        }
+      })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Invoice Generator{% endblock %}</title>
@@ -11,6 +66,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="preload" as="image" href="{{ url_for('static', filename='logos/ig-logo.png') }}">
+    <link rel="preload" as="image" href="{{ url_for('static', filename='logos/ig-logo-dark.png') }}">
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -19,14 +76,14 @@
             <div class="header d-flex align-items-center justify-content-between w-100 flex-row flex-nowrap" style="min-height:60px; padding: 0.5rem 0;">
                 <div class="header-logo-container ms-0 me-2">
                     <a href="{{ url_for('dashboard') }}">
-                        <img src="{{ url_for('static', filename='logos/ig-logo.png') }}" alt="Invoice Generator Logo" class="img-fluid logo-img logo-img-light">
-                        <img src="{{ url_for('static', filename='logos/ig-logo-dark.png') }}" alt="Invoice Generator Logo Dark" class="img-fluid logo-img logo-img-dark">
+                        <img id="logo-light" src="{{ url_for('static', filename='logos/ig-logo.png') }}" alt="Invoice Generator Logo" class="img-fluid logo-img logo-img-light" width="48" height="48" style="width:48px;height:48px;">
+                        <img id="logo-dark" src="{{ url_for('static', filename='logos/ig-logo-dark.png') }}" alt="Invoice Generator Logo Dark" class="img-fluid logo-img logo-img-dark" width="48" height="48" style="width:48px;height:48px;">
                     </a>
                 </div>
                 <div class="header-user-controls d-flex align-items-center ms-auto">
                     {% if session.username %}
                         {% if session.profile_picture %}
-                            <img src="{{ url_for('serve_upload', filename=session.profile_picture) }}" alt="Profile Picture" class="profile-pic-small">
+                            <img src="{{ url_for('serve_upload', filename=session.profile_picture) }}" alt="Profile Picture" class="profile-pic-small" width="32" height="32" style="width:32px;height:32px;">
                         {% endif %}
                         <a href="{{ url_for('settings') }}" class="user-link ms-1">{{ session.username }}</a>
                     {% endif %}
@@ -177,6 +234,33 @@
                 updateMobileIcons();
             }
         });
+        // Page transition blur overlay
+        (function() {
+          function showOverlay() {
+            var overlay = document.getElementById('page-transition-overlay');
+            if (overlay) overlay.classList.add('active');
+          }
+
+          document.addEventListener('DOMContentLoaded', function() {
+            document.body.addEventListener('click', function(e) {
+              var a = e.target.closest('a');
+              if (
+                a &&
+                a.href &&
+                a.target !== '_blank' &&
+                !a.href.startsWith('javascript:') &&
+                a.href !== window.location.href &&
+                !a.hasAttribute('data-no-transition')
+              ) {
+                showOverlay();
+              }
+            });
+            document.body.addEventListener('submit', function(e) {
+              showOverlay();
+            });
+          });
+          window.addEventListener('beforeunload', showOverlay);
+        })();
     </script>
     <style>
         .header {
@@ -185,10 +269,16 @@
             position: relative;
             background: transparent;
             padding: 0.5rem 0;
+            display: flex;
+            align-items: center;
         }
         .header-logo-container {
             width: 48px;
             height: 48px;
+            min-width: 48px;
+            min-height: 48px;
+            max-width: 48px;
+            max-height: 48px;
             padding: 4px;
             background-color: #fff;
             border-radius: 8px;
@@ -198,6 +288,17 @@
             justify-content: center;
             border: 2px solid #e0e0e0;
             margin-left: 0;
+        }
+        .logo-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: none;
+            transition: opacity 0.2s;
+            opacity: 1;
+        }
+        .logo-img:not([src]) {
+            opacity: 0;
         }
         .header-logo-container .logo-img {
             max-width: 100%;
@@ -386,4 +487,5 @@
         }
     </style>
 </body>
+<div id="page-transition-overlay"></div>
 </html> 

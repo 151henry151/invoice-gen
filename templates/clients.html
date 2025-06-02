@@ -160,6 +160,27 @@
     @media (max-width: 600px) {
         .desktop-only { display: none !important; }
         .mobile-only { display: block !important; }
+        .table thead { display: none !important; }
+        .table-responsive { overflow-x: hidden !important; }
+        .table { margin-bottom: 0; }
+        .card-body { padding: 0.5rem; }
+        .mobile-client-details {
+            padding: 0.5rem;
+        }
+        .mobile-label {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-right: 0.5rem;
+        }
+        .mobile-btn-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .mobile-btn-group .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
     }
     @media (min-width: 601px) {
         .desktop-only { display: table-cell !important; }
