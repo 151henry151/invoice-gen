@@ -4,6 +4,11 @@
 
 A professional invoice generator for small businesses and freelancers, built with Flask and modern web technologies. This app allows you to manage company and client details, add labor and itemized costs, and generate professional invoices.
 
+## Documentation
+
+- [User Guide](USER_GUIDE.md) - For end users: Learn how to use the application, manage clients, create invoices, and more.
+- [Developer Documentation](#) - For developers: Technical documentation, API reference, and setup instructions (this README).
+
 ## Project Structure
 
 ```
