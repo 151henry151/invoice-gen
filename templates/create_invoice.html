@@ -791,38 +791,21 @@
 
     // Function to save selected business and client
     function saveSelectedBusinessAndClient() {
-        const userId = "{{ session.get('user_id') }}";
-        const businessSelect = document.querySelector('.company-selector');
-        const clientSelect = document.querySelector('.client-selector');
+        const businessId = document.getElementById('business_id')?.value;
+        const clientId = document.getElementById('client_id')?.value;
         
-        if (businessSelect && clientSelect) {
-        const selectionData = {
-                businessId: businessSelect.value,
-                clientId: clientSelect.value
-        };
-        
-            // Save to localStorage
-        localStorage.setItem(`selectionData_${userId}`, JSON.stringify(selectionData));
-            
-            // Update URL with selected IDs
-            const url = new URL(window.location.href);
-            if (selectionData.businessId) {
-                url.searchParams.set('selected_company', selectionData.businessId);
-            }
-            if (selectionData.clientId) {
-                url.searchParams.set('selected_client', selectionData.clientId);
-            }
-            window.history.replaceState({}, '', url.pathname + url.search);
-            
-            // Save to session via AJAX
+        if (businessId || clientId) {
             fetch(`${APP_ROOT}/save_selections`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(selectionData)
+                body: JSON.stringify({
+                    businessId: businessId,
+                    clientId: clientId
+                })
             }).catch(error => {
-                console.error('Error saving selections:', error);
+                console.error('Error saving selection:', error);
             });
         }
     }
@@ -856,13 +839,15 @@
     // Update the handleCompanySelection function
     function handleCompanySelection(value) {
         if (value.startsWith('/')) {
+            // If it's a URL (like for creating a new business), navigate to it
             window.location.href = value;
-            document.querySelector('.company-selector').selectedIndex = 0;
             return;
         }
+        
         if (!/^[0-9]+$/.test(value)) {
             return;
         }
+
         fetch(`${APP_ROOT}/invoice/get_company/${value}`)
             .then(response => response.json())
             .then(company => {
@@ -1339,7 +1324,8 @@
 
         // Initialize the Edit Details button state
         const editButton = document.querySelector('.settings-link');
-        const companySelect = document.querySelector('.company-selector');
+        // Only declare companySelect once here
+        let companySelect = document.querySelector('.company-selector');
         if (editButton && companySelect) {
             if (!companySelect.value || companySelect.value.startsWith('/settings')) {
                 editButton.classList.add('disabled');
@@ -1347,6 +1333,11 @@
                 editButton.style.pointerEvents = 'none';
                 editButton.style.opacity = '0.5';
             }
+        }
+
+        // After restoring selected business and client, also update business details if a company is pre-selected
+        if (companySelect && companySelect.value) {
+            handleCompanySelection(companySelect.value);
         }
 
         // --- Auto-open dialog and pre-select new item/labor if redirected with query params ---
@@ -2142,7 +2133,7 @@
                     <option value="" disabled selected>Select Your Business</option>
                     <option value="{{ url_for('business_details', new='true', source='create_invoice') }}">Create New Business</option>
                     {% for business in businesses %}
-                        <option value="{{ business.id }}" {% if selected_business and selected_business.id == business.id %}selected{% endif %}>{{ business.name }}</option>
+                        <option value="{{ business.id }}" {% if selected_company and selected_company.id == business.id %}selected{% endif %}>{{ business.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -2283,7 +2274,7 @@
         {% endwith %}
         
             <form id="businessForm" action="{{ url_for('create_invoice') }}" method="POST" enctype="multipart/form-data">
-                <input type="hidden" id="business_id" name="business_id" value="{{ selected_business.id if selected_business else '' }}">
+                <input type="hidden" id="business_id" name="business_id" value="{{ selected_company.id if selected_company else '' }}">
                 <input type="hidden" name="from_create_invoice" value="true">
                 <input type="hidden" name="client_id" value="{{ selected_client.id if selected_client else '' }}">
                 <input type="hidden" id="line_items_json" name="line_items_json" value="">
