@@ -265,6 +265,76 @@ The Invoice Generator uses a single HTML (Jinja2) template for invoice generatio
    ```
    The app will be available at `http://127.0.0.1:5000/`.
 
+## Development Environment
+
+The project includes a Docker-based development environment that provides hot-reloading, debugging tools, and a consistent development experience.
+
+### Starting the Development Environment
+
+1. **Build and start the development containers:**
+   ```bash
+   docker-compose -f docker-compose.dev.yml up --build
+   ```
+
+2. **Access the application:**
+   - Main application: http://localhost:8080/invoice
+   - Debug toolbar will be available in the browser
+
+### Development Features
+
+- **Hot Reloading**: Changes to Python files automatically trigger a server reload
+- **Debug Mode**: Detailed error messages and Flask debug toolbar
+- **Development Tools**: Testing, formatting, and linting tools included
+- **Separate Database**: Development database is isolated from production
+- **No Rebuilding**: Code changes don't require container rebuilds
+
+### Development Commands
+
+1. **View logs:**
+   ```bash
+   docker-compose -f docker-compose.dev.yml logs -f
+   ```
+
+2. **Run tests:**
+   ```bash
+   docker-compose -f docker-compose.dev.yml exec web pytest
+   ```
+
+3. **Format code:**
+   ```bash
+   docker-compose -f docker-compose.dev.yml exec web black .
+   ```
+
+4. **Lint code:**
+   ```bash
+   docker-compose -f docker-compose.dev.yml exec web flake8
+   ```
+
+5. **Stop the development environment:**
+   ```bash
+   docker-compose -f docker-compose.dev.yml down
+   ```
+
+### Development Tools Included
+
+- **pytest**: Testing framework
+- **pytest-cov**: Test coverage reporting
+- **black**: Code formatter
+- **flake8**: Code linter
+- **flask-debugtoolbar**: Debug toolbar for Flask applications
+
+### Development Environment Structure
+
+```
+invoice-gen/
+├── docker-compose.dev.yml    # Development Docker Compose configuration
+├── Dockerfile.dev           # Development Dockerfile
+├── entrypoint.dev.sh        # Development container entrypoint script
+└── ...                      # Other project files
+```
+
+The development environment mounts your local code directory into the container, allowing for immediate code changes without rebuilding. The database and migrations are stored in Docker volumes to persist data between container restarts.
+
 ## Running with Docker
 
 This application can be built and run using Docker and Docker Compose, simplifying deployment and ensuring consistency across environments.

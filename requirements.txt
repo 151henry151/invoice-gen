@@ -9,3 +9,10 @@ Flask-SQLAlchemy==3.1.1
 Flask-Migrate==4.0.5
 alembic==1.16.1
 flask-migrate==4.0.5
+
+# Development dependencies
+flask-debugtoolbar==0.14.1
+pytest==8.0.0
+pytest-cov==4.1.0
+black==24.1.1
+flake8==7.0.0
