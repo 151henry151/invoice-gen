@@ -1,5 +1,13 @@
 # Invoice Generator
 
+Current Version: 0.9.0-beta.1
+
+## Version History
+- 0.9.0-beta.1: Initial beta release with core invoice generation functionality
+
+## Versioning
+This project follows [Semantic Versioning](https://semver.org/). For the versions available, see the [tags on this repository](https://github.com/yourusername/invoice-gen/tags).
+
 > **Pre-Release Notice**: This project is currently under development and not yet fully functional. This is a pre-release version with ongoing development and improvements.
 
 A professional invoice generator for small businesses and freelancers, built with Flask and modern web technologies. This app allows you to manage company and client details, add labor and itemized costs, and generate professional invoices.
