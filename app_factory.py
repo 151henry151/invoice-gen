@@ -17,7 +17,7 @@ def create_app(config_name='development'):
     
     # Common configuration
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
+    app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-please-change-in-production')
     app.config['PREFERRED_URL_SCHEME'] = 'https'
     
     # Initialize extensions
