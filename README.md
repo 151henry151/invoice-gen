@@ -31,6 +31,99 @@ invoice_gen/
 └── ...                   # Other supporting files
 ```
 
+## Development and Production Environments
+
+The application supports both development and production environments. The environment can be toggled using environment variables in the `docker-compose.yml` file.
+
+### Environment Toggle
+
+To switch between development and production modes, you can use either of these methods:
+
+1. Using the provided script (recommended):
+   ```bash
+   # For development mode
+   ./switch-env.sh dev
+
+   # For production mode
+   ./switch-env.sh prod
+   ```
+
+2. Using docker-compose directly:
+   ```bash
+   # For development mode
+   DOCKERFILE=Dockerfile.dev FLASK_ENV=development docker-compose up --build
+
+   # For production mode
+   docker-compose up --build
+   ```
+
+The script method is recommended as it handles stopping the current environment and provides clear feedback about the switching process.
+
+### Key Differences
+
+#### Development Mode
+- Uses Flask's development server with hot-reloading
+- Debug mode enabled
+- Mounts local directories for live code changes
+- Uses HTTP instead of HTTPS
+- More verbose logging
+- Development-specific settings:
+  - `SESSION_COOKIE_SECURE = False`
+  - `PREFERRED_URL_SCHEME = 'http'`
+  - Debug PIN enabled for debugging
+  - Hot-reloading enabled
+
+#### Production Mode
+- Uses Gunicorn as WSGI server
+- Debug mode disabled
+- Optimized for performance
+- Uses HTTPS (when configured)
+- Minimal logging
+- Production-specific settings:
+  - `SESSION_COOKIE_SECURE = True`
+  - `PREFERRED_URL_SCHEME = 'https'`
+  - Debug PIN disabled
+  - Hot-reloading disabled
+
+### Environment Variables
+
+Key environment variables that control the environment:
+
+- `FLASK_ENV`: Set to `development` or `production`
+- `DOCKERFILE`: Set to `Dockerfile.dev` for development or `Dockerfile` for production
+- `SECRET_KEY`: Different keys for development and production
+- `SCRIPT_NAME`: Application root path (e.g., `/invoice`)
+
+### Switching Environments
+
+1. Stop the current environment:
+   ```bash
+   docker-compose down
+   ```
+
+2. Clear any cached data (optional):
+   ```bash
+   docker-compose down -v
+   ```
+
+3. Start the desired environment:
+   ```bash
+   # For development
+   DOCKERFILE=Dockerfile.dev FLASK_ENV=development docker-compose up --build
+
+   # For production
+   docker-compose up --build
+   ```
+
+### Important Notes
+
+- Always use different secret keys for development and production
+- Development mode should never be used in production
+- Keep development-specific settings in `Dockerfile.dev`
+- Production settings should be secure by default
+- Database migrations work in both environments
+- Static files are served differently in each environment
+
 ## API Documentation
 
 The application provides several RESTful API endpoints for managing invoices, clients, and settings. All endpoints require authentication unless specified otherwise.
