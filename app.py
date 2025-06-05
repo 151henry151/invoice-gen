@@ -32,16 +32,22 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 MAX_LOGO_SIZE = (200, 200)
 
 def register_routes(app):
-    # Configure static file serving
-    app.static_folder = 'static'
-    app.static_url_path = '/invoice/static'
+    # Configure upload folder
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 
-    # Custom URL generator to ensure /invoice prefix
+    # Custom URL generator to ensure proper URL generation with application root
     def url_for_with_prefix(*args, **kwargs):
+        if args[0] == 'static':
+            # For static files, use the standard url_for with application root prefix
+            kwargs['_external'] = False
+            kwargs['_scheme'] = None
+            kwargs['_anchor'] = None
+            return url_for(*args, **kwargs)
+        
+        # For all other routes, use the prefix
         kwargs['_external'] = True
-        kwargs['_scheme'] = request.environ.get('HTTP_X_FORWARDED_PROTO', 'https')
+        kwargs['_scheme'] = 'http'  # Always use HTTP for local development
         return url_for(*args, **kwargs)
 
     def allowed_file(filename):
@@ -171,9 +177,17 @@ def register_routes(app):
             ).first()
             
             if user and check_password_hash(user.password, password):
+                session.clear()  # Clear any existing session data
                 session['user_id'] = user.id
                 session['username'] = user.username
                 session['profile_picture'] = user.profile_picture
+                session.permanent = True  # Make the session persistent
+                
+                # Debug logging
+                print(f"[DEBUG] User logged in - ID: {user.id}, Username: {user.username}")
+                print(f"[DEBUG] Session after login - user_id: {session.get('user_id')}, username: {session.get('username')}")
+                
+                # Use url_for_with_prefix to ensure proper URL generation
                 return redirect(url_for_with_prefix('dashboard'))
             
             flash('Invalid username/email or password!')
@@ -589,45 +603,108 @@ def register_routes(app):
             return redirect(next_url)
         return redirect(url_for('businesses'))
 
+    @app.route('/item_details')
+    @login_required
+    def item_details():
+        item_id = request.args.get('item_id')
+        is_new = request.args.get('new') == 'true'
+        source = request.args.get('source')
+        
+        # Get client and business IDs from query parameters
+        client_id = request.args.get('client_id')
+        business_id = request.args.get('business_id')
+        
+        conn = get_db()
+        items = conn.execute('SELECT * FROM items WHERE user_id = ?', 
+                            (session['user_id'],)).fetchall()
+        
+        selected_item = None
+        if item_id and not is_new:
+            selected_item = conn.execute('SELECT * FROM items WHERE id = ? AND user_id = ?',
+                                       (item_id, session['user_id'])).fetchone()
+        
+        # Store client and business IDs in session if provided
+        if client_id:
+            session['selected_client_id'] = client_id
+        if business_id:
+            session['selected_company_id'] = business_id
+        
+        return render_template('item_details.html', 
+                             items=items, 
+                             selected_item=selected_item, 
+                             is_new=is_new,
+                             source=source)
+
     @app.route('/labor_details')
     @login_required
     def labor_details():
-        labor_items = db.session.query(LaborItem).filter_by(user_id=session['user_id']).all()
-        return render_template('labor_details.html', labor_items=labor_items)
+        item_id = request.args.get('item_id')
+        is_new = request.args.get('new') == 'true'
+        source = request.args.get('source')
+        
+        # Get client and business IDs from query parameters
+        client_id = request.args.get('client_id')
+        business_id = request.args.get('business_id')
+        
+        conn = get_db()
+        labor_items = conn.execute('SELECT * FROM labor_items WHERE user_id = ?', 
+                                 (session['user_id'],)).fetchall()
+        
+        selected_item = None
+        if item_id and not is_new:
+            selected_item = conn.execute('SELECT * FROM labor_items WHERE id = ? AND user_id = ?',
+                                       (item_id, session['user_id'])).fetchone()
+        
+        # Store client and business IDs in session if provided
+        if client_id:
+            session['selected_client_id'] = client_id
+        if business_id:
+            session['selected_company_id'] = business_id
+        
+        return render_template('labor_details.html', 
+                             labor_items=labor_items, 
+                             selected_item=selected_item, 
+                             is_new=is_new,
+                             source=source)
 
     @app.route('/update_labor', methods=['POST'])
     @login_required
     def update_labor():
-        labor_id = request.form.get('labor_id')
+        item_id = request.form.get('item_id')
         description = request.form.get('description')
-        hours = float(request.form.get('hours', 0))
-        rate = float(request.form.get('rate', 0))
-        source = request.form.get('source', 'labor_details')
+        rate = request.form.get('rate')
+        source = request.form.get('source')
         
-        if labor_id:
+        conn = get_db()
+        if item_id:
             # Update existing labor item
-            labor = db.session.query(LaborItem).filter_by(id=labor_id, user_id=session['user_id']).first()
-            if labor:
-                labor.description = description
-                labor.hours = hours
-                labor.rate = rate
+            conn.execute('''UPDATE labor_items 
+                           SET description = ?, rate = ?
+                           WHERE id = ? AND user_id = ?''',
+                        (description, rate, item_id, session['user_id']))
+            new_id = item_id
         else:
             # Create new labor item
-            labor = LaborItem(
-                user_id=session['user_id'],
-                description=description,
-                hours=hours,
-                rate=rate
-            )
-            db.session.add(labor)
-            db.session.flush()  # Get the new labor ID without committing
+            cursor = conn.execute('''INSERT INTO labor_items (user_id, description, rate, hours)
+                           VALUES (?, ?, ?, ?)''',
+                        (session['user_id'], description, rate, 0))
+            new_id = cursor.lastrowid
         
-        db.session.commit()
-        flash('Labor details saved successfully!')
+        conn.commit()
+        flash('Labor item saved successfully!')
         
+        # Get client and business IDs from session
+        client_id = session.get('selected_client_id')
+        business_id = session.get('selected_company_id')
+        
+        # Redirect back to invoice page with state preservation
         if source == 'create_invoice':
-            return redirect(url_for_with_prefix('create_invoice', open_dialog='add_labor', new_labor_id=labor.id))
-        return redirect(url_for_with_prefix('labor_details'))
+            return redirect(url_for('create_invoice', 
+                                  open_dialog='add_labor', 
+                                  new_labor_id=new_id,
+                                  client_id=client_id,
+                                  business_id=business_id))
+        return redirect(url_for('dashboard'))
 
     @app.route('/remove_labor_item', methods=['POST'])
     @login_required
@@ -640,43 +717,44 @@ def register_routes(app):
         flash('Labor item removed successfully!')
         return redirect(url_for_with_prefix('labor_details'))
 
-    @app.route('/item_details')
-    @login_required
-    def item_details():
-        items = db.session.query(Item).filter_by(user_id=session['user_id']).all()
-        return render_template('item_details.html', items=items)
-
     @app.route('/update_item', methods=['POST'])
     @login_required
     def update_item():
         item_id = request.form.get('item_id')
         description = request.form.get('description')
-        price = float(request.form.get('price', 0))
-        source = request.form.get('source', 'item_details')
+        price = request.form.get('price')
+        source = request.form.get('source')
         
+        conn = get_db()
         if item_id:
             # Update existing item
-            item = db.session.query(Item).filter_by(id=item_id, user_id=session['user_id']).first()
-            if item:
-                item.description = description
-                item.unit_price = price
+            conn.execute('''UPDATE items 
+                           SET description = ?, price = ?
+                           WHERE id = ? AND user_id = ?''',
+                        (description, price, item_id, session['user_id']))
+            new_id = item_id
         else:
             # Create new item
-            item = Item(
-                user_id=session['user_id'],
-                description=description,
-                unit_price=price,
-                quantity=1
-            )
-            db.session.add(item)
-            db.session.flush()  # Get the new item ID without committing
+            cursor = conn.execute('''INSERT INTO items (user_id, description, price)
+                           VALUES (?, ?, ?)''',
+                        (session['user_id'], description, price))
+            new_id = cursor.lastrowid
         
-        db.session.commit()
-        flash('Item details saved successfully!')
+        conn.commit()
+        flash('Item saved successfully!')
         
+        # Get client and business IDs from session
+        client_id = session.get('selected_client_id')
+        business_id = session.get('selected_company_id')
+        
+        # Redirect back to invoice page with state preservation
         if source == 'create_invoice':
-            return redirect(url_for_with_prefix('create_invoice', open_dialog='add_item', new_item_id=item.id))
-        return redirect(url_for_with_prefix('item_details'))
+            return redirect(url_for('create_invoice', 
+                                  open_dialog='add_item', 
+                                  new_item_id=new_id,
+                                  client_id=client_id,
+                                  business_id=business_id))
+        return redirect(url_for('dashboard'))
 
     @app.route('/remove_item', methods=['POST'])
     @login_required
@@ -1019,12 +1097,4 @@ def register_routes(app):
             db.session.rollback()
             flash(f'Error deleting invoice: {str(e)}', 'danger')
         
-        return redirect(url_for_with_prefix('invoice_list'))
-
-# Create the app instance
-app = Flask(__name__)
-register_routes(app)
-
-if __name__ == '__main__':
-    # Start the application
-    app.run(debug=True, port=8080) 
+        return redirect(url_for_with_prefix('invoice_list')) 

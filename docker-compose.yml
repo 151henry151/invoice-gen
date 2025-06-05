@@ -2,18 +2,21 @@ version: '3'
 
 services:
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: ${DOCKERFILE:-Dockerfile}
     ports:
       - "8080:8080"
     volumes:
-      - ./static:/app/static:ro
+      - .:/app
+      - ./static:/app/static
       - ./uploads:/app/uploads
       - invoice_db_data:/app/db
       - invoice_migrations_data:/app/migrations
     environment:
-      - FLASK_APP=app.py
-      - FLASK_ENV=production
-      - SECRET_KEY=your-secure-secret-key-here
+      - FLASK_APP=app_factory.py
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - SECRET_KEY=dev-key-please-change-in-production
       - DATABASE_URL=sqlite:////app/db/invoice_gen.db
       - SCRIPT_NAME=/invoice
       - PYTHONUNBUFFERED=1
@@ -21,7 +24,7 @@ services:
     networks:
       - invoice_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/invoice/static/css/style.css"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/static/style.css"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -10,7 +10,7 @@ flask db upgrade
 
 # Create database tables if they don't exist
 echo "Creating database tables..."
-python3 -c "from app import app, db; app.app_context().push(); db.create_all()"
+python3 -c "from app_factory import create_app; app = create_app(); app.app_context().push()"
 
-# Start the application
-exec gunicorn --bind 0.0.0.0:8080 app:app 
+# Start the application with proper configuration
+exec gunicorn --bind 0.0.0.0:8080 --workers 4 "app_factory:create_app()" 

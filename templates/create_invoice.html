@@ -382,6 +382,18 @@
             opacity: 0.5;
         }
 
+        .create-new-btn {
+            background-color: #28a745 !important;
+            color: white !important;
+            border-color: #28a745 !important;
+        }
+
+        .create-new-btn:hover {
+            background-color: #218838 !important;
+            border-color: #1e7e34 !important;
+            color: white !important;
+        }
+
         /* Company and client details styles */
         .company-details, .client-details {
             position: relative;
@@ -532,7 +544,12 @@
     window.handleLaborItemSelection = function(selectElement) {
         const value = selectElement.value;
         if (value === 'new') {
-            window.location.href = "{{ url_for('labor_details') }}?new=true&source=create_invoice";
+            // Get current client and business IDs
+            const clientId = document.querySelector('input[name="client_id"]').value;
+            const businessId = document.getElementById('business_id').value;
+            
+            // Redirect with state preservation
+            window.location.href = "{{ url_for('labor_details') }}?new=true&source=create_invoice&client_id=" + clientId + "&business_id=" + businessId;
         } else {
             const option = selectElement.options[selectElement.selectedIndex];
             const rate = option.getAttribute('data-rate');
@@ -641,7 +658,7 @@
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Time:</span>
-                                <span class="detail-value">${item.hours}h ${item.minutes}m</span>
+                                <span class="detail-value">${hours}h ${minutes}m</span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Rate:</span>
@@ -836,8 +853,13 @@
         }
     }
 
-    // Update the handleCompanySelection function
-    function handleCompanySelection(value) {
+    // Function to handle company selection
+    function handleCompanySelection(value, event) {
+        // Only trigger navigation if it's a click event or Enter key
+        if (event && event.type === 'keydown' && event.key !== 'Enter') {
+            return;
+        }
+
         if (value.startsWith('/')) {
             // If it's a URL (like for creating a new business), navigate to it
             window.location.href = value;
@@ -888,8 +910,13 @@
             });
     }
 
-    // Update the handleClientSelection function
-    function handleClientSelection(value) {
+    // Function to handle client selection
+    function handleClientSelection(value, event) {
+        // Only trigger navigation if it's a click event or Enter key
+        if (event && event.type === 'keydown' && event.key !== 'Enter') {
+            return;
+        }
+
         if (value.startsWith('/')) {
             window.location.href = value;
             document.querySelector('.client-selector').selectedIndex = 0;
@@ -947,7 +974,12 @@
     function handleItemSelection(select) {
         const selectedValue = select.value;
         if (selectedValue === 'new') {
-            window.location.href = "{{ url_for('item_details') }}?new=true&source=create_invoice";
+            // Get current client and business IDs
+            const clientId = document.querySelector('input[name="client_id"]').value;
+            const businessId = document.getElementById('business_id').value;
+            
+            // Redirect with state preservation
+            window.location.href = "{{ url_for('item_details') }}?new=true&source=create_invoice&client_id=" + clientId + "&business_id=" + businessId;
             return;
         }
 
@@ -966,7 +998,8 @@
 
     // Function to calculate item total
     window.calculateItemTotal = function(itemDiv) {
-        const quantity = parseFloat(itemDiv.querySelector('input[name="quantity[]"]').value) || 0;
+        const quantityInput = itemDiv.querySelector('input[name="quantity[]"]');
+        const quantity = parseFloat(quantityInput.value) || 1; // Default to 1 instead of 0
         const price = parseFloat(itemDiv.querySelector('input[name="item_price[]"]').value) || 0;
         
         const totalCost = quantity * price;
@@ -1114,14 +1147,14 @@
         const priceInput = itemDiv.querySelector('input[name="item_price[]"]');
         const totalCost = itemDiv.querySelector('.total-cost');
         
-        if (!itemSelect.value || !quantityInput.value) {
-            alert('Please fill in all required fields');
+        if (!itemSelect.value) {
+            alert('Please select an item');
             return;
         }
         
         const selectedOption = itemSelect.options[itemSelect.selectedIndex];
         const description = selectedOption.text;
-        const quantity = parseInt(quantityInput.value) || 0;
+        const quantity = parseInt(quantityInput.value) || 1; // Default to 1 if not specified
         const price = parseFloat(priceInput.value);
         const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
         
@@ -1915,85 +1948,27 @@
         const itemsDiv = document.getElementById('items');
         const newItem = document.createElement('div');
         newItem.className = 'item';
-        
-        // Fetch latest items
-        fetch(`${APP_ROOT}/item_details`)
-            .then(response => response.text())
-            .then(html => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const items = doc.querySelectorAll('select[name="item"] option');
-                
-                let optionsHtml = '<option value="" disabled selected>Select Item</option>' +
-                                '<option value="new">Create New Item</option>';
-                
-                items.forEach(option => {
-                    if (option.value && option.value !== 'new') {
-                        const description = option.text.split(' - $')[0];
-                        const price = option.text.split(' - $')[1];
-                        optionsHtml += `<option value="${option.value}" data-price="${price}">${option.text}</option>`;
-                    }
-                });
-                
-                newItem.innerHTML = 
-                    '<label>Item:</label>' +
-                    '<select name="item[]" required onchange="handleItemSelection(this)">' +
-                    optionsHtml +
-                    '</select>' +
-                    '<label>Quantity:</label>' +
-                    '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
-                    '<input type="hidden" name="item_price[]" value="0.00">' +
-                    '<div class="total-cost">' +
-                    '<span>Total Cost: $0.00</span>' +
-                    '</div>' +
-                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                    '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                    '</div>';
-                
-                itemsDiv.appendChild(newItem);
-                document.querySelector('.main-action-buttons').classList.add('hidden');
-                
-                // Check if we need to pre-select a new item
-                const urlParams = new URLSearchParams(window.location.search);
-                const newItemId = urlParams.get('new_item_id');
-                if (newItemId) {
-                    const select = newItem.querySelector('select[name="item[]"]');
-                    select.value = newItemId;
-                    select.dispatchEvent(new Event('change'));
-                    
-                    // Clear the URL parameters
-                    const url = new URL(window.location.href);
-                    url.searchParams.delete('new_item_id');
-                    url.searchParams.delete('open_dialog');
-                    window.history.replaceState({}, document.title, url.pathname + url.search);
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching items:', error);
-                // Fallback to static options if fetch fails
-                newItem.innerHTML = 
-                    '<label>Item:</label>' +
-                    '<select name="item[]" required onchange="handleItemSelection(this)">' +
-                    '<option value="" disabled selected>Select Item</option>' +
-                    '<option value="new">Create New Item</option>' +
-                    '{% for item in items %}' +
-                    '<option value="{{ item.id }}" data-price="{{ item.unit_price }}">{{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}</option>' +
-                    '{% endfor %}' +
-                    '</select>' +
-                    '<label>Quantity:</label>' +
-                    '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
-                    '<input type="hidden" name="item_price[]" value="0.00">' +
-                    '<div class="total-cost">' +
-                    '<span>Total Cost: $0.00</span>' +
-                    '</div>' +
-                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                    '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                    '</div>';
-                itemsDiv.appendChild(newItem);
-                document.querySelector('.main-action-buttons').classList.add('hidden');
-            });
+        newItem.innerHTML = 
+            '<label>Item:</label>' +
+            '<select name="item[]" required onchange="handleItemSelection(this)">' +
+            '<option value="" disabled selected>Select Item</option>' +
+            '<option value="new">Create New Item</option>' +
+            '{% for item in items %}' +
+            '<option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.description }} - ${{ "%.2f"|format(item.price) }}</option>' +
+            '{% endfor %}' +
+            '</select>' +
+            '<label>Quantity:</label>' +
+            '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
+            '<input type="hidden" name="item_price[]" value="0.00">' +
+            '<div class="total-cost">' +
+            '<span>Total Cost: $0.00</span>' +
+            '</div>' +
+            '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+            '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+            '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+            '</div>';
+        itemsDiv.appendChild(newItem);
+        document.querySelector('.main-action-buttons').classList.add('hidden');
     }
 
     function showAddNoteDialog() {
@@ -2068,15 +2043,15 @@
                   <span class="detail-label">Phone:</span>
                   <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone if selected_company else '' }}</span>
                 </div>
-                <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else '#' }}" 
-                   class="settings-link{% if not selected_company %} disabled{% endif %} edit-business-btn-responsive"
+                <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else url_for('business_details', new='true', source='create_invoice') }}" 
+                   class="settings-link{% if not selected_company %} create-new-btn{% endif %} edit-business-btn-responsive"
                    data-app-root="{{ APP_ROOT }}">
-                  Edit Business Details
+                    {% if selected_company %}Edit Business Details{% else %}Create New Business{% endif %}
                 </a>
               </div>
               <div class="navigation mt-2">
                 <div class="selector-container">
-                  <select class="company-selector" onchange="handleCompanySelection(this.value)">
+                  <select class="company-selector" onchange="handleCompanySelection(this.value, event)" onkeydown="handleCompanySelection(this.value, event)">
                     <option value="" disabled selected>Select Your Business</option>
                     <option value="{{ url_for('business_details', new='true', source='create_invoice') }}">Create New Business</option>
                     {% for business in businesses %}
@@ -2120,16 +2095,16 @@
                     <span class="detail-label">Phone:</span>
                     <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone if selected_company else '' }}</span>
                 </div>
-                <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else '#' }}" 
-                   class="settings-link{% if not selected_company %} disabled{% endif %} edit-business-btn-responsive"
+                <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else url_for('business_details', new='true', source='create_invoice') }}" 
+                   class="settings-link{% if not selected_company %} create-new-btn{% endif %} edit-business-btn-responsive"
                    data-app-root="{{ APP_ROOT }}">
-                    Edit Business Details
+                    {% if selected_company %}Edit Business Details{% else %}Create New Business{% endif %}
                 </a>
             </div>
         </div>
         <div class="navigation">
             <div class="selector-container">
-                <select class="company-selector" onchange="handleCompanySelection(this.value)">
+                <select class="company-selector" onchange="handleCompanySelection(this.value, event)" onkeydown="handleCompanySelection(this.value, event)">
                     <option value="" disabled selected>Select Your Business</option>
                     <option value="{{ url_for('business_details', new='true', source='create_invoice') }}">Create New Business</option>
                     {% for business in businesses %}
@@ -2188,11 +2163,13 @@
                 <span class="detail-value" data-placeholder="Your Client's Phone Number"></span>
               </div>
             {% endif %}
-            <a href="#" class="btn btn-outline-secondary btn-sm settings-link{% if not selected_client %} disabled{% endif %} edit-client-btn-responsive" style="margin-top: 1rem; width: 200px; max-width: 100%;">Edit Client Details</a>
+            <a href="#" class="btn btn-outline-secondary btn-sm settings-link{% if not selected_client %} disabled{% endif %} edit-client-btn-responsive" style="margin-top: 1rem; width: 200px; max-width: 100%;">
+                {% if selected_client %}Edit Client Details{% else %}Select a Client to Edit{% endif %}
+            </a>
           </div>
           <div class="navigation mt-2">
             <div class="selector-container">
-              <select class="client-selector" onchange="handleClientSelection(this.value)">
+              <select class="client-selector" onchange="handleClientSelection(this.value, event)" onkeydown="handleClientSelection(this.value, event)">
                 <option value="" disabled selected>Select Client</option>
                 <option value="{{ url_for('client_details') }}?new=true&from_create_invoice=true">Create New Client</option>
                 {% for client in clients %}
@@ -2246,12 +2223,16 @@
             <span class="detail-value" data-placeholder="Your Client's Phone Number"></span>
           </div>
         {% endif %}
-        <a href="#" class="btn btn-outline-secondary btn-sm settings-link{% if not selected_client %} disabled{% endif %} edit-client-btn-responsive" style="margin-top: 1rem; width: 200px; max-width: 100%;">Edit Client Details</a>
+        <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else '#' }}" 
+           class="settings-link{% if not selected_client %} disabled{% endif %} edit-client-btn-responsive"
+           style="margin-top: 1rem; width: 200px; max-width: 100%;">
+            {% if selected_client %}Edit Client Details{% else %}Select a Client to Edit{% endif %}
+        </a>
       </div>
     </div>
     <div class="navigation">
       <div class="selector-container">
-        <select class="client-selector" onchange="handleClientSelection(this.value)">
+        <select class="client-selector" onchange="handleClientSelection(this.value, event)" onkeydown="handleClientSelection(this.value, event)">
           <option value="" disabled selected>Select Client</option>
           <option value="{{ url_for('client_details') }}?new=true&from_create_invoice=true">Create New Client</option>
           {% for client in clients %}

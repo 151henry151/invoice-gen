@@ -35,7 +35,7 @@ RUN mkdir -p /app/db /app/migrations /app/static
 RUN echo '#!/bin/bash\n\
 if [ ! -f /app/db/invoice_gen.db ]; then\n\
     echo "Initializing database..."\n\
-    export FLASK_APP=app.py\n\
+    export FLASK_APP=app_factory.py\n\
     export FLASK_ENV=production\n\
     if [ ! -f /app/migrations/alembic.ini ]; then\n\
         flask db init\n\
@@ -43,10 +43,10 @@ if [ ! -f /app/db/invoice_gen.db ]; then\n\
     flask db migrate -m "Initial migration"\n\
     flask db upgrade\n\
 fi\n\
-gunicorn --bind 0.0.0.0:8080 --workers 4 app:app\n' > /app/start.sh && chmod +x /app/start.sh
+gunicorn --bind 0.0.0.0:8080 --workers 4 "app_factory:create_app()"\n' > /app/start.sh && chmod +x /app/start.sh
 
 # Set environment variables
-ENV FLASK_APP=app.py
+ENV FLASK_APP=app_factory.py
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 
