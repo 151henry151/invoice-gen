@@ -33,7 +33,7 @@
             {% if selected_business and selected_business.logo_path %}
                 <div class="mb-2" id="logo-preview-container">
                     <label>Current Logo:</label><br>
-                    <img id="logo-preview" src="/invoice/uploads/{{ selected_business.logo_path }}" alt="Business Logo" style="max-height: 100px;">
+                    <img id="logo-preview" src="{{ url_for('serve_upload', filename=selected_business.logo_path) }}" alt="Business Logo" style="max-height: 100px;">
                 </div>
             {% else %}
                 <div class="mb-2" id="logo-preview-container" style="display:none;">
