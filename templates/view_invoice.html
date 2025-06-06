@@ -72,33 +72,33 @@
                         <tr>
                             <td class="description-cell">{{ item.description }}</td>
                             <td class="text-end">{{ item.quantity }}</td>
-                            <td class="text-end">${{ "%.2f"|format(item.unit_price) }}</td>
-                            <td class="text-end">${{ "%.2f"|format(item.total) }}</td>
+                            <td class="text-end">{{ item.unit_price|format_price(false) }}</td>
+                            <td class="text-end">{{ item.total|format_price(false) }}</td>
                         </tr>
                         {% endfor %}
                         {% for item in labor_items %}
                         <tr>
                             <td class="description-cell">{{ item.description }}</td>
                             <td class="text-end">{{ item.hours|format_labor_hours }}</td>
-                            <td class="text-end">${{ "%.2f"|format(item.rate) }}/h</td>
-                            <td class="text-end">${{ "%.2f"|format(item.total) }}</td>
+                            <td class="text-end">{{ item.rate|format_price(false) }}/h</td>
+                            <td class="text-end">{{ item.total|format_price(false) }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
                             <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
-                            <td class="text-end">${{ "%.2f"|format(subtotal) }}</td>
+                            <td class="text-end">{{ subtotal|format_price(true) }}</td>
                         </tr>
                         {% if tax_amount > 0 %}
                         <tr>
                             <td colspan="3" class="text-end"><strong>Tax:</strong></td>
-                            <td class="text-end">${{ "%.2f"|format(tax_amount) }}</td>
+                            <td class="text-end">{{ tax_amount|format_price(true) }}</td>
                         </tr>
                         {% endif %}
                         <tr>
                             <td colspan="3" class="text-end"><strong>Total:</strong></td>
-                            <td class="text-end">${{ "%.2f"|format(total) }}</td>
+                            <td class="text-end">{{ total|format_price(true) }}</td>
                         </tr>
                     </tfoot>
                 </table>

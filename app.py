@@ -1109,4 +1109,17 @@ def register_routes(app):
 
     app.jinja_env.filters['format_labor_hours'] = format_labor_hours
 
+    def format_price(price, show_cents=True):
+        """Format price with conditional decimal places.
+        show_cents=True: Always show 2 decimal places (for subtotal, tax, total)
+        show_cents=False: Only show cents if they exist (for line items)"""
+        if show_cents:
+            return f"${price:.2f}"
+        # Only show cents if they exist
+        if price == int(price):
+            return f"${int(price)}"
+        return f"${price:.2f}"
+
+    app.jinja_env.filters['format_price'] = format_price
+
     app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix) 
