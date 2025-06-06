@@ -79,7 +79,7 @@
                         {% for item in labor_items %}
                         <tr>
                             <td class="description-cell">{{ item.description }}</td>
-                            <td class="text-end">{{ "%.2f"|format(item.hours) }}h</td>
+                            <td class="text-end">{{ item.hours|format_labor_hours }}</td>
                             <td class="text-end">${{ "%.2f"|format(item.rate) }}/h</td>
                             <td class="text-end">${{ "%.2f"|format(item.total) }}</td>
                         </tr>

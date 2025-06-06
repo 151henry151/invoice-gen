@@ -1099,4 +1099,14 @@ def register_routes(app):
         
         return redirect(url_for_with_prefix('invoice_list'))
 
+    def format_labor_hours(hours):
+        """Format labor hours as 'Xhr Ym' where Y is minutes."""
+        whole_hours = int(hours)
+        minutes = int((hours - whole_hours) * 60)
+        if minutes == 0:
+            return f"{whole_hours}hr"
+        return f"{whole_hours}hr {minutes}m"
+
+    app.jinja_env.filters['format_labor_hours'] = format_labor_hours
+
     app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix) 
