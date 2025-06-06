@@ -32,8 +32,8 @@
                 </div>
                 <div class="col-12 col-md-6 text-md-end">
                     <h5 class="card-title mb-2">Invoice Details</h5>
-                    <p class="mb-1 small"><strong>Date:</strong> {{ invoice.date }}</p>
-                    <p class="mb-1 small"><strong>Due Date:</strong> {{ invoice.due_date }}</p>
+                    <p class="mb-1 small"><strong>Date:</strong> {{ invoice.date|format_date }}</p>
+                    <p class="mb-1 small"><strong>Due Date:</strong> {{ invoice.due_date|format_date }}</p>
                     <p class="mb-0 small"><strong>Status:</strong> 
                         <span class="badge {% if invoice.status == 'paid' %}bg-success{% elif invoice.status == 'pending' %}bg-warning{% else %}bg-secondary{% endif %}">
                             {{ invoice.status|title }}

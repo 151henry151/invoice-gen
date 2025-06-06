@@ -1122,4 +1122,16 @@ def register_routes(app):
 
     app.jinja_env.filters['format_price'] = format_price
 
+    def format_date(date_str):
+        """Format date string from YYYY-MM-DD to MM/DD/YYYY."""
+        if not date_str:
+            return ""
+        try:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            return date_obj.strftime('%m/%d/%Y')
+        except (ValueError, TypeError):
+            return date_str
+
+    app.jinja_env.filters['format_date'] = format_date
+
     app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix) 
