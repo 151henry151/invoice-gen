@@ -266,40 +266,37 @@ All API endpoints may return the following error responses:
 
 ## Testing
 
-The application includes a test harness for automated testing. The test harness is located in the `tests` directory and can be run using the provided script.
+The application includes a test harness for populating the database with test data. This is useful for manual testing and development purposes.
 
-### Running Tests
+### Test Harness
 
-To run the test suite:
+The test harness is located in the `tests` directory and can be run using the provided script:
 
 ```bash
-# Run all tests
+# Run the test harness
 ./tests/run_test_harness.sh
-
-# Run specific test categories
-./tests/run_test_harness.sh --category auth  # Run authentication tests
-./tests/run_test_harness.sh --category invoice  # Run invoice-related tests
 ```
 
 The test harness will:
-1. Set up a test environment
-2. Run the specified test categories
-3. Generate a test report
-4. Clean up test data
+1. Clear any existing test data
+2. Create a test user with the following credentials:
+   - Username: `testuser`
+   - Password: `TestPass123!@#`
+   - Email: `test@example.com`
+3. Generate test data including:
+   - 3 test businesses with generated logos
+   - 5 test clients
+   - 10 test items
+   - 5 test labor items
+   - 5 tax rates (0%, 5%, 10%, 15%, 20%)
+   - 12 test invoices with various line items and labor entries
+4. Generate a summary of the created data in `test_data_summary.json`
 
-Test results and summaries are stored in `test_data_summary.json`.
-
-### Test Categories
-
-- `auth`: Authentication and user management tests
-- `invoice`: Invoice creation, viewing, and management tests
-- `client`: Client management tests
-- `company`: Company profile management tests
-- `tax`: Sales tax configuration tests
+After running the test harness, you can log in to the application using the test user credentials to explore and test the functionality with the generated data.
 
 ### Test Environment
 
-The test harness uses a separate test database and configuration to ensure tests don't affect production data. The test environment is automatically configured when running the test harness.
+The test harness uses the application's database and automatically cleans up any existing test data before creating new test data. This ensures a clean state for testing while preserving any production data.
 
 ## Customizing Invoice Templates
 
