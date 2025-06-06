@@ -62,3 +62,7 @@ uploads/
 static/uploads/
 *.db
 *.db.backup
+
+# User uploaded content
+static/business_logos/
+static/profile_pictures/

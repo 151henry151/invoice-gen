@@ -1,0 +1,59 @@
+{
+  "user": {
+    "username": "testuser",
+    "password": "TestPass123!@#",
+    "email": "test@example.com"
+  },
+  "businesses": [
+    "Smith LLC",
+    "Fisher-Lane",
+    "Carr-Davis"
+  ],
+  "clients": [
+    "Austin, Nash and Johnson",
+    "Rios-Hill",
+    "Shaw Inc",
+    "Thomas Inc",
+    "Gay-Silva"
+  ],
+  "items": [
+    "Stay several use.",
+    "Draw practice foreign base your win fish.",
+    "Current buy else all third trip.",
+    "Must partner such budget free.",
+    "Herself senior box second star during.",
+    "Ever this good see.",
+    "Only piece by want kid.",
+    "Forward music center.",
+    "Man area view matter.",
+    "College actually next guy value mother personal."
+  ],
+  "labor_items": [
+    "Hundred worry reflect write instead talk politics.",
+    "First lose material visit.",
+    "Movie country such prevent on.",
+    "Natural almost like nor.",
+    "Own stock box week act."
+  ],
+  "tax_rates": [
+    "0% Tax (0.0%)",
+    "5% Tax (5.0%)",
+    "10% Tax (10.0%)",
+    "15% Tax (15.0%)",
+    "20% Tax (20.0%)"
+  ],
+  "invoices": [
+    "INV-467166 - sent",
+    "INV-628609 - sent",
+    "INV-351909 - draft",
+    "INV-212434 - draft",
+    "INV-494387 - draft",
+    "INV-567570 - draft",
+    "INV-138356 - sent",
+    "INV-351593 - draft",
+    "INV-677436 - paid",
+    "INV-35111 - paid",
+    "INV-329281 - draft",
+    "INV-774297 - draft"
+  ]
+}
