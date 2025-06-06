@@ -1097,4 +1097,6 @@ def register_routes(app):
             db.session.rollback()
             flash(f'Error deleting invoice: {str(e)}', 'danger')
         
-        return redirect(url_for_with_prefix('invoice_list')) 
+        return redirect(url_for_with_prefix('invoice_list'))
+
+    app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix) 
