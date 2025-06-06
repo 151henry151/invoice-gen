@@ -61,16 +61,16 @@
                 <table class="table table-sm">
                     <thead>
                         <tr>
-                            <th>Description</th>
-                            <th class="text-end">Qty</th>
-                            <th class="text-end">Price</th>
-                            <th class="text-end">Total</th>
+                            <th style="min-width: 120px;">Description</th>
+                            <th class="text-end" style="min-width: 60px;">Qty</th>
+                            <th class="text-end" style="min-width: 80px;">Price</th>
+                            <th class="text-end" style="min-width: 80px;">Total</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in line_items %}
                         <tr>
-                            <td>{{ item.description }}</td>
+                            <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ item.description }}</td>
                             <td class="text-end">{{ item.quantity }}</td>
                             <td class="text-end">${{ "%.2f"|format(item.unit_price) }}</td>
                             <td class="text-end">${{ "%.2f"|format(item.total) }}</td>
@@ -78,7 +78,7 @@
                         {% endfor %}
                         {% for item in labor_items %}
                         <tr>
-                            <td>{{ item.description }}</td>
+                            <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ item.description }}</td>
                             <td class="text-end">{{ "%.2f"|format(item.hours) }}h</td>
                             <td class="text-end">${{ "%.2f"|format(item.rate) }}/h</td>
                             <td class="text-end">${{ "%.2f"|format(item.total) }}</td>
@@ -203,6 +203,12 @@
         .table td, .table th {
             padding: 0.4rem;
             font-size: 0.875rem;
+        }
+        
+        .table-responsive {
+            margin: 0 -0.5rem;
+            padding: 0 0.5rem;
+            width: calc(100% + 1rem);
         }
         
         .btn-group {
