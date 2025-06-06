@@ -21,11 +21,11 @@
                 <div class="col-12 col-md-6">
                     <h5 class="card-title mb-2">Business Information</h5>
                     {% if company.logo_path %}
-                    <div class="text-center mb-2">
-                        <img src="{{ url_for('serve_upload', filename=company.logo_path) }}" alt="Business Logo" style="max-height: 80px;">
+                    <div class="text-start mb-2">
+                        <img src="{{ url_for('serve_upload', filename=company.logo_path) }}" alt="Business Logo" style="max-height: 60px;">
                     </div>
                     {% endif %}
-                    <p class="mb-1"><strong>{{ company.name }}</strong></p>
+                    <p class="mb-1 business-name"><strong>{{ company.name }}</strong></p>
                     <p class="mb-1 small">{{ company.address }}</p>
                     <p class="mb-1 small">{{ company.phone }}</p>
                     <p class="mb-0 small">{{ company.email }}</p>
@@ -47,7 +47,7 @@
     <div class="card mb-3">
         <div class="card-body p-3">
             <h5 class="card-title mb-2">Client Information</h5>
-            <p class="mb-1"><strong>{{ invoice.client.name }}</strong></p>
+            <p class="mb-1 client-name"><strong>{{ invoice.client.name }}</strong></p>
             <p class="mb-1 small">{{ invoice.client.address }}</p>
             <p class="mb-1 small">{{ invoice.client.phone }}</p>
             <p class="mb-0 small">{{ invoice.client.email }}</p>
@@ -206,6 +206,15 @@
         white-space: normal;
     }
 
+    .business-name, .client-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    
+    .business-name strong, .client-name strong {
+        font-weight: 600;
+    }
+
     @media (max-width: 768px) {
         .container {
             padding-left: 10px;
@@ -261,6 +270,10 @@
         }
         
         .card-title {
+            font-size: 0.85rem;
+        }
+        
+        .business-name, .client-name {
             font-size: 0.85rem;
         }
     }
