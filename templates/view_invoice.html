@@ -61,15 +61,17 @@
                 <table class="table table-sm">
                     <thead>
                         <tr>
-                            <th style="width: 45%;">Description</th>
+                            <th style="width: 15%;">Date</th>
+                            <th style="width: 35%;">Description</th>
                             <th class="text-end" style="width: 15%;">Qty</th>
-                            <th class="text-end" style="width: 20%;">Price</th>
-                            <th class="text-end" style="width: 20%;">Total</th>
+                            <th class="text-end" style="width: 17.5%;">Price</th>
+                            <th class="text-end" style="width: 17.5%;">Total</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in line_items %}
                         <tr>
+                            <td>{{ item.date|format_date }}</td>
                             <td class="description-cell">{{ item.description }}</td>
                             <td class="text-end">{{ item.quantity }}</td>
                             <td class="text-end">{{ item.unit_price|format_price(false) }}</td>
@@ -78,6 +80,7 @@
                         {% endfor %}
                         {% for item in labor_items %}
                         <tr>
+                            <td>{{ item.date|format_date }}</td>
                             <td class="description-cell">{{ item.description }}</td>
                             <td class="text-end">{{ item.hours|format_labor_hours }}</td>
                             <td class="text-end">{{ item.rate|format_price(false) }}/h</td>
@@ -117,6 +120,10 @@
 </div>
 
 <style>
+    :root {
+        --border-color-rgb: 222, 226, 230;  /* Bootstrap's default border color in RGB */
+    }
+
     .card {
         background-color: var(--card-bg);
         border-color: var(--border-color);
@@ -276,6 +283,89 @@
         .business-name, .client-name {
             font-size: 0.85rem;
         }
+
+        /* Mobile-specific table styles */
+        .table thead {
+            display: none;
+        }
+
+        .table tbody tr {
+            display: block;
+            margin-bottom: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            padding: 0.15rem;
+        }
+
+        .table tbody td {
+            display: block;
+            text-align: left !important;
+            padding: 0.02rem 0;
+            border: none;
+            position: relative;
+            padding-left: 4.5rem;
+            min-height: 0.9rem;
+            font-size: 0.65rem;
+            line-height: 0.9;
+            border-bottom: 1px solid rgba(var(--border-color-rgb), 0.15);
+        }
+
+        .table tbody td:before {
+            content: attr(data-label) ":";
+            font-weight: 600;
+            position: absolute;
+            left: 0;
+            width: 4rem;
+            padding-right: 0.15rem;
+            color: var(--text-color);
+            opacity: 0.8;
+            font-size: 0.65rem;
+            line-height: 0.9;
+        }
+
+        .table tfoot tr {
+            display: block;
+            text-align: right;
+            padding: 0.15rem;
+            border: none;
+            font-size: 0.7rem;
+            line-height: 0.9;
+        }
+
+        .table tfoot td {
+            display: inline-block;
+            padding: 0.02rem 0.5rem;
+            border: none;
+        }
+
+        .table tfoot td:first-child {
+            width: 100%;
+            text-align: right;
+            padding-bottom: 0.02rem;
+        }
+
+        .description-cell {
+            white-space: normal;
+            word-break: break-word;
+            font-size: 0.65rem;
+            line-height: 0.9;
+        }
     }
 </style>
+
+<script>
+    // Add data labels to table cells for mobile view
+    document.addEventListener('DOMContentLoaded', function() {
+        const table = document.querySelector('.table');
+        if (table) {
+            const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+            const cells = table.querySelectorAll('tbody td');
+            
+            cells.forEach((cell, index) => {
+                const headerIndex = index % headers.length;
+                cell.setAttribute('data-label', headers[headerIndex]);
+            });
+        }
+    });
+</script>
 {% endblock %} 
