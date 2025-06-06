@@ -61,16 +61,16 @@
                 <table class="table table-sm">
                     <thead>
                         <tr>
-                            <th style="min-width: 120px;">Description</th>
-                            <th class="text-end" style="min-width: 60px;">Qty</th>
-                            <th class="text-end" style="min-width: 80px;">Price</th>
-                            <th class="text-end" style="min-width: 80px;">Total</th>
+                            <th style="width: 45%;">Description</th>
+                            <th class="text-end" style="width: 15%;">Qty</th>
+                            <th class="text-end" style="width: 20%;">Price</th>
+                            <th class="text-end" style="width: 20%;">Total</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in line_items %}
                         <tr>
-                            <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ item.description }}</td>
+                            <td class="description-cell">{{ item.description }}</td>
                             <td class="text-end">{{ item.quantity }}</td>
                             <td class="text-end">${{ "%.2f"|format(item.unit_price) }}</td>
                             <td class="text-end">${{ "%.2f"|format(item.total) }}</td>
@@ -78,7 +78,7 @@
                         {% endfor %}
                         {% for item in labor_items %}
                         <tr>
-                            <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ item.description }}</td>
+                            <td class="description-cell">{{ item.description }}</td>
                             <td class="text-end">{{ "%.2f"|format(item.hours) }}h</td>
                             <td class="text-end">${{ "%.2f"|format(item.rate) }}/h</td>
                             <td class="text-end">${{ "%.2f"|format(item.total) }}</td>
@@ -141,12 +141,14 @@
         color: var(--text-color);
         border-color: var(--border-color);
         padding: 0.5rem;
+        vertical-align: top;
     }
     
     .table thead th {
         border-bottom: 2px solid var(--border-color);
         font-weight: 600;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
+        white-space: nowrap;
     }
     
     .table tbody tr {
@@ -186,6 +188,15 @@
         font-size: 0.875rem;
     }
 
+    .description-cell {
+        font-size: 0.8rem;
+        line-height: 1.1;
+        padding-top: 0.3rem;
+        padding-bottom: 0.3rem;
+        word-wrap: break-word;
+        white-space: normal;
+    }
+
     @media (max-width: 768px) {
         .container {
             padding-left: 10px;
@@ -201,14 +212,21 @@
         }
         
         .table td, .table th {
-            padding: 0.4rem;
-            font-size: 0.875rem;
+            padding: 0.3rem;
+            font-size: 0.85rem;
+        }
+        
+        .description-cell {
+            font-size: 0.75rem;
+            line-height: 1.1;
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
         }
         
         .table-responsive {
-            margin: 0 -0.5rem;
-            padding: 0 0.5rem;
-            width: calc(100% + 1rem);
+            margin: 0;
+            padding: 0;
+            width: 100%;
         }
         
         .btn-group {
