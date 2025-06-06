@@ -264,6 +264,43 @@ All API endpoints may return the following error responses:
 - `404 Not Found`: Requested resource not found
 - `500 Internal Server Error`: Server-side error
 
+## Testing
+
+The application includes a test harness for automated testing. The test harness is located in the `tests` directory and can be run using the provided script.
+
+### Running Tests
+
+To run the test suite:
+
+```bash
+# Run all tests
+./tests/run_test_harness.sh
+
+# Run specific test categories
+./tests/run_test_harness.sh --category auth  # Run authentication tests
+./tests/run_test_harness.sh --category invoice  # Run invoice-related tests
+```
+
+The test harness will:
+1. Set up a test environment
+2. Run the specified test categories
+3. Generate a test report
+4. Clean up test data
+
+Test results and summaries are stored in `test_data_summary.json`.
+
+### Test Categories
+
+- `auth`: Authentication and user management tests
+- `invoice`: Invoice creation, viewing, and management tests
+- `client`: Client management tests
+- `company`: Company profile management tests
+- `tax`: Sales tax configuration tests
+
+### Test Environment
+
+The test harness uses a separate test database and configuration to ensure tests don't affect production data. The test environment is automatically configured when running the test harness.
+
 ## Customizing Invoice Templates
 
 The Invoice Generator uses a single HTML (Jinja2) template for invoice generation. You can customize this template to match your branding, layout, and required fields.
