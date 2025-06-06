@@ -1127,7 +1127,11 @@ def register_routes(app):
         if not date_str:
             return ""
         try:
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            # Handle both string and date object inputs
+            if isinstance(date_str, str):
+                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            else:
+                date_obj = date_str
             return date_obj.strftime('%m/%d/%Y')
         except (ValueError, TypeError):
             return date_str
