@@ -25,6 +25,7 @@ import io
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from models import db, User, Business, Setting, Client, Invoice, SalesTax, Item, LaborItem, InvoiceItem, InvoiceLabor
+import configparser
 
 # Configure upload settings
 UPLOAD_FOLDER = 'uploads'
@@ -548,10 +549,22 @@ def register_routes(app):
     def update_company():
         company_id = request.form.get('company_id')
         name = request.form.get('name')
-        address = request.form.get('address')
+        address_line1 = request.form.get('address_line1')
+        address_line2 = request.form.get('address_line2')
+        city = request.form.get('city')
+        state = request.form.get('state')
+        postal_code = request.form.get('postal_code')
+        country = request.form.get('country')
         email = request.form.get('email')
         phone = request.form.get('phone')
         invoice_template = request.form.get('invoice_template', 'invoice_pretty')
+        
+        # Combine address fields
+        address_parts = [address_line1]
+        if address_line2:
+            address_parts.append(address_line2)
+        address_parts.extend([city, state, postal_code, country])
+        address = ', '.join(filter(None, address_parts))
         
         # Handle logo upload
         logo_path = None
@@ -1011,16 +1024,34 @@ def register_routes(app):
     @app.route('/business_details', methods=['GET', 'POST'])
     @login_required
     def business_details():
+        # Read Google Maps API key from credentials.ini
+        config = configparser.ConfigParser()
+        config.read('credentials.ini')
+        env = os.environ.get('FLASK_ENV', 'development')
+        section = 'dev' if env == 'development' else 'production'
+        api_key = config.get(section, 'GOOGLE_MAPS_API_KEY', fallback='')
+
         if request.method == 'POST':
-            # Get form data
             name = request.form.get('name')
-            address = request.form.get('address')
+            address_line1 = request.form.get('address_line1')
+            address_line2 = request.form.get('address_line2')
+            city = request.form.get('city')
+            state = request.form.get('state')
+            postal_code = request.form.get('postal_code')
+            country = request.form.get('country')
             email = request.form.get('email')
             phone = request.form.get('phone')
             business_id = request.form.get('business_id')
-            logo_path = None
+            
+            # Combine address fields
+            address_parts = [address_line1]
+            if address_line2:
+                address_parts.append(address_line2)
+            address_parts.extend([city, state, postal_code, country])
+            address = ', '.join(filter(None, address_parts))
             
             # Handle logo upload
+            logo_path = None
             if 'logo' in request.files:
                 logo = request.files['logo']
                 if logo and logo.filename:
@@ -1072,7 +1103,8 @@ def register_routes(app):
                              businesses=businesses, 
                              selected_business=selected_business, 
                              is_new=is_new,
-                             source=source)  # Pass source to template
+                             source=source,
+                             GOOGLE_MAPS_API_KEY=api_key)  # Pass API key to template
 
     @app.route('/uploads/<path:filename>')
     @login_required

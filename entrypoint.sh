@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export FLASK_ENV=production
+
 # Ensure the database directory exists and has proper permissions
 mkdir -p /app/db
 chmod 777 /app/db

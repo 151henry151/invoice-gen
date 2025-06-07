@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export FLASK_ENV=development
+
 # Initialize database if it doesn't exist
 if [ ! -f /app/db/invoice_gen.db ]; then
     echo "Initializing database..."

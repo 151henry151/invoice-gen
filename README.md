@@ -124,6 +124,45 @@ Key environment variables that control the environment:
 - Database migrations work in both environments
 - Static files are served differently in each environment
 
+## Google Maps API Key Setup (for Address Autocomplete)
+
+To enable address autocomplete using Google Places in the business details form, you must obtain a Google Maps API key with the Places API enabled. Follow these steps:
+
+1. **Create a Google Cloud Project**
+   - Go to the [Google Cloud Console](https://console.cloud.google.com/).
+   - Sign in with your Google account.
+   - Click the project drop-down at the top and select **New Project**.
+   - Enter a project name (e.g., "InvoiceGen Address Picker") and click **Create**.
+
+2. **Enable Billing**
+   - Go to the [Billing page](https://console.cloud.google.com/billing) and link your project to a billing account.
+   - Google provides a generous free tier for Maps/Places usage.
+
+3. **Enable the Places API**
+   - In the Cloud Console, make sure your project is selected.
+   - Go to the [Places API page](https://console.cloud.google.com/apis/library/places-backend.googleapis.com) and click **Enable**.
+   - (Optional but recommended) Also enable the [Maps JavaScript API](https://console.cloud.google.com/apis/library/maps-backend.googleapis.com).
+
+4. **Create an API Key**
+   - Go to the [Credentials page](https://console.cloud.google.com/apis/credentials).
+   - Click **+ Create Credentials** > **API key**.
+   - Copy the generated API key.
+
+5. **Restrict Your API Key (Recommended)**
+   - On the Credentials page, click your new API key.
+   - Under **API restrictions**, select **Restrict key** and choose **Places API** and **Maps JavaScript API**.
+   - Under **Application restrictions**, select **HTTP referrers** and add your domain (e.g., `localhost` for local development, or your production domain).
+
+6. **Configure Your Application**
+   - Copy `example_credentials.ini` to `credentials.ini` in your project root.
+   - Paste your API key as the value for `GOOGLE_MAPS_API_KEY` in `credentials.ini`.
+   - **Do not commit `credentials.ini` to version control!** (It is already in `.gitignore`.)
+
+7. **Further Reading**
+   - See the [Google Maps Platform documentation](https://developers.google.com/maps/documentation/places/web-service/overview) for more details.
+
+**Note:** The address picker will not function until a valid API key is provided.
+
 ## API Documentation
 
 The application provides several RESTful API endpoints for managing invoices, clients, and settings. All endpoints require authentication unless specified otherwise.
