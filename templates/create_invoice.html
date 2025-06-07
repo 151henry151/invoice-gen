@@ -2254,7 +2254,10 @@
             {% endif %}
         {% endwith %}
         
-            <form id="businessForm" action="{{ url_for('create_invoice') }}" method="POST" enctype="multipart/form-data">
+            <form id="businessForm" action="{{ url_for_with_prefix('edit_invoice', invoice_number=invoice.invoice_number) if is_edit else url_for_with_prefix('create_invoice') }}" method="POST" enctype="multipart/form-data">
+                {% if is_edit %}
+                    <input type="hidden" name="invoice_number" value="{{ invoice.invoice_number }}">
+                {% endif %}
                 <input type="hidden" id="business_id" name="business_id" value="{{ selected_company.id if selected_company else '' }}">
                 <input type="hidden" name="from_create_invoice" value="true">
                 <input type="hidden" name="client_id" value="{{ selected_client.id if selected_client else '' }}">
@@ -2263,15 +2266,15 @@
                     <div class="invoice-fields row"> 
                         <div class="form-group col-md-6"> 
                             <label for="date">Invoice Date:</label>
-                            <input type="date" id="date" name="date" class="form-control" required> 
+                            <input type="date" id="date" name="date" class="form-control" required value="{{ invoice.date.isoformat() if is_edit and invoice.date else '' }}"> 
                         </div>
                         <div class="form-group col-md-6">
                             <label for="due_date">Due Date:</label>
-                            <input type="date" id="due_date" name="due_date" class="form-control" required>
+                            <input type="date" id="due_date" name="due_date" class="form-control" required value="{{ invoice.due_date.isoformat() if is_edit and invoice.due_date else '' }}">
                         </div>
                         <div class="form-group col-md-6 invoice-number-group"> 
                             <label for="invoice_number">Invoice Number:</label>
-                            <input type="text" id="invoice_number" name="invoice_number" class="form-control" value="{{ get_setting('next_invoice_number', '1001') }}">
+                            <input type="text" id="invoice_number" name="invoice_number" class="form-control" value="{{ invoice.invoice_number if is_edit else get_setting('next_invoice_number', '1001') }}" {% if is_edit %}readonly{% endif %}>
                             <input type="hidden" id="auto_invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
                             <button type="button" id="confirmInvoiceBtn" class="add-to-invoice-btn btn btn-success btn-sm" title="Add to invoice" style="margin-left: 8px;"> 
                                 <i class="fas fa-check"></i>
@@ -2279,104 +2282,73 @@
                         </div>
                     </div>
                 </div>
-            
                 <div id="items">
-                </div>
-                
-                <!-- Sales Tax Dialog -->
-                <div id="salesTaxDialog" class="dialog" style="display: none; margin: 1rem 0;">
-                    <div class="dialog-content card card-body"> 
-                        <h2 class="h5 mb-3">Sales Tax</h2> 
-                        <div class="form-group mb-3"> 
-                            <label for="salesTaxSelect">Select Tax Rate:</label> 
-                            <select id="salesTaxSelect" name="sales_tax_id" class="form-select" onchange="handleSalesTaxSelection(this)"> 
-                                <option value="" disabled selected>Select Tax Rate</option>
-                                <option value="new">Create New Tax Rate</option>
-                                <option value="clear">Clear saved tax rates</option>
-                                {% for rate in tax_rates %}
-                                <option value="{{ rate.id }}" data-rate="{{ rate.rate }}">{{ rate.description }} ({{ rate.rate }}%)</option>
-                                {% endfor %}
-                            </select>
-                </div>
-                        <div id="newTaxRateFields" style="display: none;">
-                            <div class="form-group mb-3"> 
-                                <label for="taxDescription">Description:</label> 
-                                <input type="text" id="taxDescription" class="form-control" placeholder="e.g., State Sales Tax"> 
-                            </div>
-                            <div class="form-group mb-3"> 
-                                <label for="taxRate">Rate (%):</label> 
-                                <input type="number" id="taxRate" class="form-control" min="0" step="0.01" placeholder="e.g., 8.5"> 
-                            </div>
+                  {% if is_edit %}
+                    {% for item in line_items %}
+                      <div class="line-item confirmed" data-type="item"
+                           data-description="{{ item.description }}"
+                           data-quantity="{{ item.quantity }}"
+                           data-price="{{ item.unit_price }}"
+                           data-total="{{ item.total }}">
+                        <div class="line-item-content">
+                          <div class="detail-item">
+                            <span class="detail-label">Description:</span>
+                            <span class="detail-value">{{ item.description }}</span>
+                          </div>
+                          <div class="detail-item">
+                            <span class="detail-label">Quantity:</span>
+                            <span class="detail-value">{{ item.quantity }}</span>
+                          </div>
+                          <div class="detail-item">
+                            <span class="detail-label">Price:</span>
+                            <span class="detail-value">${{ '%.2f'|format(item.unit_price) }}</span>
+                          </div>
+                          <div class="detail-item">
+                            <span class="detail-label">Total:</span>
+                            <span class="detail-value">${{ '%.2f'|format(item.total) }}</span>
+                          </div>
                         </div>
-                        <div class="form-group mb-3"> 
-                            <label for="taxAppliesTo">Apply Tax To:</label> 
-                            <select id="taxAppliesTo" name="tax_applies_to" class="form-select" required> 
-                                <option value="items" selected>Items only</option>
-                                <option value="labor">Labor only</option>
-                                <option value="both">Both items and labor</option>
-                            </select>
+                      </div>
+                    {% endfor %}
+                    {% for labor in labor_items %}
+                      <div class="line-item confirmed" data-type="labor"
+                           data-description="{{ labor.description }}"
+                           data-date="{{ labor.date }}"
+                           data-hours="{{ labor.hours|round(0, 'floor') }}"
+                           data-minutes="{{ ((labor.hours - (labor.hours|round(0, 'floor'))) * 60)|round(0, 'floor') }}"
+                           data-rate="{{ labor.rate }}"
+                           data-total="{{ labor.total }}">
+                        <div class="line-item-content">
+                          <div class="detail-item">
+                            <span class="detail-label">Description:</span>
+                            <span class="detail-value">{{ labor.description }}</span>
+                          </div>
+                          <div class="detail-item">
+                            <span class="detail-label">Date:</span>
+                            <span class="detail-value">{{ labor.date }}</span>
+                          </div>
+                          <div class="detail-item">
+                            <span class="detail-label">Time:</span>
+                            <span class="detail-value">{{ labor.hours|round(0, 'floor') }}h {{ ((labor.hours - (labor.hours|round(0, 'floor'))) * 60)|round(0, 'floor') }}m</span>
+                          </div>
+                          <div class="detail-item">
+                            <span class="detail-label">Rate:</span>
+                            <span class="detail-value">${{ '%.2f'|format(labor.rate) }}/hr</span>
+                          </div>
+                          <div class="detail-item">
+                            <span class="detail-label">Total:</span>
+                            <span class="detail-value">${{ '%.2f'|format(labor.total) }}</span>
+                          </div>
                         </div>
-                        <div class="d-flex gap-2 justify-content-end"> 
-                            <button type="button" class="btn btn-success btn-sm" onclick="addSalesTaxToInvoice()" title="Add to invoice"> 
-                            <i class="fas fa-check"></i>
-                        </button>
-                            <button type="button" class="btn btn-danger btn-sm" onclick="closeSalesTaxDialog()" title="Cancel"> 
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
+                      </div>
+                    {% endfor %}
+                  {% endif %}
                 </div>
-            </div>
-                
-                <!-- Invoice Totals Section -->
-                <div id="invoice-totals" class="mt-4 mb-4 text-end"> 
-                    <div class="totals-row d-flex justify-content-end gap-3"> 
-                        <span class="totals-label fw-bold">Subtotal:</span> 
-                        <span id="subtotal" class="totals-value fw-bold">$0.00</span> 
-                    </div>
-                    <div class="totals-row d-flex justify-content-end gap-3 mt-2"> 
-                        <span class="totals-label fw-bold">Sales Tax:</span> 
-                        <span id="taxTotal" class="totals-value fw-bold">$0.00</span> 
-                    </div>
-                    <div class="totals-row d-flex justify-content-end gap-3 mt-2"> 
-                        <span class="totals-label fw-bolder fs-5">Grand Total:</span> 
-                        <span id="grandTotal" class="totals-value fw-bolder fs-5">$0.00</span> 
-                    </div>
+                <div class="button-container">
+                    <input type="submit" value="{{ 'Update Invoice' if is_edit else 'Generate Invoice' }}" class="btn btn-success w-100">
+                    <a href="{{ url_for_with_prefix('invoice_list') }}" class="btn btn-secondary w-100">Cancel</a>
                 </div>
-                
-                <!-- Notes Section -->
-                <!-- Notes Section -->
-                <div id="notesSection" class="card card-body my-3" style="display: none;"> 
-                    <div class="form-group mb-3"> 
-                        <label for="notes">Add a note that will display on the invoice:</label>
-                        <textarea id="notes" name="notes" class="form-control" rows="3"></textarea> 
-                    </div>
-                    <div class="d-flex gap-2 justify-content-end"> 
-                        <button type="button" class="btn btn-success btn-sm" onclick="addNoteToInvoice(this)" title="Add to invoice"> 
-                            <i class="fas fa-check"></i>
-                        </button>
-                        <button type="button" class="btn btn-danger btn-sm" onclick="removeNoteFromInvoice(this)" title="Cancel"> 
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="main-action-buttons d-flex flex-wrap justify-content-start gap-2 mt-3 mb-3"> 
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddLaborDialog()"> 
-                        <i class="fas fa-tools"></i> <span class="hide-on-mobile">Add </span>Labor
-                    </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddItemDialog()"> 
-                        <i class="fas fa-box"></i> <span class="hide-on-mobile">Add </span>Item
-                    </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddNoteDialog()"> 
-                        <i class="fas fa-sticky-note"></i> <span class="hide-on-mobile">Add </span>Note
-                    </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="salesTaxButton" onclick="showAddSalesTaxDialog()"> 
-                        <i class="fas fa-percentage"></i> <span class="hide-on-mobile">Add </span>Tax
-                    </button>
-                </div>
-                
-                <button type="submit" class="btn btn-success w-100">Generate Invoice</button> 
-                </form>
+            </form>
     </div>
 
         </div>

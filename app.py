@@ -1131,6 +1131,99 @@ def register_routes(app):
         
         return redirect(url_for_with_prefix('invoice_list'))
 
+    @app.route('/edit_invoice/<invoice_number>', methods=['GET', 'POST'])
+    @login_required
+    def edit_invoice(invoice_number):
+        invoice = db.session.query(Invoice).filter_by(invoice_number=invoice_number, user_id=session['user_id']).first()
+        if not invoice:
+            flash('Invoice not found', 'danger')
+            return redirect(url_for_with_prefix('invoice_list'))
+        
+        if request.method == 'POST':
+            try:
+                # Extract form data
+                date = datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
+                due_date = datetime.strptime(request.form.get('due_date'), '%Y-%m-%d').date()
+                client_id = request.form.get('client_id')
+                business_id = request.form.get('business_id')
+                notes = request.form.get('notes')
+                sales_tax_id = request.form.get('sales_tax_id')
+                tax_applies_to = request.form.get('tax_applies_to')
+                
+                # Validate required fields
+                if not client_id:
+                    flash('Please select a client.')
+                    return redirect(url_for_with_prefix('edit_invoice', invoice_number=invoice_number))
+                
+                if not business_id:
+                    flash('Please select a business.')
+                    return redirect(url_for_with_prefix('edit_invoice', invoice_number=invoice_number))
+                
+                # Update invoice
+                invoice.date = date
+                invoice.due_date = due_date
+                invoice.client_id = client_id
+                invoice.business_id = business_id
+                invoice.notes = notes
+                invoice.sales_tax_id = sales_tax_id
+                invoice.tax_applies_to = tax_applies_to
+                
+                # Clear existing items and labor
+                db.session.query(InvoiceItem).filter_by(invoice_id=invoice.id).delete()
+                db.session.query(InvoiceLabor).filter_by(invoice_id=invoice.id).delete()
+                
+                # Parse line items JSON
+                line_items_json = request.form.get('line_items_json')
+                if line_items_json:
+                    line_items = json.loads(line_items_json)
+                    for item in line_items:
+                        if item['type'] == 'item':
+                            invoice_item = InvoiceItem(
+                                invoice_id=invoice.id,
+                                description=item['description'],
+                                quantity=item['quantity'],
+                                unit_price=item['price'],
+                                total=item['total'],
+                                date=date
+                            )
+                            db.session.add(invoice_item)
+                        elif item['type'] == 'labor':
+                            invoice_labor = InvoiceLabor(
+                                invoice_id=invoice.id,
+                                description=item['description'],
+                                date=datetime.strptime(item['date'], '%Y-%m-%d').date(),
+                                hours=float(item['hours']) + float(item.get('minutes', 0)) / 60,
+                                rate=item['rate'],
+                                total=item['total']
+                            )
+                            db.session.add(invoice_labor)
+                
+                db.session.commit()
+                flash('Invoice updated successfully!')
+                return redirect(url_for_with_prefix('invoice_list'))
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error updating invoice: {str(e)}')
+                return redirect(url_for_with_prefix('edit_invoice', invoice_number=invoice_number))
+        
+        # GET request handling
+        businesses = db.session.query(Business).filter_by(user_id=session['user_id']).all()
+        clients = db.session.query(Client).filter_by(user_id=session['user_id']).all()
+        tax_rates = db.session.query(SalesTax).filter_by(user_id=session['user_id']).all()
+        line_items = db.session.query(InvoiceItem).filter_by(invoice_id=invoice.id).all()
+        labor_items = db.session.query(InvoiceLabor).filter_by(invoice_id=invoice.id).all()
+        return render_template('create_invoice.html',
+                             businesses=businesses,
+                             selected_business=invoice.business,
+                             selected_company=invoice.business,
+                             clients=clients,
+                             selected_client=invoice.client,
+                             tax_rates=tax_rates,
+                             invoice=invoice,
+                             is_edit=True,
+                             line_items=line_items,
+                             labor_items=labor_items)
+
     def format_labor_hours(hours):
         """Format labor hours as 'Xhr Ym' where Y is minutes."""
         whole_hours = int(hours)
