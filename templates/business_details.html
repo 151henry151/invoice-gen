@@ -1,8 +1,11 @@
 {% extends "base.html" %}
+<!-- DEBUG: GOOGLE_MAPS_API_KEY={{ GOOGLE_MAPS_API_KEY }} -->
 
 {% block title %}Business Details - Invoice Generator{% endblock %}
 
 {% block page_subtitle %}Business Details{% endblock %}
+
+{% import "components/address_picker.html" as address_picker with context %}
 
 {% block content %}
 <div class="container">
@@ -26,7 +29,13 @@
                 <input type="hidden" name="business_id" value="{{ selected_business.id }}">
             {% endif %}
             <input type="text" id="name" name="name" placeholder="Business Name" value="{{ selected_business.name if selected_business else '' }}" required>
-            <input type="text" id="address" name="address" placeholder="Address" value="{{ selected_business.address if selected_business else '' }}" required>
+            
+            {% if selected_business %}
+                {{ address_picker.address_picker(form_prefix='', required=true, address=selected_business.address) }}
+            {% else %}
+                {{ address_picker.address_picker(form_prefix='', required=true) }}
+            {% endif %}
+            
             <input type="email" id="email" name="email" placeholder="Email" value="{{ selected_business.email if selected_business else '' }}">
             <input type="tel" id="phone" name="phone" placeholder="Phone Number" value="{{ selected_business.phone if selected_business else '' }}" required>
             
@@ -52,13 +61,50 @@
         </form>
     </div>
 </div>
+
+<!-- DEBUG: GOOGLE_MAPS_API_KEY={{ GOOGLE_MAPS_API_KEY }} -->
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
+    // Parse address into components
+    function parseAddress(address) {
+        if (!address) return {};
+        
+        const parts = address.split(',').map(part => part.trim());
+        const result = {
+            address_line1: parts[0] || '',
+            address_line2: parts[1] || '',
+            city: parts[2] || '',
+            state: parts[3] || '',
+            postal_code: parts[4] || '',
+            country: parts[5] || 'United States'
+        };
+        
+        return result;
+    }
+
+    // Initialize address fields if editing
+    document.addEventListener('DOMContentLoaded', function() {
+        const addressInput = document.getElementById('address_line1');
+        if (addressInput && addressInput.value) {
+            const address = parseAddress(addressInput.value);
+            document.getElementById('address_line1').value = address.address_line1;
+            document.getElementById('address_line2').value = address.address_line2;
+            document.getElementById('city').value = address.city;
+            document.getElementById('state').value = address.state;
+            document.getElementById('postal_code').value = address.postal_code;
+            document.getElementById('country').value = address.country;
+        }
+    });
+
     document.getElementById('business-form').addEventListener('submit', function(event) {
         const name = document.getElementById('name').value.trim();
-        const address = document.getElementById('address').value.trim();
+        const address_line1 = document.getElementById('address_line1').value.trim();
+        const city = document.getElementById('city').value.trim();
+        const state = document.getElementById('state').value.trim();
+        const postal_code = document.getElementById('postal_code').value.trim();
+        const country = document.getElementById('country').value.trim();
         const email = document.getElementById('email').value.trim();
         const phone = document.getElementById('phone').value.trim();
 
@@ -67,9 +113,29 @@
             alert('Please enter a business name');
             return;
         }
-        if (!address) {
+        if (!address_line1) {
             event.preventDefault();
             alert('Please enter an address');
+            return;
+        }
+        if (!city) {
+            event.preventDefault();
+            alert('Please enter a city');
+            return;
+        }
+        if (!state) {
+            event.preventDefault();
+            alert('Please enter a state');
+            return;
+        }
+        if (!postal_code) {
+            event.preventDefault();
+            alert('Please enter a ZIP code');
+            return;
+        }
+        if (!country) {
+            event.preventDefault();
+            alert('Please enter a country');
             return;
         }
         if (email && !isValidEmail(email)) {
