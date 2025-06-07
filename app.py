@@ -340,13 +340,17 @@ def register_routes(app):
             selected_client = db.session.query(Client).filter_by(id=selected_client_id, user_id=session['user_id']).first()
         
         tax_rates = db.session.query(SalesTax).filter_by(user_id=session['user_id']).all()
+        items = db.session.query(Item).filter_by(user_id=session['user_id']).all()
+        labor_items = db.session.query(LaborItem).filter_by(user_id=session['user_id']).all()
         
         return render_template('create_invoice.html',
                              businesses=businesses,
                              selected_business=selected_business,
                              clients=clients,
                              selected_client=selected_client,
-                             tax_rates=tax_rates)
+                             tax_rates=tax_rates,
+                             items=items,
+                             labor_items=labor_items)
 
     @app.route('/preview_invoice')
     @login_required
@@ -1212,17 +1216,20 @@ def register_routes(app):
         tax_rates = db.session.query(SalesTax).filter_by(user_id=session['user_id']).all()
         line_items = db.session.query(InvoiceItem).filter_by(invoice_id=invoice.id).all()
         labor_items = db.session.query(InvoiceLabor).filter_by(invoice_id=invoice.id).all()
+        items = db.session.query(Item).filter_by(user_id=session['user_id']).all()
         return render_template('create_invoice.html',
-                             businesses=businesses,
-                             selected_business=invoice.business,
-                             selected_company=invoice.business,
-                             clients=clients,
-                             selected_client=invoice.client,
-                             tax_rates=tax_rates,
-                             invoice=invoice,
-                             is_edit=True,
-                             line_items=line_items,
-                             labor_items=labor_items)
+            businesses=businesses,
+            selected_business=invoice.business,
+            selected_company=invoice.business,
+            clients=clients,
+            selected_client=invoice.client,
+            tax_rates=tax_rates,
+            invoice=invoice,
+            is_edit=True,
+            line_items=line_items,
+            labor_items=labor_items,
+            items=items
+        )
 
     def format_labor_hours(hours):
         """Format labor hours as 'Xhr Ym' where Y is minutes."""

@@ -1306,7 +1306,7 @@
                 '<option value="" disabled selected>Select Item</option>' +
                 '<option value="new">Create New Item</option>' +
                 '{% for item in items %}' +
-                '<option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.description }} - ${{ "%.2f"|format(item.price) }}</option>' +
+                '<option value="{{ item.id }}" data-price="{{ item.unit_price }}">{{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}</option>' +
                 '{% endfor %}' +
                 '</select>' +
                 '<label>Quantity:</label>' +
@@ -1954,7 +1954,7 @@
             '<option value="" disabled selected>Select Item</option>' +
             '<option value="new">Create New Item</option>' +
             '{% for item in items %}' +
-            '<option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.description }} - ${{ "%.2f"|format(item.price) }}</option>' +
+            '<option value="{{ item.id }}" data-price="{{ item.unit_price }}">{{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}</option>' +
             '{% endfor %}' +
             '</select>' +
             '<label>Quantity:</label>' +
@@ -2343,6 +2343,20 @@
                       </div>
                     {% endfor %}
                   {% endif %}
+                </div>
+                <div class="main-action-buttons d-flex flex-wrap justify-content-start gap-2 mt-3 mb-3"> 
+                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="addLaborBtn" onclick="showAddLaborDialog()"> 
+                        <i class="fas fa-tools"></i> <span class="hide-on-mobile">Add </span>Labor
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="addItemBtn" onclick="showAddItemDialog()"> 
+                        <i class="fas fa-box"></i> <span class="hide-on-mobile">Add </span>Item
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="addNoteBtn" onclick="showAddNoteDialog()"> 
+                        <i class="fas fa-sticky-note"></i> <span class="hide-on-mobile">Add </span>Note
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="salesTaxButton" onclick="showAddSalesTaxDialog()"> 
+                        <i class="fas fa-percentage"></i> <span class="hide-on-mobile">Add </span>Tax
+                    </button>
                 </div>
                 <div class="button-container">
                     <input type="submit" value="{{ 'Update Invoice' if is_edit else 'Generate Invoice' }}" class="btn btn-success w-100">
