@@ -66,3 +66,6 @@ static/uploads/
 # User uploaded content
 static/business_logos/
 static/profile_pictures/
+
+# Credentials
+credentials.ini

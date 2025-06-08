@@ -790,6 +790,7 @@ def register_routes(app):
         company = db.session.query(Business).filter_by(id=company_id, user_id=session['user_id']).first()
         if company:
             return jsonify({
+                'id': company.id,
                 'name': company.name,
                 'address': company.address,
                 'email': company.email,
@@ -804,6 +805,7 @@ def register_routes(app):
         client = db.session.query(Client).filter_by(id=client_id, user_id=session['user_id']).first()
         if client:
             return jsonify({
+                'id': client.id,
                 'name': client.name,
                 'address': client.address,
                 'email': client.email,
@@ -821,12 +823,9 @@ def register_routes(app):
     @login_required
     def save_selections():
         data = request.get_json()
-        business_id = data.get('businessId')
-        client_id = data.get('clientId')
-        
-        session['selected_company_id'] = business_id
-        session['selected_client_id'] = client_id
-        
+        if data:
+            session['selected_company_id'] = data.get('businessId')
+            session['selected_client_id'] = data.get('clientId')
         return jsonify({'success': True})
 
     @app.route('/api/sales-tax', methods=['GET'])
@@ -1110,7 +1109,7 @@ def register_routes(app):
                              source=source,
                              GOOGLE_MAPS_API_KEY=api_key)  # Pass API key to template
 
-    @app.route('/uploads/<path:filename>')
+    @app.route('/serve_upload/<path:filename>')
     @login_required
     def serve_upload(filename):
         return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
@@ -1269,5 +1268,17 @@ def register_routes(app):
             return date_str
 
     app.jinja_env.filters['format_date'] = format_date
+
+    app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix)
+
+    @app.route('/invoice/get_labor_items')
+    @login_required
+    def get_labor_items():
+        labor_items = db.session.query(LaborItem).filter_by(user_id=session['user_id']).all()
+        return jsonify([{
+            'id': item.id,
+            'description': item.description,
+            'rate': item.rate
+        } for item in labor_items])
 
     app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix) 

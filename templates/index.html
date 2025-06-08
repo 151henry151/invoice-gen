@@ -881,7 +881,7 @@
                 const logoPlaceholder = document.querySelector('.logo-placeholder');
                 if (logoPlaceholder) {
                     if (company.logo_path) {
-                        logoPlaceholder.innerHTML = '<img src="' + APP_ROOT + '/uploads/' + company.logo_path + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
+                        logoPlaceholder.innerHTML = '<img src="' + APP_ROOT + '/serve_upload/' + company.logo_path + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
                     } else {
                         logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
                     }
@@ -1914,7 +1914,7 @@
     var logoPlaceholderBusiness = document.getElementById('logo-placeholder');
     if (logoPlaceholderBusiness) {
         var logoPath = "{{ selected_company.logo_path }}";
-        logoPlaceholderBusiness.innerHTML = '<img src="' + APP_ROOT + '/uploads/' + logoPath + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
+        logoPlaceholderBusiness.innerHTML = '<img src="' + APP_ROOT + '/serve_upload/' + logoPath + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
     }
 </script>
 {% else %}
@@ -1935,7 +1935,7 @@
           <h2 class="accordion-header" id="businessAccordionHeader">
             <button class="accordion-button collapsed d-flex align-items-center gap-2" type="button" data-bs-toggle="collapse" data-bs-target="#businessAccordionCollapse" aria-expanded="false" aria-controls="businessAccordionCollapse" style="padding: 0.3rem 0.75rem;">
               {% if selected_company and selected_company.logo_path %}
-                <img src="{{ APP_ROOT }}/uploads/{{ selected_company.logo_path }}" alt="Business Logo" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover;">
+                <img src="{{ APP_ROOT }}/serve_upload/{{ selected_company.logo_path }}" alt="Business Logo" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover;">
               {% else %}
                 <i class="fas fa-building fa-lg text-secondary" style="width: 32px; height: 22px; display: flex; align-items: center; justify-content: center;"></i>
               {% endif %}
@@ -1991,7 +1991,7 @@
         <div class="company-details">
             <div id="logo-placeholder" class="logo-placeholder">
                 {% if selected_company and selected_company.logo_path %}
-                    <img src="{{ APP_ROOT }}/uploads/{{ selected_company.logo_path }}" alt="Company Logo" class="company-logo">
+                    <img src="{{ APP_ROOT }}/serve_upload/{{ selected_company.logo_path }}" alt="Company Logo" class="company-logo">
                 {% else %}
                     <span class="logo-placeholder-text">Company Logo</span>
                 {% endif %}
