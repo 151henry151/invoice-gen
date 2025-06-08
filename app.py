@@ -26,6 +26,7 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from models import db, User, Business, Setting, Client, Invoice, SalesTax, Item, LaborItem, InvoiceItem, InvoiceLabor
 import configparser
+from sqlalchemy.sql import text
 
 # Configure upload settings
 UPLOAD_FOLDER = 'uploads'
@@ -664,13 +665,13 @@ def register_routes(app):
         business_id = request.args.get('business_id')
         
         conn = get_db()
-        labor_items = conn.execute('SELECT * FROM labor_items WHERE user_id = ?', 
-                                 (session['user_id'],)).fetchall()
+        labor_items = conn.execute(text('SELECT * FROM labor_items WHERE user_id = :user_id'),
+                                 {'user_id': session['user_id']}).fetchall()
         
         selected_item = None
         if item_id and not is_new:
-            selected_item = conn.execute('SELECT * FROM labor_items WHERE id = ? AND user_id = ?',
-                                       (item_id, session['user_id'])).fetchone()
+            selected_item = conn.execute(text('SELECT * FROM labor_items WHERE id = :item_id AND user_id = :user_id'),
+                                       {'item_id': item_id, 'user_id': session['user_id']}).fetchone()
         
         # Store client and business IDs in session if provided
         if client_id:
@@ -839,30 +840,69 @@ def register_routes(app):
         db.session.commit()
         return jsonify({'message': 'All sales tax rates deleted'})
 
-    @app.route('/api/sales-tax', methods=['POST'])
+    @app.route('/clear_tax_rates', methods=['POST'])
+    @login_required
+    def clear_tax_rates():
+        try:
+            # Delete all tax rates for the current user
+            db.session.query(SalesTax).filter_by(user_id=session['user_id']).delete()
+            db.session.commit()
+            return jsonify({'success': True})
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error clearing tax rates: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)})
+
+    @app.route('/invoice/create_sales_tax_rate', methods=['POST'])
     @login_required
     def create_sales_tax_rate():
-        if request.is_json:
-            data = request.get_json()
-            rate = data.get('rate')
-            description = data.get('description')
-        else:
-            rate = request.form.get('rate')
-            description = request.form.get('description')
+        data = request.get_json()
+        print("Received data:", data)  # Debug log
         
-        tax_rate = SalesTax(
-            user_id=session['user_id'],
-            rate=rate,
-            description=description
-        )
-        db.session.add(tax_rate)
-        db.session.commit()
+        if not data or 'rate' not in data or 'description' not in data:
+            print("Missing required fields. Data:", data)  # Debug log
+            return jsonify({'error': 'Missing required fields'}), 400
         
-        return jsonify({
-            'id': tax_rate.id,
-            'rate': tax_rate.rate,
-            'description': tax_rate.description
-        })
+        try:
+            rate = float(data['rate'])
+            if rate < 0:
+                print("Invalid rate value (negative):", rate)  # Debug log
+                return jsonify({'error': 'Rate must be positive'}), 400
+        except ValueError as e:
+            print("Invalid rate value:", data['rate'], "Error:", str(e))  # Debug log
+            return jsonify({'error': 'Invalid rate value'}), 400
+        
+        try:
+            # Check for duplicate description
+            existing = SalesTax.query.filter_by(
+                user_id=session['user_id'],
+                description=data['description']
+            ).first()
+            
+            if existing:
+                print("Duplicate description found:", data['description'])  # Debug log
+                return jsonify({'error': 'A tax rate with this description already exists'}), 400
+            
+            # Create new tax rate
+            new_tax = SalesTax(
+                user_id=session['user_id'],
+                rate=rate,
+                description=data['description']
+            )
+            db.session.add(new_tax)
+            db.session.commit()
+            
+            print("Successfully created tax rate:", new_tax)  # Debug log
+            return jsonify({
+                'id': new_tax.id,
+                'rate': new_tax.rate,
+                'description': new_tax.description
+            }), 201
+            
+        except Exception as e:
+            db.session.rollback()
+            print("Database error:", str(e))  # Debug log
+            return jsonify({'error': 'Database error occurred'}), 500
 
     @app.route('/api/invoice/<int:invoice_id>/sales-tax', methods=['PUT'])
     @login_required
@@ -1265,14 +1305,19 @@ def register_routes(app):
 
     app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix)
 
-    @app.route('/invoice/get_labor_items')
+    @app.route('/get_labor_items')
     @login_required
     def get_labor_items():
-        labor_items = db.session.query(LaborItem).filter_by(user_id=session['user_id']).all()
-        return jsonify([{
-            'id': item.id,
-            'description': item.description,
-            'rate': item.rate
-        } for item in labor_items])
+        try:
+            labor_items = db.session.query(models.LaborItem).filter_by(user_id=session['user_id']).all()
+            items = [{
+                'id': item.id,
+                'description': item.description,
+                'rate': float(item.rate)
+            } for item in labor_items]
+            return jsonify(items)
+        except Exception as e:
+            app.logger.error(f"Error fetching labor items: {str(e)}")
+            return jsonify([])
 
     app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix) 

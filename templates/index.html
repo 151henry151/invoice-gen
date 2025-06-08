@@ -543,18 +543,16 @@
         }
     };
 
-    // Function to save invoice data to localStorage
+    // Function to save invoice data
     function saveInvoiceData() {
         const userId = "{{ session.get('user_id') }}";  // Get the current user's ID from session
         const invoiceData = {
-            date: document.getElementById('date').value,
-            invoiceNumber: document.getElementById('invoice_number').value,
-            isConfirmed: document.querySelector('.invoice-header').classList.contains('confirmed'),
             items: Array.from(document.querySelectorAll('.line-item.confirmed')).map(item => {
                 const data = {
                     type: item.dataset.type,
                     description: item.dataset.description,
-                    total: item.dataset.total
+                    total: item.dataset.total,
+                    isConfirmed: true
                 };
                 
                 if (item.dataset.type === 'labor') {
@@ -583,19 +581,6 @@
         const savedData = localStorage.getItem(`invoiceData_${userId}`);
         if (savedData) {
             const invoiceData = JSON.parse(savedData);
-            
-            // Restore invoice header
-            document.getElementById('date').value = invoiceData.date;
-            document.getElementById('invoice_number').value = invoiceData.invoiceNumber;
-            if (invoiceData.isConfirmed) {
-                const invoiceHeader = document.querySelector('.invoice-header');
-                const confirmBtn = document.getElementById('confirmInvoiceBtn');
-                invoiceHeader.classList.add('confirmed');
-                document.getElementById('date').readOnly = true;
-                document.getElementById('invoice_number').readOnly = true;
-                confirmBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
-                confirmBtn.title = 'Edit invoice';
-            }
             
             // Restore line items
             const itemsContainer = document.getElementById('items');
