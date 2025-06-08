@@ -1862,6 +1862,33 @@
 
     // Function to show add item dialog
     function showAddItemDialog() {
+        const userId = "{{ session.get('user_id') }}";
+        const draft = localStorage.getItem(`invoiceData_${userId}`);
+        
+        // If there's a draft, check if it has any actual content
+        if (draft) {
+            try {
+                const draftData = JSON.parse(draft);
+                const hasItems = draftData.items && draftData.items.length > 0;
+                const hasNotes = draftData.notes && draftData.notes.trim() !== '';
+                
+                if (hasItems || hasNotes) {
+                    if (!confirm('You have unsaved changes. Do you want to discard them and add an item?')) {
+                        return;
+                    }
+                    // Clear the draft if user confirms
+                    localStorage.removeItem(`invoiceData_${userId}`);
+                } else {
+                    // If no actual content, just clear the draft
+                    localStorage.removeItem(`invoiceData_${userId}`);
+                }
+            } catch (e) {
+                console.error('Error parsing draft data:', e);
+                // If there's an error parsing the draft, just clear it
+                localStorage.removeItem(`invoiceData_${userId}`);
+            }
+        }
+        
         const itemsDiv = document.getElementById('items');
         const newItem = document.createElement('div');
         newItem.className = 'item';
@@ -1875,7 +1902,7 @@
             '{% endfor %}' +
             '</select>' +
             '<label>Quantity:</label>' +
-            '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
+            '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateTotalCost(this.parentElement)">' +
             '<input type="hidden" name="item_price[]" value="0.00">' +
             '<div class="total-cost">' +
             '<span>Total Cost: $0.00</span>' +
