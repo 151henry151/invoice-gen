@@ -1246,15 +1246,26 @@
             restoreInvoiceData();
             
             // Add navigation away prompt
-            window.addEventListener('beforeunload', function (e) {
+            let beforeunloadHandler = function (e) {
                 const userId = "{{ session.get('user_id') }}";
                 const draft = localStorage.getItem(`invoiceData_${userId}`);
                 if (draft) {
-                    e.preventDefault();
-                    e.returnValue = '';
-                    return '';
+                    try {
+                        const draftData = JSON.parse(draft);
+                        // Only show confirmation if there are actual items or notes
+                        if (draftData.items && draftData.items.length > 0 || draftData.notes) {
+                            e.preventDefault();
+                            e.returnValue = '';
+                            return '';
+                        }
+                    } catch (e) {
+                        console.error('Error parsing draft data:', e);
+                        // If there's an error parsing the draft, just clear it
+                        localStorage.removeItem(`invoiceData_${userId}`);
+                    }
                 }
-            });
+            };
+            window.addEventListener('beforeunload', beforeunloadHandler);
             
             // Populate labor items
             populateLaborItems();
@@ -1464,16 +1475,22 @@
             const newTaxFields = document.createElement('div');
             newTaxFields.className = 'new-tax-fields';
             newTaxFields.innerHTML = `
-                <label>Description:</label>
-                <input type="text" name="tax_description" required placeholder="e.g., State Sales Tax">
-                <label>Rate (%):</label>
-                <input type="number" name="tax_rate" required min="0" step="0.01" placeholder="e.g., 8.5">
-                <label>Apply Tax To:</label>
-                <select name="tax_applies_to" required>
-                    <option value="items" selected>Items only</option>
-                    <option value="labor">Labor only</option>
-                    <option value="both">Both items and labor</option>
-                </select>
+                <div class="tax-fields">
+                    <label>Description:</label>
+                    <input type="text" name="tax_description" required placeholder="e.g., State Sales Tax">
+                    <label>Rate (%):</label>
+                    <input type="number" name="tax_rate" required min="0" step="0.01" placeholder="e.g., 8.5">
+                    <label>Apply Tax To:</label>
+                    <select name="tax_applies_to" required>
+                        <option value="items" selected>Items only</option>
+                        <option value="labor">Labor only</option>
+                        <option value="both">Both items and labor</option>
+                    </select>
+                    <div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">
+                        <button type="button" class="btn btn-success btn-sm" onclick="saveNewTaxRate(this)" title="Save tax rate"><i class="fas fa-save"></i> Save Tax Rate</button>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="cancelNewTaxRate(this)" title="Cancel"><i class="fas fa-times"></i> Cancel</button>
+                    </div>
+                </div>
             `;
             itemDiv.appendChild(newTaxFields);
             return;
@@ -1497,6 +1514,74 @@
         }
     }
 
+    async function saveNewTaxRate(button) {
+        const itemDiv = button.closest('.item');
+        const description = itemDiv.querySelector('input[name="tax_description"]').value;
+        const rate = itemDiv.querySelector('input[name="tax_rate"]').value;
+        
+        if (!description || !rate) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${APP_ROOT}/create_sales_tax_rate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    rate: parseFloat(rate),
+                    description: description
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to create tax rate');
+            }
+            
+            const data = await response.json();
+            
+            // Add the new tax rate to the dropdown
+            const select = itemDiv.querySelector('select[name="tax_rate[]"]');
+            const option = document.createElement('option');
+            option.value = data.id;
+            option.textContent = `${data.description} - ${data.rate}%`;
+            option.setAttribute('data-rate', data.rate);
+            select.insertBefore(option, select.options[2]); // Insert after "Clear saved tax rates"
+            
+            // Select the new tax rate
+            select.value = data.id;
+            
+            // Remove the new tax rate form
+            const newTaxFields = itemDiv.querySelector('.new-tax-fields');
+            if (newTaxFields) {
+                newTaxFields.remove();
+            }
+            
+            // Trigger the tax rate selection handler
+            handleTaxRateSelection(select);
+            
+        } catch (error) {
+            console.error('Error creating tax rate:', error);
+            alert(error.message || 'Error creating tax rate. Please try again.');
+        }
+    }
+
+    function cancelNewTaxRate(button) {
+        const itemDiv = button.closest('.item');
+        const select = itemDiv.querySelector('select[name="tax_rate[]"]');
+        const newTaxFields = itemDiv.querySelector('.new-tax-fields');
+        
+        if (newTaxFields) {
+            newTaxFields.remove();
+        }
+        
+        // Reset the dropdown to the first option
+        select.selectedIndex = 0;
+    }
+
     async function addTaxToInvoice(button) {
         const itemDiv = button.closest('.item');
         const select = itemDiv.querySelector('select[name="tax_rate[]"]');
@@ -1513,7 +1598,7 @@
             }
             
             try {
-                const response = await fetch(`${APP_ROOT}/api/sales-tax`, {
+                const response = await fetch(`${APP_ROOT}/create_sales_tax_rate`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1656,9 +1741,19 @@
         const userId = "{{ session.get('user_id') }}";
         const draft = localStorage.getItem(`invoiceData_${userId}`);
         if (draft) {
-            e.preventDefault();
-            e.returnValue = '';
-            return '';
+            try {
+                const draftData = JSON.parse(draft);
+                // Only show confirmation if there are actual items or notes
+                if (draftData.items && draftData.items.length > 0 || draftData.notes) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                    return '';
+                }
+            } catch (e) {
+                console.error('Error parsing draft data:', e);
+                // If there's an error parsing the draft, just clear it
+                localStorage.removeItem(`invoiceData_${userId}`);
+            }
         }
     });
     // Intercept navigation clicks
@@ -1707,7 +1802,34 @@
     }
 
     // Function to show add labor dialog
-    window.showAddLaborDialog = function() {
+    function showAddLaborDialog() {
+        const userId = "{{ session.get('user_id') }}";
+        const draft = localStorage.getItem(`invoiceData_${userId}`);
+        
+        // If there's a draft, check if it has any actual content
+        if (draft) {
+            try {
+                const draftData = JSON.parse(draft);
+                const hasItems = draftData.items && draftData.items.length > 0;
+                const hasNotes = draftData.notes && draftData.notes.trim() !== '';
+                
+                if (hasItems || hasNotes) {
+                    if (!confirm('You have unsaved changes. Do you want to discard them and add a labor item?')) {
+                        return;
+                    }
+                    // Clear the draft if user confirms
+                    localStorage.removeItem(`invoiceData_${userId}`);
+                } else {
+                    // If no actual content, just clear the draft
+                    localStorage.removeItem(`invoiceData_${userId}`);
+                }
+            } catch (e) {
+                console.error('Error parsing draft data:', e);
+                // If there's an error parsing the draft, just clear it
+                localStorage.removeItem(`invoiceData_${userId}`);
+            }
+        }
+        
         const itemsDiv = document.getElementById('items');
         const newItem = document.createElement('div');
         newItem.className = 'item';
@@ -1736,7 +1858,7 @@
             '</div>';
         itemsDiv.appendChild(newItem);
         document.querySelector('.main-action-buttons').classList.add('hidden');
-    };
+    }
 
     // Function to show add item dialog
     function showAddItemDialog() {
