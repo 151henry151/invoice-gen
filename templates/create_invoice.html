@@ -742,12 +742,13 @@
                     }
                 }
 
-                // Enable edit button
+                // Update edit button
                 document.querySelectorAll('.settings-link').forEach(editButton => {
                     editButton.classList.remove('disabled');
                     editButton.href = `${APP_ROOT}/settings?company_id=${value}`;
                     editButton.style.pointerEvents = 'auto';
                     editButton.style.opacity = '1';
+                    editButton.textContent = 'Edit Business Details';
                 });
 
                 // Save the selection
@@ -760,34 +761,22 @@
 
     // Function to handle client selection
     function handleClientSelection(value, event) {
-        // Only trigger navigation if it's a click event or Enter key
         if (event && event.type === 'keydown' && event.key !== 'Enter') {
             return;
         }
-
+        
         if (value.startsWith('/')) {
             window.location.href = value;
             document.querySelector('.client-selector').selectedIndex = 0;
             return;
         }
+        
         if (!/^[0-9]+$/.test(value)) {
             return;
         }
-        
-        // Update the hidden client_id input field
-        const clientIdInput = document.querySelector('input[name="client_id"]');
-        if (clientIdInput) {
-            clientIdInput.value = value;
-        }
-        
-        // Fetch client details and update UI
+
         fetch(`${APP_ROOT}/get_client/${value}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
                 // Update client details in both mobile and desktop views
                 const clientDetailsContainers = document.querySelectorAll('.details-content');
@@ -821,13 +810,14 @@
                     accordionButton.textContent = data.name;
                 }
 
-                // Enable edit button
+                // Update edit button
                 const editButtons = document.querySelectorAll('.edit-client-btn-responsive');
                 editButtons.forEach(button => {
                     button.classList.remove('disabled');
                     button.href = `${APP_ROOT}/client_details?client_id=${value}`;
                     button.style.pointerEvents = 'auto';
                     button.style.opacity = '1';
+                    button.textContent = 'Edit Client Details';
                 });
                 
                 // Save the selection
@@ -2022,9 +2012,11 @@
                 <span class="detail-value" data-placeholder="Your Client's Phone Number"></span>
               </div>
             {% endif %}
-            <a href="#" class="btn btn-outline-secondary btn-sm settings-link{% if not selected_client %} disabled{% endif %} edit-client-btn-responsive" style="margin-top: 1rem; width: 200px; max-width: 100%;">
-                {% if selected_client %}Edit Client Details{% else %}Select a Client to Edit{% endif %}
-            </a>
+            <a href="{{ url_for('client_details', new='true', source='create_invoice') if not selected_client else url_for('client_details', client_id=selected_client.id) }}" 
+               class="settings-link{% if not selected_client %} create-new-btn{% endif %} edit-client-btn-responsive"
+               data-app-root="{{ APP_ROOT }}">
+                    {% if selected_client %}Edit Client Details{% else %}Create New Client{% endif %}
+                </a>
           </div>
           <div class="navigation mt-2">
             <div class="selector-container">
@@ -2082,11 +2074,11 @@
             <span class="detail-value" data-placeholder="Your Client's Phone Number">{{ selected_client.phone if selected_client else '' }}</span>
           </div>
         {% endif %}
-        <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else '#' }}" 
-           class="settings-link{% if not selected_client %} disabled{% endif %} edit-client-btn-responsive"
-           style="margin-top: 1rem; width: 200px; max-width: 100%;">
-            {% if selected_client %}Edit Client Details{% else %}Select a Client to Edit{% endif %}
-        </a>
+        <a href="{{ url_for('client_details', new='true', source='create_invoice') if not selected_client else url_for('client_details', client_id=selected_client.id) }}" 
+           class="settings-link{% if not selected_client %} create-new-btn{% endif %} edit-client-btn-responsive"
+           data-app-root="{{ APP_ROOT }}">
+                    {% if selected_client %}Edit Client Details{% else %}Create New Client{% endif %}
+                </a>
       </div>
     </div>
     <div class="navigation">
