@@ -564,14 +564,12 @@
     function saveInvoiceData() {
         const userId = "{{ session.get('user_id') }}";  // Get the current user's ID from session
         const invoiceData = {
-            date: document.getElementById('date').value,
-            invoiceNumber: document.getElementById('invoice_number').value,
-            isConfirmed: document.querySelector('.invoice-header').classList.contains('confirmed'),
             items: Array.from(document.querySelectorAll('.line-item.confirmed')).map(item => {
                 const data = {
                     type: item.dataset.type,
                     description: item.dataset.description,
-                    total: item.dataset.total
+                    total: item.dataset.total,
+                    isConfirmed: true
                 };
                 
                 if (item.dataset.type === 'labor') {
@@ -1247,6 +1245,11 @@
             
             // Add navigation away prompt
             let beforeunloadHandler = function (e) {
+                // Check if we're intentionally navigating (like adding an item)
+                if (window.isIntentionallyNavigating) {
+                    return;
+                }
+                
                 const userId = "{{ session.get('user_id') }}";
                 const draft = localStorage.getItem(`invoiceData_${userId}`);
                 if (draft) {
@@ -1290,6 +1293,11 @@
 
     // Function to initialize all event listeners
     function initializeEventListeners() {
+        // Set today's date as default for invoice date and due date
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date').value = today;
+        document.getElementById('due_date').value = today;
+
         // Add Labor button
         const addLaborBtn = document.getElementById('addLaborBtn');
         if (addLaborBtn) {
@@ -1862,6 +1870,9 @@
 
     // Function to show add item dialog
     function showAddItemDialog() {
+        // Set flag to indicate we're intentionally navigating
+        window.isIntentionallyNavigating = true;
+        
         const userId = "{{ session.get('user_id') }}";
         const draft = localStorage.getItem(`invoiceData_${userId}`);
         
@@ -1869,11 +1880,16 @@
         if (draft) {
             try {
                 const draftData = JSON.parse(draft);
-                const hasItems = draftData.items && draftData.items.length > 0;
+                console.log('Draft data:', draftData);  // Debug log
+                
+                // Only check for confirmed items and notes
+                const hasConfirmedItems = draftData.items && draftData.items.some(item => item.isConfirmed);
                 const hasNotes = draftData.notes && draftData.notes.trim() !== '';
                 
-                if (hasItems || hasNotes) {
+                if (hasConfirmedItems || hasNotes) {
                     if (!confirm('You have unsaved changes. Do you want to discard them and add an item?')) {
+                        // Reset flag if user cancels
+                        window.isIntentionallyNavigating = false;
                         return;
                     }
                     // Clear the draft if user confirms
@@ -1913,6 +1929,9 @@
             '</div>';
         itemsDiv.appendChild(newItem);
         document.querySelector('.main-action-buttons').classList.add('hidden');
+        
+        // Reset flag after adding item
+        window.isIntentionallyNavigating = false;
     }
 
     // Function to populate labor items dropdown
