@@ -799,21 +799,15 @@ def register_routes(app):
             })
         return jsonify({'error': 'Company not found'}), 404
 
-    @app.route('/get_client/<int:client_id>')
+    @app.route('/invoice/get_client/<int:client_id>')
     @login_required
     def get_client(client_id):
         client = db.session.query(Client).filter_by(id=client_id, user_id=session['user_id']).first()
         if client:
-            return jsonify({
-                'id': client.id,
-                'name': client.name,
-                'address': client.address,
-                'email': client.email,
-                'phone': client.phone
-            })
+            return jsonify(client.to_dict())
         return jsonify({'error': 'Client not found'}), 404
 
-    @app.route('/check_invoice_number/<invoice_number>')
+    @app.route('/invoice/check_invoice_number/<invoice_number>')
     @login_required
     def check_invoice_number(invoice_number):
         invoice = db.session.query(Invoice).filter_by(invoice_number=invoice_number, user_id=session['user_id']).first()
