@@ -596,207 +596,45 @@
 
     // Function to restore invoice data from localStorage
     function restoreInvoiceData() {
-        const userId = "{{ session.get('user_id') }}";  // Get the current user's ID from session
-        const savedData = localStorage.getItem(`invoiceData_${userId}`);
-        if (savedData) {
-            const invoiceData = JSON.parse(savedData);
+        try {
+            const userId = "{{ session.get('user_id') }}";
+            const savedData = localStorage.getItem(`invoiceData_${userId}`);
             
-            // Restore invoice header
-            document.getElementById('date').value = invoiceData.date;
-            document.getElementById('invoice_number').value = invoiceData.invoiceNumber;
-            if (invoiceData.isConfirmed) {
-                const invoiceHeader = document.querySelector('.invoice-header');
-                const confirmBtn = document.getElementById('confirmInvoiceBtn');
-                invoiceHeader.classList.add('confirmed');
-                document.getElementById('date').readOnly = true;
-                document.getElementById('invoice_number').readOnly = true;
-                confirmBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
-                confirmBtn.title = 'Edit invoice';
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                
+                // Restore business selection
+                const businessSelect = document.querySelector('.company-selector');
+                if (businessSelect && data.businessId) {
+                    businessSelect.value = data.businessId;
+                    handleCompanySelection(data.businessId);
+                }
+                
+                // Restore client selection
+                const clientSelect = document.querySelector('.client-selector');
+                if (clientSelect && data.clientId) {
+                    clientSelect.value = data.clientId;
+                    handleClientSelection(data.clientId);
+                }
+                
+                // Restore items
+                if (data.items) {
+                    data.items.forEach(item => {
+                        if (item.type === 'item') {
+                            addItemToInvoice(item);
+                        } else if (item.type === 'labor') {
+                            addLaborToInvoice(item);
+                        } else if (item.type === 'note') {
+                            addNoteToInvoice(item);
+                        }
+                    });
+                }
+                
+                // Update totals
+                setTimeout(updateInvoiceTotals, 100);
             }
-            
-            // Restore line items
-            const itemsContainer = document.getElementById('items');
-            itemsContainer.innerHTML = ''; // Clear existing items
-            
-            // First, restore non-tax items
-            invoiceData.items.forEach(item => {
-                if (!item.type || !item.description) return; // Skip invalid items
-                if (item.type === 'tax') return; // Skip tax items for now
-                
-                const lineItem = document.createElement('div');
-                lineItem.className = 'line-item confirmed';
-                
-                if (item.type === 'note') {
-                    lineItem.innerHTML = `
-                        <div class="line-item-content">
-                            <div class="detail-item">
-                                <span class="detail-label">Notes:</span>
-                                <span class="detail-value">${item.description}</span>
-                            </div>
-                        </div>
-                        <div class="line-item-actions">
-                            <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit note">
-                                <i class="fas fa-pencil-alt"></i>
-                            </button>
-                            <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove note">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    `;
-                    lineItem.dataset.type = 'note';
-                    lineItem.dataset.description = item.description;
-                } else if (item.type === 'labor') {
-                    lineItem.innerHTML = `
-                        <div class="line-item-content">
-                            <div class="detail-item">
-                                <span class="detail-label">Description:</span>
-                                <span class="detail-value">${item.description}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Date:</span>
-                                <span class="detail-value">${item.date}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Time:</span>
-                                <span class="detail-value">${hours}h ${minutes}m</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Rate:</span>
-                                <span class="detail-value">$${parseFloat(item.rate).toFixed(2)}/hr</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Total:</span>
-                                <span class="detail-value">$${parseFloat(item.total).toFixed(2)}</span>
-                            </div>
-                        </div>
-                        <div class="line-item-actions">
-                            <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
-                                <i class="fas fa-pencil-alt"></i>
-                            </button>
-                            <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    `;
-                    
-                    lineItem.dataset.type = 'labor';
-                    lineItem.dataset.description = item.description;
-                    lineItem.dataset.date = item.date;
-                    lineItem.dataset.hours = item.hours;
-                    lineItem.dataset.minutes = item.minutes;
-                    lineItem.dataset.rate = item.rate;
-                    lineItem.dataset.total = item.total;
-                } else if (item.type === 'item') {
-                    lineItem.innerHTML = `
-                        <div class="line-item-content">
-                            <div class="detail-item">
-                                <span class="detail-label">Description:</span>
-                                <span class="detail-value">${item.description}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Quantity:</span>
-                                <span class="detail-value">${item.quantity}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Price:</span>
-                                <span class="detail-value">$${parseFloat(item.price).toFixed(2)}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Total:</span>
-                                <span class="detail-value">$${parseFloat(item.total).toFixed(2)}</span>
-                            </div>
-                        </div>
-                        <div class="line-item-actions">
-                            <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
-                                <i class="fas fa-pencil-alt"></i>
-                            </button>
-                            <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    `;
-                    
-                    lineItem.dataset.type = 'item';
-                    lineItem.dataset.description = item.description;
-                    lineItem.dataset.quantity = item.quantity;
-                    lineItem.dataset.price = item.price;
-                    lineItem.dataset.total = item.total;
-                }
-                
-                itemsContainer.appendChild(lineItem);
-            });
-            
-            // Then restore tax items
-            invoiceData.items.forEach(item => {
-                if (item.type === 'tax') {
-                    const lineItem = document.createElement('div');
-                    lineItem.className = 'line-item confirmed';
-                    lineItem.dataset.type = 'tax';
-                    lineItem.dataset.rate = item.rate;
-                    lineItem.dataset.total = item.total;
-                    lineItem.dataset.appliesTo = item.appliesTo;
-                    lineItem.dataset.taxId = item.taxId;
-                    
-                    // Fetch the tax rate details to get the description
-                    fetch('/invoice/api/sales-tax')
-                        .then(response => response.json())
-                        .then(rates => {
-                            const taxRate = rates.find(r => r.id === parseInt(item.taxId));
-                            if (taxRate) {
-                                lineItem.innerHTML = `
-                                    <div class="line-item-content">
-                                        <div class="detail-item">
-                                            <span class="detail-label">Sales Tax:</span>
-                                            <span class="detail-value">${taxRate.description} (${taxRate.rate}%)</span>
-                                        </div>
-                                        <div class="detail-item">
-                                            <span class="detail-label">Applied to:</span>
-                                            <span class="detail-value">${item.appliesTo === 'both' ? 'Both items and labor' : item.appliesTo === 'items' ? 'Items only' : 'Labor only'}</span>
-                                        </div>
-                                    </div>
-                                    <div class="line-item-actions">
-                                        <button type="button" class="edit-item-btn" onclick="editSalesTax(this)" title="Edit tax">
-                                            <i class="fas fa-pencil-alt"></i>
-                                        </button>
-                                        <button type="button" class="remove-item-btn" onclick="removeSalesTax(this)" title="Remove tax">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                `;
-                                
-                                // Insert tax line into the items container so it matches the width/layout of other line items
-                                document.getElementById('items').appendChild(lineItem);
-                                
-                                // Update the sales tax button text
-                                const salesTaxButton = document.getElementById('salesTaxButton');
-                                salesTaxButton.innerHTML = '<i class="fas fa-percentage"></i> Edit Sales Tax';
-
-                                // Add hidden fields to form so sales tax is submitted
-                                const form = document.querySelector('form');
-                                if (form && !form.querySelector('input[name="sales_tax_id"]')) {
-                                    const salesTaxIdInput = document.createElement('input');
-                                    salesTaxIdInput.type = 'hidden';
-                                    salesTaxIdInput.name = 'sales_tax_id';
-                                    salesTaxIdInput.value = item.taxId;
-                                    form.appendChild(salesTaxIdInput);
-                                }
-                                if (form && !form.querySelector('input[name="tax_applies_to"]')) {
-                                    const taxAppliesToInput = document.createElement('input');
-                                    taxAppliesToInput.type = 'hidden';
-                                    taxAppliesToInput.name = 'tax_applies_to';
-                                    taxAppliesToInput.value = item.appliesTo;
-                                    form.appendChild(taxAppliesToInput);
-                                }
-
-                                // Update totals after tax is restored
-                                updateInvoiceTotals();
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error loading tax rate:', error);
-                        });
-                }
-            });
+        } catch (error) {
+            console.error('Error restoring invoice data:', error);
         }
     }
 
@@ -839,30 +677,25 @@
             const businessSelect = document.querySelector('.company-selector');
             if (businessSelect && selectionData.businessId) {
                 businessSelect.value = selectionData.businessId;
-                // Trigger the company selection handler to update the UI
-                handleCompanySelection(selectionData.businessId);
             }
             
             // Restore client selection
             const clientSelect = document.querySelector('.client-selector');
             if (clientSelect && selectionData.clientId) {
                 clientSelect.value = selectionData.clientId;
-                // Trigger the client selection handler to update the UI
-                handleClientSelection(selectionData.clientId);
             }
         }
     }
 
     // Function to handle company selection
     function handleCompanySelection(value, event) {
-        // Only trigger navigation if it's a click event or Enter key
         if (event && event.type === 'keydown' && event.key !== 'Enter') {
             return;
         }
-
+        
         if (value.startsWith('/')) {
-            // If it's a URL (like for creating a new business), navigate to it
             window.location.href = value;
+            document.querySelector('.company-selector').selectedIndex = 0;
             return;
         }
         
@@ -870,37 +703,52 @@
             return;
         }
 
-        fetch(`${APP_ROOT}/invoice/get_company/${value}`)
+        fetch(`${APP_ROOT}/get_company/${value}`)
             .then(response => response.json())
-            .then(company => {
-                // Update all company details
-                document.querySelectorAll('.detail-value[data-placeholder="Business Name"]').forEach(el => el.textContent = company.name);
-                document.querySelectorAll('.detail-value[data-placeholder="Business Address"]').forEach(el => el.textContent = company.address);
-                document.querySelectorAll('.detail-value[data-placeholder="business@example.com"]').forEach(el => el.textContent = company.email);
-                document.querySelectorAll('.detail-value[data-placeholder="(xxx) xxx-xxxx"]').forEach(el => el.textContent = company.phone);
+            .then(data => {
+                // Update company details display
+                document.querySelectorAll('.detail-value[data-placeholder="Business Name"]').forEach(el => el.textContent = data.name);
+                document.querySelectorAll('.detail-value[data-placeholder="Business Address"]').forEach(el => el.textContent = data.address);
+                document.querySelectorAll('.detail-value[data-placeholder="business@example.com"]').forEach(el => el.textContent = data.email);
+                document.querySelectorAll('.detail-value[data-placeholder="(xxx) xxx-xxxx"]').forEach(el => el.textContent = data.phone);
 
-                // Update logo if it exists
-                document.querySelectorAll('.logo-placeholder').forEach(logoPlaceholder => {
-                    if (company.logo_path) {
-                        logoPlaceholder.innerHTML = '<img src="' + APP_ROOT + '/uploads/' + company.logo_path + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
+                // Update logo if available
+                const logoPlaceholder = document.getElementById('logo-placeholder');
+                if (logoPlaceholder) {
+                    if (data.logo_path) {
+                        logoPlaceholder.innerHTML = `<img src="{{ url_for('serve_upload', filename='') }}${data.logo_path}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
                     } else {
                         logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
                     }
-                });
+                }
 
-                // Enable the Edit Details button
+                // Update mobile accordion header
+                const accordionButton = document.querySelector('#businessAccordionHeader .accordion-button');
+                if (accordionButton) {
+                    // Update the business name
+                    const nameSpan = accordionButton.querySelector('.fw-semibold');
+                    if (nameSpan) {
+                        nameSpan.textContent = data.name;
+                    }
+
+                    // Update the logo
+                    const logoContainer = accordionButton.querySelector('img, i.fa-building');
+                    if (logoContainer) {
+                        if (data.logo_path) {
+                            logoContainer.outerHTML = `<img src="{{ url_for('serve_upload', filename='') }}${data.logo_path}" alt="Business Logo" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover;">`;
+                        } else {
+                            logoContainer.outerHTML = '<i class="fas fa-building fa-lg text-secondary" style="width: 32px; height: 22px; display: flex; align-items: center; justify-content: center;"></i>';
+                        }
+                    }
+                }
+
+                // Enable edit button
                 document.querySelectorAll('.settings-link').forEach(editButton => {
                     editButton.classList.remove('disabled');
                     editButton.href = `${APP_ROOT}/settings?company_id=${value}`;
                     editButton.style.pointerEvents = 'auto';
                     editButton.style.opacity = '1';
                 });
-
-                // Update the hidden business_id input
-                const businessIdInput = document.getElementById('business_id');
-                if (businessIdInput) {
-                    businessIdInput.value = value;
-                }
 
                 // Save the selection
                 saveSelectedBusinessAndClient();
@@ -932,8 +780,7 @@
             clientIdInput.value = value;
         }
         
-        // Otherwise, update the client details on the page
-        console.log('Fetching client details for ID:', value);
+        // Fetch client details and update UI
         fetch(`${APP_ROOT}/get_client/${value}`)
             .then(response => {
                 if (!response.ok) {
@@ -943,17 +790,12 @@
             })
             .then(data => {
                 // Update client details display
-                const clientDetails = document.querySelector('.client-details');
-                if (clientDetails) {
-                    clientDetails.innerHTML = `
-                        <p><strong>${data.name}</strong></p>
-                        <p>${data.address}</p>
-                        <p>${data.phone}</p>
-                        <p>${data.email}</p>
-                    `;
-                }
+                document.querySelectorAll('.detail-value[data-placeholder="Your Client\'s Name"]').forEach(el => el.textContent = data.name);
+                document.querySelectorAll('.detail-value[data-placeholder="Your Client\'s Address"]').forEach(el => el.textContent = data.address);
+                document.querySelectorAll('.detail-value[data-placeholder="Your Client\'s Email"]').forEach(el => el.textContent = data.email);
+                document.querySelectorAll('.detail-value[data-placeholder="Your Client\'s Phone Number"]').forEach(el => el.textContent = data.phone);
                 
-                // Enable edit button if it exists
+                // Enable edit button
                 const editButton = document.querySelector('.edit-client-btn-responsive');
                 if (editButton) {
                     editButton.classList.remove('disabled');
@@ -1015,50 +857,39 @@
         return roundedCost.toFixed(2);
     };
 
-    // Function to update invoice subtotal and grand total
-    function updateInvoiceTotals() {
-        let subtotal = 0;
-        let taxAmount = 0;
-        
-        // Calculate subtotal from all line items
-        document.querySelectorAll('.line-item').forEach(item => {
-            if (item.dataset.type === 'labor' || item.dataset.type === 'item') {
-                subtotal += parseFloat(item.dataset.total);
-            }
-        });
-        
-        // Calculate tax if present
-        const taxLine = document.querySelector('.line-item[data-type="tax"]');
-        if (taxLine) {
-            const taxRate = parseFloat(taxLine.dataset.rate);
-            const appliesTo = taxLine.dataset.appliesTo;
+    // Function to update invoice totals
+    window.updateInvoiceTotals = function() {
+        try {
+            const subtotalElement = document.getElementById('subtotal');
+            const taxTotalElement = document.getElementById('taxTotal');
+            const grandTotalElement = document.getElementById('grandTotal');
             
-            // Recalculate taxable amount based on current line items
-            let taxableAmount = 0;
-            document.querySelectorAll('.line-item').forEach(item => {
-                if (item.dataset.type === 'labor' && (appliesTo === 'labor' || appliesTo === 'both')) {
-                    taxableAmount += parseFloat(item.dataset.total);
-                } else if (item.dataset.type === 'item' && (appliesTo === 'items' || appliesTo === 'both')) {
-                    taxableAmount += parseFloat(item.dataset.total);
+            if (!subtotalElement || !taxTotalElement || !grandTotalElement) {
+                console.warn('Some total elements not found, skipping update');
+                return;
+            }
+
+            let subtotal = 0;
+            const lineItems = document.querySelectorAll('.line-item.confirmed');
+            
+            lineItems.forEach(item => {
+                const totalElement = item.querySelector('.detail-value:last-child');
+                if (totalElement) {
+                    const totalText = totalElement.textContent.replace('$', '');
+                    subtotal += parseFloat(totalText) || 0;
                 }
             });
             
-            // Calculate new tax amount
-            taxAmount = (taxableAmount * taxRate / 100);
+            const taxRate = parseFloat(document.getElementById('tax_rate').value) || 0;
+            const taxAmount = subtotal * (taxRate / 100);
             
-            // Update the tax line item's total
-            taxLine.dataset.total = taxAmount;
-            const taxTotalElement = taxLine.querySelector('.detail-value:last-child');
-            if (taxTotalElement) {
-                taxTotalElement.textContent = `$${taxAmount.toFixed(2)}`;
-            }
+            subtotalElement.textContent = `$${subtotal.toFixed(2)}`;
+            taxTotalElement.textContent = `$${taxAmount.toFixed(2)}`;
+            grandTotalElement.textContent = `$${(subtotal + taxAmount).toFixed(2)}`;
+        } catch (error) {
+            console.error('Error updating invoice totals:', error);
         }
-        
-        // Update displays
-        document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
-        document.getElementById('taxTotal').textContent = `$${taxAmount.toFixed(2)}`;
-        document.getElementById('grandTotal').textContent = `$${(subtotal + taxAmount).toFixed(2)}`;
-    }
+    };
 
     // Function to add labor to invoice
     window.addLaborToInvoice = function(button) {
@@ -1141,69 +972,94 @@
 
     // Function to add item to invoice
     window.addItemToInvoice = function(button) {
-        const itemDiv = button.closest('.item');
-        const itemSelect = itemDiv.querySelector('select[name="item[]"]');
-        const quantityInput = itemDiv.querySelector('input[name="quantity[]"]');
-        const priceInput = itemDiv.querySelector('input[name="item_price[]"]');
-        const totalCost = itemDiv.querySelector('.total-cost');
-        
-        if (!itemSelect.value) {
-            alert('Please select an item');
-            return;
+        try {
+            if (!button || typeof button.closest !== 'function') {
+                console.error('Invalid button element');
+                return;
+            }
+
+            const itemDiv = button.closest('.item');
+            if (!itemDiv) {
+                console.error('Could not find parent item div');
+                return;
+            }
+
+            const itemSelect = itemDiv.querySelector('select[name="item[]"]');
+            const quantityInput = itemDiv.querySelector('input[name="quantity[]"]');
+            const priceInput = itemDiv.querySelector('input[name="item_price[]"]');
+            const totalCost = itemDiv.querySelector('.total-cost');
+            
+            if (!itemSelect || !quantityInput || !priceInput || !totalCost) {
+                console.error('Required form elements not found');
+                return;
+            }
+            
+            if (!itemSelect.value) {
+                alert('Please select an item');
+                return;
+            }
+            
+            const selectedOption = itemSelect.options[itemSelect.selectedIndex];
+            const description = selectedOption.text;
+            const quantity = parseInt(quantityInput.value) || 1;
+            const price = parseFloat(priceInput.value);
+            const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
+            
+            const lineItem = document.createElement('div');
+            lineItem.className = 'line-item confirmed';
+            lineItem.innerHTML = `
+                <div class="line-item-content">
+                    <div class="detail-item">
+                        <span class="detail-label">Description:</span>
+                        <span class="detail-value">${description}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Quantity:</span>
+                        <span class="detail-value">${quantity}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Price:</span>
+                        <span class="detail-value">$${price.toFixed(2)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Total:</span>
+                        <span class="detail-value">$${total.toFixed(2)}</span>
+                    </div>
+                </div>
+                <div class="line-item-actions">
+                    <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
+                        <i class="fas fa-pencil-alt"></i>
+                    </button>
+                    <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                <input type="hidden" name="item[]" value="${description}">
+                <input type="hidden" name="quantity[]" value="${quantity}">
+                <input type="hidden" name="item_price[]" value="${price}">
+                <input type="hidden" name="total[]" value="${total}">
+            `;
+            
+            lineItem.dataset.type = 'item';
+            lineItem.dataset.description = description;
+            lineItem.dataset.quantity = quantity;
+            lineItem.dataset.price = price;
+            lineItem.dataset.total = total;
+            
+            const itemsContainer = document.getElementById('items');
+            if (itemsContainer) {
+                itemsContainer.appendChild(lineItem);
+                itemDiv.remove();
+                const mainActionButtons = document.querySelector('.main-action-buttons');
+                if (mainActionButtons) {
+                    mainActionButtons.classList.remove('hidden');
+                }
+                saveInvoiceData();
+                updateInvoiceTotals();
+            }
+        } catch (error) {
+            console.error('Error adding item to invoice:', error);
         }
-        
-        const selectedOption = itemSelect.options[itemSelect.selectedIndex];
-        const description = selectedOption.text;
-        const quantity = parseInt(quantityInput.value) || 1; // Default to 1 if not specified
-        const price = parseFloat(priceInput.value);
-        const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
-        
-        const lineItem = document.createElement('div');
-        lineItem.className = 'line-item confirmed';
-        lineItem.innerHTML = `
-            <div class="line-item-content">
-                <div class="detail-item">
-                    <span class="detail-label">Description:</span>
-                    <span class="detail-value">${description}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Quantity:</span>
-                    <span class="detail-value">${quantity}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Price:</span>
-                    <span class="detail-value">$${price.toFixed(2)}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Total:</span>
-                    <span class="detail-value">$${total.toFixed(2)}</span>
-                </div>
-            </div>
-            <div class="line-item-actions">
-                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
-                    <i class="fas fa-pencil-alt"></i>
-                </button>
-                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-            <input type="hidden" name="item[]" value="${description}">
-            <input type="hidden" name="quantity[]" value="${quantity}">
-            <input type="hidden" name="item_price[]" value="${price}">
-            <input type="hidden" name="total[]" value="${total}">
-        `;
-        
-        lineItem.dataset.type = 'item';
-        lineItem.dataset.description = description;
-        lineItem.dataset.quantity = quantity;
-        lineItem.dataset.price = price;
-        lineItem.dataset.total = total;
-        
-        document.getElementById('items').appendChild(lineItem);
-        itemDiv.remove();
-        document.querySelector('.main-action-buttons').classList.remove('hidden');
-        saveInvoiceData();
-        updateInvoiceTotals();
     };
 
     // Function to add note to invoice
@@ -1336,86 +1192,36 @@
 
     // Initialize everything when the DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('date').value = today;
-
-        // Initialize all event listeners
-        initializeEventListeners();
-
-        // Restore saved data
-        restoreInvoiceData();
-        restoreSelectedBusinessAndClient();
-
-        // Handle disabled edit buttons
-        const editButtons = document.querySelectorAll('.settings-link.disabled');
-        editButtons.forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                return false;
-            });
-        });
-
-        // Initialize the Edit Details button state
-        const editButton = document.querySelector('.settings-link');
-        // Only declare companySelect once here
-        let companySelect = document.querySelector('.company-selector');
-        if (editButton && companySelect) {
-            if (!companySelect.value || companySelect.value.startsWith('/settings')) {
-                editButton.classList.add('disabled');
-                editButton.href = '#';
-                editButton.style.pointerEvents = 'none';
-                editButton.style.opacity = '0.5';
-            }
-        }
-
-        // After restoring selected business and client, also update business details if a company is pre-selected
-        if (companySelect && companySelect.value) {
-            handleCompanySelection(companySelect.value);
-        }
-
-        // --- Auto-open dialog and pre-select new item/labor if redirected with query params ---
-        function getQueryParam(name) {
-            const url = new URL(window.location.href);
-            return url.searchParams.get(name);
-        }
-        function observeAndSetSelect(selector, value) {
-            const observer = new MutationObserver(function() {
-                const select = document.querySelector(selector);
-                if (select) {
-                    select.value = value;
-                    select.dispatchEvent(new Event('change'));
-                    observer.disconnect();
+        try {
+            // Restore saved data
+            restoreInvoiceData();
+            
+            // Add navigation away prompt
+            window.addEventListener('beforeunload', function (e) {
+                const userId = "{{ session.get('user_id') }}";
+                const draft = localStorage.getItem(`invoiceData_${userId}`);
+                if (draft) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                    return '';
                 }
             });
-            observer.observe(document.getElementById('items'), { childList: true, subtree: true });
-            // In case the select is already present
-            const select = document.querySelector(selector);
-            if (select) {
-                select.value = value;
-                select.dispatchEvent(new Event('change'));
-                observer.disconnect();
+            
+            // Populate labor items
+            populateLaborItems();
+            
+            // Update business logo if available
+            const logoPlaceholder = document.getElementById('logo-placeholder');
+            if (logoPlaceholder) {
+                const logoPath = "{{ selected_company.logo_path if selected_company else '' }}";
+                if (logoPath) {
+                    logoPlaceholder.innerHTML = `<img src="{{ url_for('serve_upload', filename='') }}${logoPath}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
+                } else {
+                    logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
+                }
             }
-        }
-        const openDialog = getQueryParam('open_dialog');
-        if (openDialog === 'add_item') {
-            showAddItemDialog();
-            const newItemId = getQueryParam('new_item_id');
-            if (newItemId) {
-                observeAndSetSelect('.item select[name="item[]"]', newItemId);
-            }
-        } else if (openDialog === 'add_labor') {
-            showAddLaborDialog();
-            const newLaborId = getQueryParam('new_labor_id');
-            if (newLaborId) {
-                observeAndSetSelect('.item select[name="labor_item[]"]', newLaborId);
-            }
-        }
-        if (openDialog) {
-            const url = new URL(window.location.href);
-            url.searchParams.delete('open_dialog');
-            url.searchParams.delete('new_item_id');
-            url.searchParams.delete('new_labor_id');
-            window.history.replaceState({}, document.title, url.pathname + url.search);
+        } catch (error) {
+            console.error('Error during initialization:', error);
         }
     });
 
@@ -1988,13 +1794,98 @@
         itemDiv.remove();
         document.querySelector('.main-action-buttons').classList.remove('hidden');
     }
+
+    // In the DOMContentLoaded handler, only restore draft if not editing
+    restoreInvoiceData();
+    // Add navigation away prompt for unsaved draft (only on create, not edit)
+    window.addEventListener('beforeunload', function (e) {
+        const userId = "{{ session.get('user_id') }}";
+        const draft = localStorage.getItem(`invoiceData_${userId}`);
+        if (draft) {
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        }
+    });
+    // Intercept navigation clicks
+    function confirmDraftDiscard(e) {
+        const userId = "{{ session.get('user_id') }}";
+        const draft = localStorage.getItem(`invoiceData_${userId}`);
+        if (draft) {
+            const result = confirm('You have an in-progress invoice. Would you like to discard it? Click OK to discard, Cancel to stay on this page.');
+            if (result) {
+                clearInvoiceData();
+            } else {
+                e.preventDefault();
+                return false;
+            }
+        }
+    }
+    document.querySelectorAll('a, button[type="button"]').forEach(el => {
+        el.addEventListener('click', function(e) {
+            // Only intercept if navigating away from create invoice
+            if (this.closest('form')?.id !== 'businessForm') {
+                confirmDraftDiscard(e);
+            }
+        });
+    });
+
+    // Function to show add note dialog
+    function showAddNoteDialog() {
+        const notesSection = document.getElementById('notesSection');
+        if (notesSection) {
+            notesSection.style.display = 'block';
+            document.getElementById('notes').focus();
+        }
+    }
+
+    // Function to show add tax dialog
+    function showAddTaxDialog() {
+        const taxSection = document.getElementById('taxSection');
+        if (taxSection) {
+            taxSection.style.display = 'block';
+            document.getElementById('tax_rate').focus();
+        }
+    }
+
+    // Function to populate labor items dropdown
+    function populateLaborItems() {
+        const laborSelect = document.querySelector('select[name="labor_item[]"]');
+        if (!laborSelect) return;
+
+        // Clear existing options except the first two
+        while (laborSelect.options.length > 2) {
+            laborSelect.remove(2);
+        }
+
+        // Fetch labor items
+        fetch(`${APP_ROOT}/invoice/get_labor_items`)
+            .then(response => response.json())
+            .then(items => {
+                items.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.id;
+                    option.textContent = `${item.description} - $${item.rate}/hr`;
+                    option.setAttribute('data-rate', item.rate);
+                    laborSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching labor items:', error);
+            });
+    }
+
+    // Call populateLaborItems when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        populateLaborItems();
+    });
 </script>
 {% if selected_company and selected_company.logo_path %}
 <script>
     var logoPlaceholderBusiness = document.getElementById('logo-placeholder');
     if (logoPlaceholderBusiness) {
         var logoPath = "{{ selected_company.logo_path }}";
-        logoPlaceholderBusiness.innerHTML = '<img src="' + APP_ROOT + '/uploads/' + logoPath + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
+        logoPlaceholderBusiness.innerHTML = '<img src="' + APP_ROOT + '/serve_upload/' + logoPath + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
     }
 </script>
 {% else %}
@@ -2015,7 +1906,7 @@
           <h2 class="accordion-header" id="businessAccordionHeader">
             <button class="accordion-button collapsed d-flex align-items-center gap-2" type="button" data-bs-toggle="collapse" data-bs-target="#businessAccordionCollapse" aria-expanded="false" aria-controls="businessAccordionCollapse" style="padding: 0.3rem 0.75rem;">
               {% if selected_company and selected_company.logo_path %}
-                <img src="{{ APP_ROOT }}/uploads/{{ selected_company.logo_path }}" alt="Business Logo" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover;">
+                <img src="{{ url_for('serve_upload', filename=selected_company.logo_path) }}" alt="Business Logo" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover;">
               {% else %}
                 <i class="fas fa-building fa-lg text-secondary" style="width: 32px; height: 22px; display: flex; align-items: center; justify-content: center;"></i>
               {% endif %}
@@ -2071,7 +1962,7 @@
         <div class="company-details">
             <div id="logo-placeholder" class="logo-placeholder">
                 {% if selected_company and selected_company.logo_path %}
-                    <img src="{{ APP_ROOT }}/uploads/{{ selected_company.logo_path }}" alt="Company Logo" class="company-logo">
+                    <img src="{{ url_for('serve_upload', filename=selected_company.logo_path) }}" alt="Company Logo" class="company-logo">
                 {% else %}
                     <span class="logo-placeholder-text">Company Logo</span>
                 {% endif %}
@@ -2208,19 +2099,19 @@
         {% else %}
           <div class="detail-item">
             <span class="detail-label">Client Name:</span>
-            <span class="detail-value" data-placeholder="Your Client's Name"></span>
+            <span class="detail-value" data-placeholder="Your Client's Name">{{ selected_client.name if selected_client else '' }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Address:</span>
-            <span class="detail-value" data-placeholder="Your Client's Address"></span>
+            <span class="detail-value" data-placeholder="Your Client's Address">{{ selected_client.address if selected_client else '' }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Email:</span>
-            <span class="detail-value" data-placeholder="Your Client's Email"></span>
+            <span class="detail-value" data-placeholder="Your Client's Email">{{ selected_client.email if selected_client else '' }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Phone Number:</span>
-            <span class="detail-value" data-placeholder="Your Client's Phone Number"></span>
+            <span class="detail-value" data-placeholder="Your Client's Phone Number">{{ selected_client.phone if selected_client else '' }}</span>
           </div>
         {% endif %}
         <a href="{{ url_for('client_details', client_id=selected_client.id) if selected_client else '#' }}" 
@@ -2345,16 +2236,16 @@
                   {% endif %}
                 </div>
                 <div class="main-action-buttons d-flex flex-wrap justify-content-start gap-2 mt-3 mb-3"> 
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="addLaborBtn" onclick="showAddLaborDialog()"> 
+                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="addLaborBtn"> 
                         <i class="fas fa-tools"></i> <span class="hide-on-mobile">Add </span>Labor
                     </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="addItemBtn" onclick="showAddItemDialog()"> 
+                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="addItemBtn"> 
                         <i class="fas fa-box"></i> <span class="hide-on-mobile">Add </span>Item
                     </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="addNoteBtn" onclick="showAddNoteDialog()"> 
+                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="addNoteBtn"> 
                         <i class="fas fa-sticky-note"></i> <span class="hide-on-mobile">Add </span>Note
                     </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="salesTaxButton" onclick="showAddSalesTaxDialog()"> 
+                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="salesTaxButton"> 
                         <i class="fas fa-percentage"></i> <span class="hide-on-mobile">Add </span>Tax
                     </button>
                 </div>
@@ -2371,4 +2262,43 @@
 {% endblock %}
 
 {% block extra_scripts %}
+{% if not is_edit %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    restoreInvoiceData();
+    // Add navigation away prompt for unsaved draft (only on create, not edit)
+    window.addEventListener('beforeunload', function (e) {
+        const userId = "{{ session.get('user_id') }}";
+        const draft = localStorage.getItem(`invoiceData_${userId}`);
+        if (draft) {
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        }
+    });
+    // Intercept navigation clicks
+    function confirmDraftDiscard(e) {
+        const userId = "{{ session.get('user_id') }}";
+        const draft = localStorage.getItem(`invoiceData_${userId}`);
+        if (draft) {
+            const result = confirm('You have an in-progress invoice. Would you like to discard it? Click OK to discard, Cancel to stay on this page.');
+            if (result) {
+                clearInvoiceData();
+            } else {
+                e.preventDefault();
+                return false;
+            }
+        }
+    }
+    document.querySelectorAll('a, button[type="button"]').forEach(el => {
+        el.addEventListener('click', function(e) {
+            // Only intercept if navigating away from create invoice
+            if (this.closest('form')?.id !== 'businessForm') {
+                confirmDraftDiscard(e);
+            }
+        });
+    });
+});
+</script>
+{% endif %}
 {% endblock %} 
