@@ -1414,9 +1414,9 @@
             '<select name="tax_rate[]" required onchange="handleTaxRateSelection(this)">' +
             '<option value="" disabled selected>Select Tax Rate</option>' +
             '<option value="new">Create New Tax Rate</option>' +
-            '<option value="clear">Clear saved tax rates</option>' +
-            '{% for rate in tax_rates %}' +
-            '<option value="{{ rate.id }}" data-rate="{{ rate.rate }}">{{ rate.description }} - {{ rate.rate }}%</option>' +
+            '<option value="clear">Clear Saved Tax Rates</option>' +
+            '{% for tax in tax_rates %}' +
+            '<option value="{{ tax.id }}" data-rate="{{ tax.rate }}">{{ tax.description }} - {{ tax.rate }}%</option>' +
             '{% endfor %}' +
             '</select>' +
             '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
@@ -1427,95 +1427,85 @@
         document.querySelector('.main-action-buttons').classList.add('hidden');
     }
     
-    function handleSalesTaxSelection(select) {
+    function handleTaxRateSelection(select) {
         if (select.value === 'clear') {
-            if (confirm('Are you sure you want to clear all saved tax rates? This action cannot be undone.')) {
-                fetch('/invoice/api/sales-tax', {
-                    method: 'DELETE'
+            if (confirm('Are you sure you want to clear all saved tax rates?')) {
+                fetch(`${APP_ROOT}/clear_tax_rates`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 })
-                .then(response => {
-                    if (response.ok) {
-                        // Clear the select options except the first three
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Clear the dropdown except for the first three options
                         while (select.options.length > 3) {
                             select.remove(3);
                         }
-                        // Reset to default selection
-                        select.value = '';
-                        alert('All tax rates have been cleared.');
+                        alert('Tax rates cleared successfully!');
                     } else {
-                        throw new Error('Failed to clear tax rates');
+                        alert('Error clearing tax rates: ' + data.error);
                     }
                 })
                 .catch(error => {
-                    console.error('Error clearing tax rates:', error);
-                    alert('Error clearing tax rates. Please try again.');
+                    console.error('Error:', error);
+                    alert('Error clearing tax rates');
                 });
-            } else {
-                // Reset to default selection if user cancels
-                select.value = '';
             }
+            // Reset the dropdown to the first option
+            select.selectedIndex = 0;
             return;
         }
-        
-        const newTaxFields = document.getElementById('newTaxRateFields');
-        newTaxFields.style.display = select.value === 'new' ? 'block' : 'none';
 
-        // Calculate and display tax amount in real-time when a rate is selected
-        if (select.value && select.value !== 'new') {
-            const appliesTo = document.getElementById('taxAppliesTo').value;
-            fetch('/invoice/api/sales-tax')
-                .then(response => response.json())
-                .then(rates => {
-                    const selectedRate = rates.find(r => r.id === parseInt(select.value));
-                    if (selectedRate) {
-                        // Calculate taxable amount based on appliesTo
-                        let taxableAmount = 0;
-                        document.querySelectorAll('.line-item').forEach(item => {
-                            if (item.dataset.type === 'labor' && (appliesTo === 'labor' || appliesTo === 'both')) {
-                                taxableAmount += parseFloat(item.dataset.total);
-                            } else if (item.dataset.type === 'item' && (appliesTo === 'items' || appliesTo === 'both')) {
-                                taxableAmount += parseFloat(item.dataset.total);
-                            }
-                        });
-                        
-                        const taxAmount = (taxableAmount * selectedRate.rate / 100);
-                        
-                        // Update the tax total display
-                        document.getElementById('taxTotal').textContent = `$${taxAmount.toFixed(2)}`;
-                        
-                        // Update the grand total
-                        const subtotal = parseFloat(document.getElementById('subtotal').textContent.replace('$', ''));
-                        document.getElementById('grandTotal').textContent = `$${(subtotal + taxAmount).toFixed(2)}`;
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading tax rate:', error);
-                });
-        } else {
-            // Reset tax total to 0 if no rate is selected
-            document.getElementById('taxTotal').textContent = '$0.00';
-            const subtotal = parseFloat(document.getElementById('subtotal').textContent.replace('$', ''));
-            document.getElementById('grandTotal').textContent = `$${subtotal.toFixed(2)}`;
+        if (select.value === 'new') {
+            // Create new tax rate form
+            const itemDiv = select.closest('.item');
+            const newTaxFields = document.createElement('div');
+            newTaxFields.className = 'new-tax-fields';
+            newTaxFields.innerHTML = `
+                <label>Description:</label>
+                <input type="text" name="tax_description" required placeholder="e.g., State Sales Tax">
+                <label>Rate (%):</label>
+                <input type="number" name="tax_rate" required min="0" step="0.01" placeholder="e.g., 8.5">
+                <label>Apply Tax To:</label>
+                <select name="tax_applies_to" required>
+                    <option value="items" selected>Items only</option>
+                    <option value="labor">Labor only</option>
+                    <option value="both">Both items and labor</option>
+                </select>
+            `;
+            itemDiv.appendChild(newTaxFields);
+            return;
+        }
+
+        // Handle existing tax rate selection
+        const selectedOption = select.options[select.selectedIndex];
+        const rate = selectedOption.getAttribute('data-rate');
+        const description = selectedOption.text;
+        
+        // Remove any existing new tax rate fields
+        const existingNewTaxFields = select.closest('.item').querySelector('.new-tax-fields');
+        if (existingNewTaxFields) {
+            existingNewTaxFields.remove();
+        }
+
+        // Update the tax rate input
+        const taxRateInput = document.querySelector('input[name="tax_rate"]');
+        if (taxRateInput) {
+            taxRateInput.value = rate;
         }
     }
-    
-    function closeSalesTaxDialog() {
-        const salesTaxDialog = bootstrap.Modal.getInstance(document.getElementById('salesTaxDialog'));
-        salesTaxDialog.hide();
-        document.getElementById('newTaxRateFields').style.display = 'none';
-        document.getElementById('salesTaxSelect').value = '';
-        document.getElementById('taxDescription').value = '';
-        document.getElementById('taxRate').value = '';
-    }
-    
-    async function addSalesTaxToInvoice() {
-        const select = document.getElementById('salesTaxSelect');
-        const appliesTo = document.getElementById('taxAppliesTo').value;
+
+    async function addTaxToInvoice(button) {
+        const itemDiv = button.closest('.item');
+        const select = itemDiv.querySelector('select[name="tax_rate[]"]');
         
         if (select.value === 'new') {
             // Create new tax rate
-            const description = document.getElementById('taxDescription').value;
-            const rate = document.getElementById('taxRate').value;
+            const description = itemDiv.querySelector('input[name="tax_description"]').value;
+            const rate = itemDiv.querySelector('input[name="tax_rate"]').value;
+            const appliesTo = itemDiv.querySelector('select[name="tax_applies_to"]').value;
             
             if (!description || !rate) {
                 alert('Please fill in all required fields');
@@ -1523,7 +1513,7 @@
             }
             
             try {
-                const response = await fetch('/invoice/api/sales-tax', {
+                const response = await fetch(`${APP_ROOT}/api/sales-tax`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1534,39 +1524,39 @@
                     })
                 });
                 
-                console.log('Response status:', response.status);
-                const responseText = await response.text();
-                console.log('Response text:', responseText);
-                
                 if (!response.ok) {
-                    throw new Error(responseText || 'Failed to create tax rate');
+                    throw new Error('Failed to create tax rate');
                 }
                 
-                const data = JSON.parse(responseText);
-                addTaxToInvoice(data, appliesTo);
+                const data = await response.json();
+                addTaxLine(data, appliesTo);
+                itemDiv.remove();
+                document.querySelector('.main-action-buttons').classList.remove('hidden');
             } catch (error) {
                 console.error('Error creating tax rate:', error);
                 alert(error.message || 'Error creating tax rate. Please try again.');
             }
         } else if (select.value) {
             // Use existing tax rate
-            try {
-                const response = await fetch('/invoice/api/sales-tax');
-                const rates = await response.json();
-                const selectedRate = rates.find(r => r.id === parseInt(select.value));
-                if (selectedRate) {
-                    addTaxToInvoice(selectedRate, appliesTo);
-                }
-            } catch (error) {
-                console.error('Error loading tax rate:', error);
-                alert('Error loading tax rate. Please try again.');
-            }
+            const appliesTo = itemDiv.querySelector('select[name="tax_applies_to"]')?.value || 'items';
+            const selectedOption = select.options[select.selectedIndex];
+            const rate = selectedOption.getAttribute('data-rate');
+            const description = selectedOption.text;
+            
+            addTaxLine({
+                id: select.value,
+                rate: parseFloat(rate),
+                description: description
+            }, appliesTo);
+            
+            itemDiv.remove();
+            document.querySelector('.main-action-buttons').classList.remove('hidden');
         } else {
             alert('Please select a tax rate');
         }
     }
-    
-    function addTaxToInvoice(taxRate, appliesTo) {
+
+    function addTaxLine(taxRate, appliesTo) {
         // Calculate taxable amount based on appliesTo
         let taxableAmount = 0;
         document.querySelectorAll('.line-item').forEach(item => {
@@ -1615,22 +1605,16 @@
             </div>
         `;
         
-        // Remove any inline styles that might be causing the size difference
-        taxLine.removeAttribute('style');
-        
-        // Insert tax line into the items container so it matches the width/layout of other line items
         document.getElementById('items').appendChild(taxLine);
-        
-        // Update the sales tax button text
-        const salesTaxButton = document.getElementById('salesTaxButton');
-        salesTaxButton.innerHTML = '<i class="fas fa-percentage"></i> Edit Sales Tax';
-        
-        // Save the tax information to localStorage
-        saveInvoiceData();
         updateInvoiceTotals();
-        closeSalesTaxDialog();
     }
-    
+
+    function removeTaxFromInvoice(button) {
+        const itemDiv = button.closest('.item');
+        itemDiv.remove();
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+    }
+
     function editSalesTax(button) {
         const taxLine = button.closest('.line-item');
         const rate = taxLine.dataset.rate;
