@@ -955,7 +955,7 @@
                     <span class="detail-value">${date}</span>
                 </div>
                 <div class="detail-item">
-                    <span class="detail-label">Time:</span>
+                    <span class="detail-label">Hours:</span>
                     <span class="detail-value">${hours}h ${minutes}m</span>
                 </div>
                 <div class="detail-item">
@@ -968,19 +968,13 @@
                 </div>
             </div>
             <div class="line-item-actions">
-                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
+                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit labor">
                     <i class="fas fa-pencil-alt"></i>
                 </button>
-                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove labor">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
-            <input type="hidden" name="item[]" value="${description}">
-            <input type="hidden" name="item_date[]" value="${date}">
-            <input type="hidden" name="hours[]" value="${hours}">
-            <input type="hidden" name="minutes[]" value="${minutes}">
-            <input type="hidden" name="item_price[]" value="${rate}">
-            <input type="hidden" name="total[]" value="${total}">
         `;
         
         lineItem.dataset.type = 'labor';
@@ -991,11 +985,22 @@
         lineItem.dataset.rate = rate;
         lineItem.dataset.total = total;
         
-        document.getElementById('items').appendChild(lineItem);
-        itemDiv.remove();
-        document.querySelector('.main-action-buttons').classList.remove('hidden');
-        saveInvoiceData();
-        updateInvoiceTotals();
+        const itemsContainer = document.getElementById('invoice-items');
+        if (itemsContainer) {
+            itemsContainer.appendChild(lineItem);
+            itemDiv.remove();
+            const mainActionButtons = document.querySelector('.main-action-buttons');
+            if (mainActionButtons) {
+                mainActionButtons.classList.remove('hidden');
+            }
+            // Save data without triggering unsaved changes warning
+            const currentHasUnsavedChanges = window.hasUnsavedChanges;
+            saveInvoiceData();
+            window.hasUnsavedChanges = currentHasUnsavedChanges;
+            updateInvoiceTotals();
+        } else {
+            console.error('Could not find invoice-items container');
+        }
     };
 
     // Function to add item to invoice
@@ -1062,10 +1067,6 @@
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
-                <input type="hidden" name="item[]" value="${description}">
-                <input type="hidden" name="quantity[]" value="${quantity}">
-                <input type="hidden" name="item_price[]" value="${price}">
-                <input type="hidden" name="total[]" value="${total}">
             `;
             
             lineItem.dataset.type = 'item';
@@ -1074,7 +1075,7 @@
             lineItem.dataset.price = price;
             lineItem.dataset.total = total;
             
-            const itemsContainer = document.getElementById('items');
+            const itemsContainer = document.getElementById('invoice-items');
             if (itemsContainer) {
                 itemsContainer.appendChild(lineItem);
                 itemDiv.remove();
@@ -1084,6 +1085,8 @@
                 }
                 saveInvoiceData();
                 updateInvoiceTotals();
+            } else {
+                console.error('Could not find invoice-items container');
             }
         } catch (error) {
             console.error('Error adding item to invoice:', error);
@@ -1093,20 +1096,21 @@
     // Function to add note to invoice
     window.addNoteToInvoice = function(button) {
         const itemDiv = button.closest('.item');
-        const notesText = itemDiv.querySelector('textarea[name="note[]"]').value.trim();
-        
-        if (!notesText) {
-            alert('Please enter some notes');
+        const textarea = itemDiv.querySelector('textarea[name="note[]"]');
+        const noteText = textarea ? textarea.value.trim() : '';
+        if (!noteText) {
+            alert('Please enter a note.');
             return;
         }
-        
         const lineItem = document.createElement('div');
         lineItem.className = 'line-item confirmed';
+        lineItem.dataset.type = 'note';
+        lineItem.dataset.description = noteText;
         lineItem.innerHTML = `
             <div class="line-item-content">
                 <div class="detail-item">
-                    <span class="detail-label">Notes:</span>
-                    <span class="detail-value">${notesText}</span>
+                    <span class="detail-label">Note:</span>
+                    <span class="detail-value">${noteText}</span>
                 </div>
             </div>
             <div class="line-item-actions">
@@ -1118,14 +1122,22 @@
                 </button>
             </div>
         `;
-        
-        lineItem.dataset.type = 'note';
-        lineItem.dataset.description = notesText;
-        
-        document.getElementById('items').appendChild(lineItem);
-        itemDiv.remove();
-        document.querySelector('.main-action-buttons').classList.remove('hidden');
-        saveInvoiceData();
+        const itemsDiv = document.getElementById('invoice-items');
+        if (itemsDiv) {
+            itemsDiv.appendChild(lineItem);
+            itemDiv.remove();
+            const mainActionButtons = document.querySelector('.main-action-buttons');
+            if (mainActionButtons) {
+                mainActionButtons.classList.remove('hidden');
+            }
+            // Save data without triggering unsaved changes warning
+            const currentHasUnsavedChanges = window.hasUnsavedChanges;
+            saveInvoiceData();
+            window.hasUnsavedChanges = currentHasUnsavedChanges;
+            updateInvoiceTotals();
+        } else {
+            console.error('Could not find invoice-items container');
+        }
     };
 
     // Function to remove note from invoice
@@ -1486,11 +1498,22 @@
         lineItem.dataset.description = description;
         lineItem.dataset.appliesTo = appliesTo;
         
-        const itemsDiv = document.getElementById('items');
-        itemsDiv.appendChild(lineItem);
-        taxDiv.remove();
-        document.querySelector('.main-action-buttons').classList.remove('hidden');
-        updateInvoiceTotals();
+        const itemsDiv = document.getElementById('invoice-items');
+        if (itemsDiv) {
+            itemsDiv.appendChild(lineItem);
+            taxDiv.remove();
+            const mainActionButtons = document.querySelector('.main-action-buttons');
+            if (mainActionButtons) {
+                mainActionButtons.classList.remove('hidden');
+            }
+            // Save data without triggering unsaved changes warning
+            const currentHasUnsavedChanges = window.hasUnsavedChanges;
+            saveInvoiceData();
+            window.hasUnsavedChanges = currentHasUnsavedChanges;
+            updateInvoiceTotals();
+        } else {
+            console.error('Could not find invoice-items container');
+        }
     }
 
     // Function to remove item from invoice
@@ -1552,30 +1575,6 @@
 
     // Function to show add item dialog
     function showAddItemDialog() {
-        const userId = "{{ session.get('user_id') }}";
-        const draft = localStorage.getItem(`invoiceData_${userId}`);
-        // If there's a draft, check if it has any actual content
-        if (draft) {
-            try {
-                const draftData = JSON.parse(draft);
-                const hasItems = draftData.items && draftData.items.length > 0;
-                const hasNotes = draftData.notes && draftData.notes.trim() !== '';
-                if (hasItems || hasNotes) {
-                    if (!confirm('You have unsaved changes. Do you want to discard them and add an item?')) {
-                        return;
-                    }
-                    // Clear the draft if user confirms
-                    localStorage.removeItem(`invoiceData_${userId}`);
-                } else {
-                    // If no actual content, just clear the draft
-                    localStorage.removeItem(`invoiceData_${userId}`);
-                }
-            } catch (e) {
-                console.error('Error parsing draft data:', e);
-                // If there's an error parsing the draft, just clear it
-                localStorage.removeItem(`invoiceData_${userId}`);
-            }
-        }
         const itemsDiv = document.getElementById('invoice-items');
         const newItem = document.createElement('div');
         newItem.className = 'item';
@@ -1604,101 +1603,28 @@
 
     // Function to show add note dialog
     function showAddNoteDialog() {
-        const userId = "{{ session.get('user_id') }}";
-        const draft = localStorage.getItem(`invoiceData_${userId}`);
-        // If there's a draft, check if it has any actual content
-        if (draft) {
-            try {
-                const draftData = JSON.parse(draft);
-                const hasItems = draftData.items && draftData.items.length > 0;
-                const hasNotes = draftData.notes && draftData.notes.trim() !== '';
-                if (hasItems || hasNotes) {
-                    if (!confirm('You have unsaved changes. Do you want to discard them and add a note?')) {
-                        return;
-                    }
-                    // Clear the draft if user confirms
-                    localStorage.removeItem(`invoiceData_${userId}`);
-                } else {
-                    // If no actual content, just clear the draft
-                    localStorage.removeItem(`invoiceData_${userId}`);
-                }
-            } catch (e) {
-                console.error('Error parsing draft data:', e);
-                // If there's an error parsing the draft, just clear it
-                localStorage.removeItem(`invoiceData_${userId}`);
-            }
-        }
         const itemsDiv = document.getElementById('invoice-items');
+        if (!itemsDiv) {
+            console.error('Could not find invoice-items container');
+            return;
+        }
         const newNote = document.createElement('div');
-        newNote.className = 'item';
-        newNote.innerHTML = 
-            '<label>Note:</label>' +
-            '<textarea name="note[]" rows="3" required></textarea>' +
-            '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-            '<button type="button" class="add-to-invoice-btn" onclick="addNoteToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-            '<button type="button" class="remove-item-btn" onclick="removeNoteFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-            '</div>';
+        newNote.className = 'line-item';
+        newNote.innerHTML = `
+            <div class="line-item-content">
+                <div class="detail-item">
+                    <label>Note:</label>
+                    <textarea class="form-control" rows="3" placeholder="Enter your note here..."></textarea>
+                </div>
+                <div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">
+                    <button type="button" class="add-to-invoice-btn" onclick="addNoteToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>
+                    <button type="button" class="remove-item-btn" onclick="removeNoteFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+        `;
         itemsDiv.appendChild(newNote);
         document.querySelector('.main-action-buttons').classList.add('hidden');
     }
-
-    // Function to show add sales tax dialog
-    function showAddSalesTaxDialog() {
-        const userId = "{{ session.get('user_id') }}";
-        const draft = localStorage.getItem(`invoiceData_${userId}`);
-        // If there's a draft, check if it has any actual content
-        if (draft) {
-            try {
-                const draftData = JSON.parse(draft);
-                const hasItems = draftData.items && draftData.items.length > 0;
-                const hasNotes = draftData.notes && draftData.notes.trim() !== '';
-                if (hasItems || hasNotes) {
-                    if (!confirm('You have unsaved changes. Do you want to discard them and add tax?')) {
-                        return;
-                    }
-                    // Clear the draft if user confirms
-                    localStorage.removeItem(`invoiceData_${userId}`);
-                } else {
-                    // If no actual content, just clear the draft
-                    localStorage.removeItem(`invoiceData_${userId}`);
-                }
-            } catch (e) {
-                console.error('Error parsing draft data:', e);
-                // If there's an error parsing the draft, just clear it
-                localStorage.removeItem(`invoiceData_${userId}`);
-            }
-        }
-        const itemsDiv = document.getElementById('invoice-items');
-        const newTax = document.createElement('div');
-        newTax.className = 'item';
-        newTax.innerHTML = 
-            '<label>Tax Rate:</label>' +
-            '<select name="tax_rate[]" required onchange="handleTaxSelection(this)">' +
-            '<option value="" disabled selected>Select Tax Rate</option>' +
-            '<option value="new">Create New Tax Rate</option>' +
-            '{% for tax in tax_rates %}' +
-            '<option value="{{ tax.id }}" data-rate="{{ tax.rate }}">{{ tax.description }} - {{ tax.rate }}%</option>' +
-            '{% endfor %}' +
-            '</select>' +
-            '<label>Applies To:</label>' +
-            '<select name="tax_applies_to[]" required>' +
-            '<option value="all">All Items</option>' +
-            '<option value="labor">Labor Only</option>' +
-            '<option value="materials">Materials Only</option>' +
-            '</select>' +
-            '<input type="hidden" name="tax_amount[]" value="0.00">' +
-            '<div class="total-cost">' +
-            '<span>Tax Amount: $0.00</span>' +
-            '</div>' +
-            '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-            '<button type="button" class="add-to-invoice-btn" onclick="addTaxToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-            '<button type="button" class="remove-item-btn" onclick="removeTaxFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-            '</div>';
-        itemsDiv.appendChild(newTax);
-        document.querySelector('.main-action-buttons').classList.add('hidden');
-    }
-
-    // ... existing code ...
 
     // Function to handle client change
     function handleClientChange() {
@@ -1760,209 +1686,73 @@
         }
     }
 
-    // Function to show add item dialog
-    // Function to show add note dialog
+    // Function to show add labor dialog
     function showAddLaborDialog() {
-    const userId = "{{ session.get('user_id') }}";
-    const draft = localStorage.getItem(`invoiceData_${userId}`);
-    // If there's a draft, check if it has any actual content
-    if (draft) {
-        try {
-            const draftData = JSON.parse(draft);
-            const hasItems = draftData.items && draftData.items.length > 0;
-            const hasNotes = draftData.notes && draftData.notes.trim() !== '';
-            if (hasItems || hasNotes) {
-                if (!confirm('You have unsaved changes. Do you want to discard them and add a labor item?')) {
-                    return;
-                }
-                // Clear the draft if user confirms
-                localStorage.removeItem(`invoiceData_${userId}`);
-            } else {
-                // If no actual content, just clear the draft
-                localStorage.removeItem(`invoiceData_${userId}`);
-            }
-        } catch (e) {
-            console.error('Error parsing draft data:', e);
-            // If there's an error parsing the draft, just clear it
-            localStorage.removeItem(`invoiceData_${userId}`);
-        }
+        const itemsDiv = document.getElementById('invoice-items');
+        const newLabor = document.createElement('div');
+        newLabor.className = 'item';
+        newLabor.innerHTML = 
+            '<label>Labor Item:</label>' +
+            '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
+            '<option value="" disabled selected>Select Labor Item</option>' +
+            '<option value="new">Create New Labor Item</option>' +
+            '{% for item in labor_items %}' +
+            '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
+            '{% endfor %}' +
+            '</select>' +
+            '<label>Date labor performed:</label>' +
+            '<input type="date" name="item_date[]" required>' +
+            '<label>Hours:</label>' +
+            '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+            '<label>Minutes:</label>' +
+            '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+            '<input type="hidden" name="labor_rate[]" value="0.00">' +
+            '<div class="total-cost">' +
+            '<span>Total Cost: $0.00</span>' +
+            '</div>' +
+            '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+            '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+            '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+            '</div>';
+        itemsDiv.appendChild(newLabor);
+        document.querySelector('.main-action-buttons').classList.add('hidden');
     }
-    const itemsDiv = document.getElementById('invoice-items');
-    const newLabor = document.createElement('div');
-    newLabor.className = 'item';
-    newLabor.innerHTML = 
-        '<label>Labor Item:</label>' +
-        '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
-        '<option value="" disabled selected>Select Labor Item</option>' +
-        '<option value="new">Create New Labor Item</option>' +
-        '{% for item in labor_items %}' +
-        '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
-        '{% endfor %}' +
-        '</select>' +
-        '<label>Date labor performed:</label>' +
-        '<input type="date" name="item_date[]" required>' +
-        '<label>Hours:</label>' +
-        '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-        '<label>Minutes:</label>' +
-        '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-        '<input type="hidden" name="labor_rate[]" value="0.00">' +
-        '<div class="total-cost">' +
-        '<span>Total Cost: $0.00</span>' +
-        '</div>' +
-        '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-        '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-        '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-        '</div>';
-    itemsDiv.appendChild(newLabor);
-    document.querySelector('.main-action-buttons').classList.add('hidden');
-}
-// Function to show add item dialog
-function showAddItemDialog() {
-    const userId = "{{ session.get('user_id') }}";
-    const draft = localStorage.getItem(`invoiceData_${userId}`);
-    // If there's a draft, check if it has any actual content
-    if (draft) {
-        try {
-            const draftData = JSON.parse(draft);
-            const hasItems = draftData.items && draftData.items.length > 0;
-            const hasNotes = draftData.notes && draftData.notes.trim() !== '';
-            if (hasItems || hasNotes) {
-                if (!confirm('You have unsaved changes. Do you want to discard them and add an item?')) {
-                    return;
-                }
-                // Clear the draft if user confirms
-                localStorage.removeItem(`invoiceData_${userId}`);
-            } else {
-                // If no actual content, just clear the draft
-                localStorage.removeItem(`invoiceData_${userId}`);
-            }
-        } catch (e) {
-            console.error('Error parsing draft data:', e);
-            // If there's an error parsing the draft, just clear it
-            localStorage.removeItem(`invoiceData_${userId}`);
-        }
-    }
-    const itemsDiv = document.getElementById('invoice-items');
-    const newItem = document.createElement('div');
-    newItem.className = 'item';
-    newItem.innerHTML = 
-        '<label>Item:</label>' +
-        '<select name="item[]" required onchange="handleItemSelection(this)">' +
-        '<option value="" disabled selected>Select Item</option>' +
-        '<option value="new">Create New Item</option>' +
-        '{% for item in items %}' +
-        '<option value="{{ item.id }}" data-price="{{ item.unit_price }}">{{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}</option>' +
-        '{% endfor %}' +
-        '</select>' +
-        '<label>Quantity:</label>' +
-        '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
-        '<input type="hidden" name="item_price[]" value="0.00">' +
-        '<div class="total-cost">' +
-        '<span>Total Cost: $0.00</span>' +
-        '</div>' +
-        '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-        '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-        '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-        '</div>';
-    itemsDiv.appendChild(newItem);
-    document.querySelector('.main-action-buttons').classList.add('hidden');
-}
 
-// Function to show add note dialog
-function showAddNoteDialog() {
-    const userId = "{{ session.get('user_id') }}";
-    const draft = localStorage.getItem(`invoiceData_${userId}`);
-    // If there's a draft, check if it has any actual content
-    if (draft) {
-        try {
-            const draftData = JSON.parse(draft);
-            const hasItems = draftData.items && draftData.items.length > 0;
-            const hasNotes = draftData.notes && draftData.notes.trim() !== '';
-            if (hasItems || hasNotes) {
-                if (!confirm('You have unsaved changes. Do you want to discard them and add a note?')) {
-                    return;
-                }
-                // Clear the draft if user confirms
-                localStorage.removeItem(`invoiceData_${userId}`);
-            } else {
-                // If no actual content, just clear the draft
-                localStorage.removeItem(`invoiceData_${userId}`);
-            }
-        } catch (e) {
-            console.error('Error parsing draft data:', e);
-            // If there's an error parsing the draft, just clear it
-            localStorage.removeItem(`invoiceData_${userId}`);
+    // Function to show add sales tax dialog
+    function showAddSalesTaxDialog() {
+        const itemsDiv = document.getElementById('invoice-items');
+        if (!itemsDiv) {
+            console.error('Could not find invoice-items container');
+            return;
         }
+        const newTax = document.createElement('div');
+        newTax.className = 'item';
+        newTax.innerHTML = 
+            '<label>Tax Rate:</label>' +
+            '<select name="tax_rate[]" required onchange="handleTaxSelection(this)">' +
+            '<option value="" disabled selected>Select Tax Rate</option>' +
+            '<option value="new">Create New Tax Rate</option>' +
+            '{% for tax in tax_rates %}' +
+            '<option value="{{ tax.id }}" data-rate="{{ tax.rate }}">{{ tax.description }} - {{ tax.rate }}%</option>' +
+            '{% endfor %}' +
+            '</select>' +
+            '<label>Applies To:</label>' +
+            '<select name="tax_applies_to[]" required>' +
+            '<option value="all">All Items</option>' +
+            '<option value="labor">Labor Only</option>' +
+            '<option value="materials">Materials Only</option>' +
+            '</select>' +
+            '<input type="hidden" name="tax_amount[]" value="0.00">' +
+            '<div class="total-cost">' +
+            '<span>Tax Amount: $0.00</span>' +
+            '</div>' +
+            '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+            '<button type="button" class="add-to-invoice-btn" onclick="addTaxToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+            '<button type="button" class="remove-item-btn" onclick="removeTaxFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+            '</div>';
+        itemsDiv.appendChild(newTax);
+        document.querySelector('.main-action-buttons').classList.add('hidden');
     }
-    const itemsDiv = document.getElementById('invoice-items');
-    const newNote = document.createElement('div');
-    newNote.className = 'item';
-    newNote.innerHTML = 
-        '<label>Note:</label>' +
-        '<textarea name="note[]" rows="3" required></textarea>' +
-        '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-        '<button type="button" class="add-to-invoice-btn" onclick="addNoteToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-        '<button type="button" class="remove-item-btn" onclick="removeNoteFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-        '</div>';
-    itemsDiv.appendChild(newNote);
-    document.querySelector('.main-action-buttons').classList.add('hidden');
-}
-
-// Function to show add sales tax dialog
-function showAddSalesTaxDialog() {
-    const userId = "{{ session.get('user_id') }}";
-    const draft = localStorage.getItem(`invoiceData_${userId}`);
-    // If there's a draft, check if it has any actual content
-    if (draft) {
-        try {
-            const draftData = JSON.parse(draft);
-            const hasItems = draftData.items && draftData.items.length > 0;
-            const hasNotes = draftData.notes && draftData.notes.trim() !== '';
-            if (hasItems || hasNotes) {
-                if (!confirm('You have unsaved changes. Do you want to discard them and add tax?')) {
-                    return;
-                }
-                // Clear the draft if user confirms
-                localStorage.removeItem(`invoiceData_${userId}`);
-            } else {
-                // If no actual content, just clear the draft
-                localStorage.removeItem(`invoiceData_${userId}`);
-            }
-        } catch (e) {
-            console.error('Error parsing draft data:', e);
-            // If there's an error parsing the draft, just clear it
-            localStorage.removeItem(`invoiceData_${userId}`);
-        }
-    }
-    const itemsDiv = document.getElementById('invoice-items');
-    const newTax = document.createElement('div');
-    newTax.className = 'item';
-    newTax.innerHTML = 
-        '<label>Tax Rate:</label>' +
-        '<select name="tax_rate[]" required onchange="handleTaxSelection(this)">' +
-        '<option value="" disabled selected>Select Tax Rate</option>' +
-        '<option value="new">Create New Tax Rate</option>' +
-        '{% for tax in tax_rates %}' +
-        '<option value="{{ tax.id }}" data-rate="{{ tax.rate }}">{{ tax.description }} - {{ tax.rate }}%</option>' +
-        '{% endfor %}' +
-        '</select>' +
-        '<label>Applies To:</label>' +
-        '<select name="tax_applies_to[]" required>' +
-        '<option value="all">All Items</option>' +
-        '<option value="labor">Labor Only</option>' +
-        '<option value="materials">Materials Only</option>' +
-        '</select>' +
-        '<input type="hidden" name="tax_amount[]" value="0.00">' +
-        '<div class="total-cost">' +
-        '<span>Tax Amount: $0.00</span>' +
-        '</div>' +
-        '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-        '<button type="button" class="add-to-invoice-btn" onclick="addTaxToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-        '<button type="button" class="remove-item-btn" onclick="removeTaxFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-        '</div>';
-    itemsDiv.appendChild(newTax);
-    document.querySelector('.main-action-buttons').classList.add('hidden');
-}
 
     // ... existing code ...
 
@@ -2412,7 +2202,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('a, button[type="button"]').forEach(el => {
         el.addEventListener('click', function(e) {
             // Only intercept if navigating away from create invoice and not the confirm invoice button
-            if (this.closest('form')?.id !== 'businessForm' && this.id !== 'confirmInvoiceBtn') {
+            // and not one of the add item/labor/note/tax buttons
+            if (this.closest('form')?.id !== 'businessForm' && 
+                this.id !== 'confirmInvoiceBtn' &&
+                !this.closest('.main-action-buttons') &&
+                !this.onclick) {  // Don't intercept if the button has an onclick handler
                 confirmDraftDiscard(e);
             }
         });
@@ -2421,34 +2215,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Function to show add note dialog
 function showAddNoteDialog() {
-    const userId = "{{ session.get('user_id') }}";
-    const draft = localStorage.getItem(`invoiceData_${userId}`);
-    
-    // If there's a draft, check if it has any actual content
-    if (draft) {
-        try {
-            const draftData = JSON.parse(draft);
-            const hasItems = draftData.items && draftData.items.length > 0;
-            const hasNotes = draftData.notes && draftData.notes.trim() !== '';
-            
-            if (hasItems || hasNotes) {
-                if (!confirm('You have unsaved changes. Do you want to discard them and add a note?')) {
-                    return;
-                }
-                // Clear the draft if user confirms
-                localStorage.removeItem(`invoiceData_${userId}`);
-            } else {
-                // If no actual content, just clear the draft
-                localStorage.removeItem(`invoiceData_${userId}`);
-            }
-        } catch (e) {
-            console.error('Error parsing draft data:', e);
-            // If there's an error parsing the draft, just clear it
-            localStorage.removeItem(`invoiceData_${userId}`);
-        }
+    const itemsDiv = document.getElementById('invoice-items');
+    if (!itemsDiv) {
+        console.error('Could not find invoice-items container');
+        return;
     }
-    
-    const itemsDiv = document.getElementById('items');
     const newNote = document.createElement('div');
     newNote.className = 'line-item';
     newNote.innerHTML = `
