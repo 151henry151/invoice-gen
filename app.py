@@ -263,11 +263,30 @@ def register_routes(app):
                 invoice_number = request.form.get('invoice_number')
                 date = datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
                 due_date = datetime.strptime(request.form.get('due_date'), '%Y-%m-%d').date()
-                client_id = request.form.get('client_id') or session.get('selected_client_id')
-                business_id = request.form.get('business_id') or session.get('selected_company_id')
+                client_id = request.form.get('client_id')
+                business_id = request.form.get('business_id')
                 notes = request.form.get('notes')
                 sales_tax_id = request.form.get('sales_tax_id')
                 tax_applies_to = request.form.get('tax_applies_to')
+                
+                # Validate invoice number
+                if not invoice_number:
+                    flash('Invoice number is required', 'danger')
+                    return redirect(url_for_with_prefix('create_invoice'))
+                
+                # Check for duplicate invoice number
+                existing_invoice = db.session.query(Invoice).filter_by(
+                    invoice_number=invoice_number,
+                    user_id=session['user_id']
+                ).first()
+                if existing_invoice:
+                    flash('This invoice number is already in use. Please choose a different one.', 'danger')
+                    return redirect(url_for_with_prefix('create_invoice'))
+                
+                # Validate invoice number format (alphanumeric with optional hyphens and underscores)
+                if not re.match(r'^[A-Za-z0-9\-_]+$', invoice_number):
+                    flash('Invoice number can only contain letters, numbers, hyphens, and underscores', 'danger')
+                    return redirect(url_for_with_prefix('create_invoice'))
                 
                 # Validate required fields
                 if not client_id:
@@ -318,6 +337,16 @@ def register_routes(app):
                                 total=item['total']
                             )
                             db.session.add(invoice_labor)
+                        elif item['type'] == 'note':
+                            invoice_note = InvoiceItem(
+                                invoice_id=invoice.id,
+                                description=item['description'],
+                                quantity=1,
+                                unit_price=0,
+                                total=0,
+                                date=date
+                            )
+                            db.session.add(invoice_note)
                 
                 db.session.commit()
                 flash('Invoice generated successfully!')
@@ -373,24 +402,45 @@ def register_routes(app):
                 flash('Invoice not found')
                 return redirect(url_for_with_prefix('invoice_list'))
             
-            # Get line items and labor items
-            line_items = db.session.query(InvoiceItem).filter_by(invoice_id=invoice.id).all()
-            labor_items = db.session.query(InvoiceLabor).filter_by(invoice_id=invoice.id).all()
-            
-            # Calculate subtotal
-            subtotal = sum(float(item.total) for item in line_items) + sum(float(item.total) for item in labor_items)
-            
-            # Get sales tax
+            # Get all line items (items, labor, notes) in order
+            all_line_items = []
+            for item in db.session.query(InvoiceItem).filter_by(invoice_id=invoice.id).order_by(InvoiceItem.id).all():
+                if item.quantity == 1 and item.unit_price == 0 and item.total == 0:
+                    all_line_items.append({
+                        'type': 'note',
+                        'description': item.description,
+                        'date': item.date.isoformat() if item.date else None
+                    })
+                else:
+                    all_line_items.append({
+                        'type': 'item',
+                        'description': item.description,
+                        'quantity': item.quantity,
+                        'unit_price': float(item.unit_price),
+                        'total': float(item.total),
+                        'date': item.date.isoformat() if item.date else None
+                    })
+            for labor in db.session.query(InvoiceLabor).filter_by(invoice_id=invoice.id).order_by(InvoiceLabor.id).all():
+                all_line_items.append({
+                    'type': 'labor',
+                    'description': labor.description,
+                    'hours': float(labor.hours),
+                    'rate': float(labor.rate),
+                    'total': float(labor.total),
+                    'date': labor.date.isoformat() if labor.date else None
+                })
+            # Sort all_line_items by date (and fallback to id if needed)
+            all_line_items.sort(key=lambda x: (x['date'] or ''))
+            # Calculate subtotal and tax (exclude notes)
+            subtotal = sum(item['total'] for item in all_line_items if item['type'] in ('item', 'labor'))
             sales_tax = db.session.query(SalesTax).filter_by(id=invoice.sales_tax_id).first() if invoice.sales_tax_id else None
             tax_amount = float(subtotal * sales_tax.rate / 100) if sales_tax else 0
-            
             # Get company details
             company = invoice.business
             if company and company.logo_path:
                 logo_path = os.path.abspath(os.path.join(app.config['UPLOAD_FOLDER'], company.logo_path))
             else:
                 logo_path = None
-            
             # Prepare data for template
             invoice_data = {
                 'invoice_number': invoice.invoice_number,
@@ -408,37 +458,19 @@ def register_routes(app):
                 'tax_amount': float(tax_amount),
                 'total': float(subtotal + tax_amount),
                 'notes': invoice.notes,
-                'line_items': [{
-                    'description': item.description,
-                    'quantity': item.quantity,
-                    'unit_price': float(item.unit_price),
-                    'total': float(item.total),
-                    'date': item.date.isoformat() if item.date else None
-                } for item in line_items],
-                'labor_items': [{
-                    'description': item.description,
-                    'hours': float(item.hours),
-                    'rate': float(item.rate),
-                    'total': float(item.total),
-                    'date': item.date.isoformat() if item.date else None
-                } for item in labor_items],
+                'all_line_items': all_line_items,
                 'sales_tax': sales_tax.to_dict() if sales_tax else None,
                 'tax_applies_to': invoice.tax_applies_to
             }
-            
             # Render HTML
             html_content = render_template('invoice_pretty.html', **invoice_data)
-            
             # Generate PDF
             pdf = HTML(string=html_content).write_pdf()
-            
             # Create response
             response = make_response(pdf)
             response.headers['Content-Type'] = 'application/pdf'
             response.headers['Content-Disposition'] = f'attachment; filename=invoice_{invoice_number}.pdf'
-            
             return response
-            
         except Exception as e:
             flash(f'Error generating invoice: {str(e)}')
             return redirect(url_for_with_prefix('invoice_list'))
@@ -1234,6 +1266,16 @@ def register_routes(app):
                                 total=item['total']
                             )
                             db.session.add(invoice_labor)
+                        elif item['type'] == 'note':
+                            invoice_note = InvoiceItem(
+                                invoice_id=invoice.id,
+                                description=item['description'],
+                                quantity=1,
+                                unit_price=0,
+                                total=0,
+                                date=date
+                            )
+                            db.session.add(invoice_note)
                 
                 db.session.commit()
                 flash('Invoice updated successfully!')

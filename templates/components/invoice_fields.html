@@ -1,0 +1,63 @@
+{# Invoice Fields Component #}
+<div class="invoice-fields row">
+  <div class="form-group col-md-4">
+    <label for="date">Invoice Date:</label>
+    <input type="date" id="date" name="date" class="form-control" required>
+  </div>
+  <div class="form-group col-md-4">
+    <label for="due_date">Due Date:</label>
+    <input type="date" id="due_date" name="due_date" class="form-control" required>
+  </div>
+  <div class="form-group col-md-4 d-flex align-items-end invoice-number-group" style="flex-direction: column;">
+    <label for="invoice_number" class="w-100">Invoice Number:</label>
+    <div class="input-group w-100">
+      <input type="text" id="invoice_number" name="invoice_number" class="form-control" required>
+      <button type="button" id="confirmInvoiceBtn" class="btn btn-success btn-sm add-to-invoice-btn" title="Confirm invoice number" style="margin-left: 8px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+        <i class="fas fa-check"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const confirmBtn = document.getElementById('confirmInvoiceBtn');
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', function() {
+      const invoiceNumber = document.getElementById('invoice_number');
+      const date = document.getElementById('date');
+      const dueDate = document.getElementById('due_date');
+      if (invoiceNumber.value && date.value && dueDate.value) {
+        invoiceNumber.readOnly = true;
+        date.readOnly = true;
+        dueDate.readOnly = true;
+        confirmBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+        confirmBtn.title = 'Edit invoice fields';
+        confirmBtn.classList.remove('btn-success');
+        confirmBtn.classList.add('btn-warning');
+      } else {
+        alert('Please fill in all invoice fields before confirming.');
+      }
+    });
+  }
+});
+</script>
+
+<style>
+.invoice-fields {
+  margin-bottom: 20px;
+}
+.invoice-number-group .input-group {
+  align-items: center;
+}
+.add-to-invoice-btn {
+  border-radius: 50% !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin-left: 8px !important;
+}
+</style> 

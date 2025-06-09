@@ -382,18 +382,6 @@
             opacity: 0.5;
         }
 
-        .create-new-btn {
-            background-color: #28a745 !important;
-            color: white !important;
-            border-color: #28a745 !important;
-        }
-
-        .create-new-btn:hover {
-            background-color: #218838 !important;
-            border-color: #1e7e34 !important;
-            color: white !important;
-        }
-
         /* Company and client details styles */
         .company-details, .client-details {
             position: relative;
@@ -544,12 +532,7 @@
     window.handleLaborItemSelection = function(selectElement) {
         const value = selectElement.value;
         if (value === 'new') {
-            // Get current client and business IDs
-            const clientId = document.querySelector('input[name="client_id"]').value;
-            const businessId = document.getElementById('business_id').value;
-            
-            // Redirect with state preservation
-            window.location.href = "{{ url_for('labor_details') }}?new=true&source=create_invoice&client_id=" + clientId + "&business_id=" + businessId;
+            window.location.href = "{{ url_for('labor_details') }}?new=true&source=create_invoice";
         } else {
             const option = selectElement.options[selectElement.selectedIndex];
             const rate = option.getAttribute('data-rate');
@@ -563,85 +546,240 @@
     // Function to save invoice data to localStorage
     function saveInvoiceData() {
         const userId = "{{ session.get('user_id') }}";  // Get the current user's ID from session
-        const confirmedItems = Array.from(document.querySelectorAll('.line-item.confirmed'));
-        
-        // Only save if there are confirmed items
-        if (confirmedItems.length > 0) {
-            const invoiceData = {
-                items: confirmedItems.map(item => {
-                    const data = {
-                        type: item.dataset.type,
-                        description: item.dataset.description,
-                        total: item.dataset.total,
-                        isConfirmed: true
-                    };
-                    
-                    if (item.dataset.type === 'labor') {
-                        data.date = item.dataset.date;
-                        data.hours = item.dataset.hours;
-                        data.minutes = item.dataset.minutes;
-                        data.rate = item.dataset.rate;
-                    } else if (item.dataset.type === 'item') {
-                        data.quantity = item.dataset.quantity;
-                        data.price = item.dataset.price;
-                    } else if (item.dataset.type === 'tax') {
-                        data.rate = item.dataset.rate;
-                        data.appliesTo = item.dataset.appliesTo;
-                        data.taxId = item.dataset.taxId;
-                    }
-                    
-                    return data;
-                })
-            };
-            console.log('Saving invoice data:', invoiceData);  // Debug log
-            localStorage.setItem(`invoiceData_${userId}`, JSON.stringify(invoiceData));
-        } else {
-            // If no confirmed items, clear any existing draft
-            localStorage.removeItem(`invoiceData_${userId}`);
-        }
+        const invoiceData = {
+            date: document.getElementById('date').value,
+            invoiceNumber: document.getElementById('invoice_number').value,
+            isConfirmed: document.querySelector('.invoice-header').classList.contains('confirmed'),
+            items: Array.from(document.querySelectorAll('.line-item.confirmed')).map(item => {
+                const data = {
+                    type: item.dataset.type,
+                    description: item.dataset.description,
+                    total: item.dataset.total
+                };
+                
+                if (item.dataset.type === 'labor') {
+                    data.date = item.dataset.date;
+                    data.hours = item.dataset.hours;
+                    data.minutes = item.dataset.minutes;
+                    data.rate = item.dataset.rate;
+                } else if (item.dataset.type === 'item') {
+                    data.quantity = item.dataset.quantity;
+                    data.price = item.dataset.price;
+                } else if (item.dataset.type === 'tax') {
+                    data.rate = item.dataset.rate;
+                    data.appliesTo = item.dataset.appliesTo;
+                    data.taxId = item.dataset.taxId;
+                }
+                
+                return data;
+            })
+        };
+        localStorage.setItem(`invoiceData_${userId}`, JSON.stringify(invoiceData));
     }
 
     // Function to restore invoice data from localStorage
     function restoreInvoiceData() {
-        try {
-            const userId = "{{ session.get('user_id') }}";
-            const savedData = localStorage.getItem(`invoiceData_${userId}`);
+        const userId = "{{ session.get('user_id') }}";  // Get the current user's ID from session
+        const savedData = localStorage.getItem(`invoiceData_${userId}`);
+        if (savedData) {
+            const invoiceData = JSON.parse(savedData);
             
-            if (savedData) {
-                const data = JSON.parse(savedData);
-                
-                // Restore business selection
-                const businessSelect = document.querySelector('.company-selector');
-                if (businessSelect && data.businessId) {
-                    businessSelect.value = data.businessId;
-                    handleCompanySelection(data.businessId);
-                }
-                
-                // Restore client selection
-                const clientSelect = document.querySelector('.client-selector');
-                if (clientSelect && data.clientId) {
-                    clientSelect.value = data.clientId;
-                    handleClientSelection(data.clientId);
-                }
-                
-                // Restore items
-                if (data.items) {
-                    data.items.forEach(item => {
-                        if (item.type === 'item') {
-                            addItemToInvoice(item);
-                        } else if (item.type === 'labor') {
-                            addLaborToInvoice(item);
-                        } else if (item.type === 'note') {
-                            addNoteToInvoice(item);
-                        }
-                    });
-                }
-                
-                // Update totals
-                setTimeout(updateInvoiceTotals, 100);
+            // Restore invoice header
+            document.getElementById('date').value = invoiceData.date;
+            document.getElementById('invoice_number').value = invoiceData.invoiceNumber;
+            if (invoiceData.isConfirmed) {
+                const invoiceHeader = document.querySelector('.invoice-header');
+                const confirmBtn = document.getElementById('confirmInvoiceBtn');
+                invoiceHeader.classList.add('confirmed');
+                document.getElementById('date').readOnly = true;
+                document.getElementById('invoice_number').readOnly = true;
+                confirmBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+                confirmBtn.title = 'Edit invoice';
             }
-        } catch (error) {
-            console.error('Error restoring invoice data:', error);
+            
+            // Restore line items
+            const itemsContainer = document.getElementById('items');
+            itemsContainer.innerHTML = ''; // Clear existing items
+            
+            // First, restore non-tax items
+            invoiceData.items.forEach(item => {
+                if (!item.type || !item.description) return; // Skip invalid items
+                if (item.type === 'tax') return; // Skip tax items for now
+                
+                const lineItem = document.createElement('div');
+                lineItem.className = 'line-item confirmed';
+                
+                if (item.type === 'note') {
+                    lineItem.innerHTML = `
+                        <div class="line-item-content">
+                            <div class="detail-item">
+                                <span class="detail-label">Notes:</span>
+                                <span class="detail-value">${item.description}</span>
+                            </div>
+                        </div>
+                        <div class="line-item-actions">
+                            <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit note">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                            <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove note">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    lineItem.dataset.type = 'note';
+                    lineItem.dataset.description = item.description;
+                } else if (item.type === 'labor') {
+                    lineItem.innerHTML = `
+                        <div class="line-item-content">
+                            <div class="detail-item">
+                                <span class="detail-label">Description:</span>
+                                <span class="detail-value">${item.description}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Date:</span>
+                                <span class="detail-value">${item.date}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Time:</span>
+                                <span class="detail-value">${item.hours}h ${item.minutes}m</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Rate:</span>
+                                <span class="detail-value">$${parseFloat(item.rate).toFixed(2)}/hr</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Total:</span>
+                                <span class="detail-value">$${parseFloat(item.total).toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <div class="line-item-actions">
+                            <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                            <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    
+                    lineItem.dataset.type = 'labor';
+                    lineItem.dataset.description = item.description;
+                    lineItem.dataset.date = item.date;
+                    lineItem.dataset.hours = item.hours;
+                    lineItem.dataset.minutes = item.minutes;
+                    lineItem.dataset.rate = item.rate;
+                    lineItem.dataset.total = item.total;
+                } else if (item.type === 'item') {
+                    lineItem.innerHTML = `
+                        <div class="line-item-content">
+                            <div class="detail-item">
+                                <span class="detail-label">Description:</span>
+                                <span class="detail-value">${item.description}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Quantity:</span>
+                                <span class="detail-value">${item.quantity}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Price:</span>
+                                <span class="detail-value">$${parseFloat(item.price).toFixed(2)}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Total:</span>
+                                <span class="detail-value">$${parseFloat(item.total).toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <div class="line-item-actions">
+                            <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                            <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    
+                    lineItem.dataset.type = 'item';
+                    lineItem.dataset.description = item.description;
+                    lineItem.dataset.quantity = item.quantity;
+                    lineItem.dataset.price = item.price;
+                    lineItem.dataset.total = item.total;
+                }
+                
+                itemsContainer.appendChild(lineItem);
+            });
+            
+            // Then restore tax items
+            invoiceData.items.forEach(item => {
+                if (item.type === 'tax') {
+                    const lineItem = document.createElement('div');
+                    lineItem.className = 'line-item confirmed';
+                    lineItem.dataset.type = 'tax';
+                    lineItem.dataset.rate = item.rate;
+                    lineItem.dataset.total = item.total;
+                    lineItem.dataset.appliesTo = item.appliesTo;
+                    lineItem.dataset.taxId = item.taxId;
+                    
+                    // Fetch the tax rate details to get the description
+                    fetch('/invoice/api/sales-tax')
+                        .then(response => response.json())
+                        .then(rates => {
+                            const taxRate = rates.find(r => r.id === parseInt(item.taxId));
+                            if (taxRate) {
+                                lineItem.innerHTML = `
+                                    <div class="line-item-content">
+                                        <div class="detail-item">
+                                            <span class="detail-label">Sales Tax:</span>
+                                            <span class="detail-value">${taxRate.description} (${taxRate.rate}%)</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Applied to:</span>
+                                            <span class="detail-value">${item.appliesTo === 'both' ? 'Both items and labor' : item.appliesTo === 'items' ? 'Items only' : 'Labor only'}</span>
+                                        </div>
+                                    </div>
+                                    <div class="line-item-actions">
+                                        <button type="button" class="edit-item-btn" onclick="editSalesTax(this)" title="Edit tax">
+                                            <i class="fas fa-pencil-alt"></i>
+                                        </button>
+                                        <button type="button" class="remove-item-btn" onclick="removeSalesTax(this)" title="Remove tax">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                `;
+                                
+                                // Insert tax line into the items container so it matches the width/layout of other line items
+                                document.getElementById('items').appendChild(lineItem);
+                                
+                                // Update the sales tax button text
+                                const salesTaxButton = document.getElementById('salesTaxButton');
+                                salesTaxButton.innerHTML = '<i class="fas fa-percentage"></i> Edit Sales Tax';
+
+                                // Add hidden fields to form so sales tax is submitted
+                                const form = document.querySelector('form');
+                                if (form && !form.querySelector('input[name="sales_tax_id"]')) {
+                                    const salesTaxIdInput = document.createElement('input');
+                                    salesTaxIdInput.type = 'hidden';
+                                    salesTaxIdInput.name = 'sales_tax_id';
+                                    salesTaxIdInput.value = item.taxId;
+                                    form.appendChild(salesTaxIdInput);
+                                }
+                                if (form && !form.querySelector('input[name="tax_applies_to"]')) {
+                                    const taxAppliesToInput = document.createElement('input');
+                                    taxAppliesToInput.type = 'hidden';
+                                    taxAppliesToInput.name = 'tax_applies_to';
+                                    taxAppliesToInput.value = item.appliesTo;
+                                    form.appendChild(taxAppliesToInput);
+                                }
+
+                                // Update totals after tax is restored
+                                updateInvoiceTotals();
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error loading tax rate:', error);
+                        });
+                }
+            });
         }
     }
 
@@ -684,25 +822,25 @@
             const businessSelect = document.querySelector('.company-selector');
             if (businessSelect && selectionData.businessId) {
                 businessSelect.value = selectionData.businessId;
+                // Trigger the company selection handler to update the UI
+                handleCompanySelection(selectionData.businessId);
             }
             
             // Restore client selection
             const clientSelect = document.querySelector('.client-selector');
             if (clientSelect && selectionData.clientId) {
                 clientSelect.value = selectionData.clientId;
+                // Trigger the client selection handler to update the UI
+                handleClientSelection(selectionData.clientId);
             }
         }
     }
 
-    // Function to handle company selection
-    function handleCompanySelection(value, event) {
-        if (event && event.type === 'keydown' && event.key !== 'Enter') {
-            return;
-        }
-        
+    // Update the handleCompanySelection function
+    function handleCompanySelection(value) {
         if (value.startsWith('/')) {
+            // If it's a URL (like for creating a new business), navigate to it
             window.location.href = value;
-            document.querySelector('.company-selector').selectedIndex = 0;
             return;
         }
         
@@ -710,53 +848,37 @@
             return;
         }
 
-        fetch(`${APP_ROOT}/get_company/${value}`)
+        fetch(`${APP_ROOT}/invoice/get_company/${value}`)
             .then(response => response.json())
-            .then(data => {
-                // Update company details display
-                document.querySelectorAll('.detail-value[data-placeholder="Business Name"]').forEach(el => el.textContent = data.name);
-                document.querySelectorAll('.detail-value[data-placeholder="Business Address"]').forEach(el => el.textContent = data.address);
-                document.querySelectorAll('.detail-value[data-placeholder="business@example.com"]').forEach(el => el.textContent = data.email);
-                document.querySelectorAll('.detail-value[data-placeholder="(xxx) xxx-xxxx"]').forEach(el => el.textContent = data.phone);
+            .then(company => {
+                // Update all company details
+                document.querySelectorAll('.detail-value[data-placeholder="Business Name"]').forEach(el => el.textContent = company.name);
+                document.querySelectorAll('.detail-value[data-placeholder="Business Address"]').forEach(el => el.textContent = company.address);
+                document.querySelectorAll('.detail-value[data-placeholder="business@example.com"]').forEach(el => el.textContent = company.email);
+                document.querySelectorAll('.detail-value[data-placeholder="(xxx) xxx-xxxx"]').forEach(el => el.textContent = company.phone);
 
-                // Update logo if available
-                const logoPlaceholder = document.getElementById('logo-placeholder');
-                if (logoPlaceholder) {
-                    if (data.logo_path) {
-                        logoPlaceholder.innerHTML = `<img src="{{ url_for('serve_upload', filename='') }}${data.logo_path}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
+                // Update logo if it exists
+                document.querySelectorAll('.logo-placeholder').forEach(logoPlaceholder => {
+                    if (company.logo_path) {
+                        logoPlaceholder.innerHTML = '<img src="' + APP_ROOT + '/uploads/' + company.logo_path + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
                     } else {
                         logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
                     }
-                }
+                });
 
-                // Update mobile accordion header
-                const accordionButton = document.querySelector('#businessAccordionHeader .accordion-button');
-                if (accordionButton) {
-                    // Update the business name
-                    const nameSpan = accordionButton.querySelector('.fw-semibold');
-                    if (nameSpan) {
-                        nameSpan.textContent = data.name;
-                    }
-
-                    // Update the logo
-                    const logoContainer = accordionButton.querySelector('img, i.fa-building');
-                    if (logoContainer) {
-                        if (data.logo_path) {
-                            logoContainer.outerHTML = `<img src="{{ url_for('serve_upload', filename='') }}${data.logo_path}" alt="Business Logo" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover;">`;
-                        } else {
-                            logoContainer.outerHTML = '<i class="fas fa-building fa-lg text-secondary" style="width: 32px; height: 22px; display: flex; align-items: center; justify-content: center;"></i>';
-                        }
-                    }
-                }
-
-                // Update edit button
+                // Enable the Edit Details button
                 document.querySelectorAll('.settings-link').forEach(editButton => {
                     editButton.classList.remove('disabled');
                     editButton.href = `${APP_ROOT}/settings?company_id=${value}`;
                     editButton.style.pointerEvents = 'auto';
                     editButton.style.opacity = '1';
-                    editButton.textContent = 'Edit Business Details';
                 });
+
+                // Update the hidden business_id input
+                const businessIdInput = document.getElementById('business_id');
+                if (businessIdInput) {
+                    businessIdInput.value = value;
+                }
 
                 // Save the selection
                 saveSelectedBusinessAndClient();
@@ -766,66 +888,52 @@
             });
     }
 
-    // Function to handle client selection
-    function handleClientSelection(value, event) {
-        if (event && event.type === 'keydown' && event.key !== 'Enter') {
-            return;
-        }
-        
+    // Update the handleClientSelection function
+    function handleClientSelection(value) {
         if (value.startsWith('/')) {
             window.location.href = value;
             document.querySelector('.client-selector').selectedIndex = 0;
             return;
         }
-        
         if (!/^[0-9]+$/.test(value)) {
             return;
         }
-
+        
+        // Update the hidden client_id input field
+        const clientIdInput = document.querySelector('input[name="client_id"]');
+        if (clientIdInput) {
+            clientIdInput.value = value;
+        }
+        
+        // Otherwise, update the client details on the page
+        console.log('Fetching client details for ID:', value);
         fetch(`${APP_ROOT}/get_client/${value}`)
-            .then(response => response.json())
-            .then(data => {
-                // Update client details in both mobile and desktop views
-                const clientDetailsContainers = document.querySelectorAll('.details-content');
-                clientDetailsContainers.forEach(container => {
-                    const detailItems = container.querySelectorAll('.detail-item');
-                    detailItems.forEach(item => {
-                        const label = item.querySelector('.detail-label').textContent.trim();
-                        const valueSpan = item.querySelector('.detail-value');
-                        if (valueSpan) {
-                            switch(label) {
-                                case 'Client Name:':
-                                    valueSpan.textContent = data.name;
-                                    break;
-                                case 'Address:':
-                                    valueSpan.textContent = data.address;
-                                    break;
-                                case 'Email:':
-                                    valueSpan.textContent = data.email;
-                                    break;
-                                case 'Phone Number:':
-                                    valueSpan.textContent = data.phone;
-                                    break;
-                            }
-                        }
-                    });
-                });
-
-                // Update the accordion button text in mobile view
-                const accordionButton = document.querySelector('#clientAccordionHeader .fw-semibold');
-                if (accordionButton) {
-                    accordionButton.textContent = data.name;
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-
-                // Update edit button
-                const editButtons = document.querySelectorAll('.edit-client-btn-responsive');
-                editButtons.forEach(button => {
-                    button.classList.remove('disabled');
-                    button.href = `${APP_ROOT}/client_details?client_id=${value}`;
-                    button.style.pointerEvents = 'auto';
-                    button.style.opacity = '1';
-                    button.textContent = 'Edit Client Details';
-                });
+                return response.json();
+            })
+            .then(data => {
+                // Update client details display
+                const clientDetails = document.querySelector('.client-details');
+                if (clientDetails) {
+                    clientDetails.innerHTML = `
+                        <p><strong>${data.name}</strong></p>
+                        <p>${data.address}</p>
+                        <p>${data.phone}</p>
+                        <p>${data.email}</p>
+                    `;
+                }
+                
+                // Enable edit button if it exists
+                const editButton = document.querySelector('.edit-client-btn-responsive');
+                if (editButton) {
+                    editButton.classList.remove('disabled');
+                    editButton.href = `${APP_ROOT}/client_details?client_id=${value}`;
+                    editButton.style.pointerEvents = 'auto';
+                    editButton.style.opacity = '1';
+                }
                 
                 // Save the selection
                 saveSelectedBusinessAndClient();
@@ -836,20 +944,15 @@
     }
 
     // Function to handle item selection
-    function handleItemSelection(selectElement) {
-        const value = selectElement.value;
-        if (value === 'new') {
-            // Get current client and business IDs
-            const clientId = document.querySelector('input[name="client_id"]').value;
-            const businessId = document.getElementById('business_id').value;
-            
-            // Redirect with state preservation
-            window.location.href = "{{ url_for('item_details') }}?new=true&source=create_invoice&client_id=" + clientId + "&business_id=" + businessId;
+    function handleItemSelection(select) {
+        const selectedValue = select.value;
+        if (selectedValue === 'new') {
+            window.location.href = "{{ url_for('item_details') }}?new=true&source=create_invoice";
             return;
         }
 
-        const selectedOption = selectElement.options[selectElement.selectedIndex];
-        const itemDiv = selectElement.closest('.item');
+        const selectedOption = select.options[select.selectedIndex];
+        const itemDiv = select.closest('.item');
         if (selectedOption && selectedOption.value !== 'new') {
             const description = selectedOption.text.split(' - $')[0];
             const price = selectedOption.text.split(' - $')[1];
@@ -863,8 +966,7 @@
 
     // Function to calculate item total
     window.calculateItemTotal = function(itemDiv) {
-        const quantityInput = itemDiv.querySelector('input[name="quantity[]"]');
-        const quantity = parseFloat(quantityInput.value) || 1; // Default to 1 instead of 0
+        const quantity = parseFloat(itemDiv.querySelector('input[name="quantity[]"]').value) || 0;
         const price = parseFloat(itemDiv.querySelector('input[name="item_price[]"]').value) || 0;
         
         const totalCost = quantity * price;
@@ -880,43 +982,49 @@
         return roundedCost.toFixed(2);
     };
 
-    // Function to update invoice totals
+    // Function to update invoice subtotal and grand total
     function updateInvoiceTotals() {
-        try {
-            const subtotalElement = document.getElementById('subtotal');
-            const taxElement = document.getElementById('tax');
-            const totalElement = document.getElementById('total');
-            
-            if (!subtotalElement || !taxElement || !totalElement) {
-                console.log('Some total elements not found, skipping update');
-                return;
+        let subtotal = 0;
+        let taxAmount = 0;
+        
+        // Calculate subtotal from all line items
+        document.querySelectorAll('.line-item').forEach(item => {
+            if (item.dataset.type === 'labor' || item.dataset.type === 'item') {
+                subtotal += parseFloat(item.dataset.total);
             }
+        });
+        
+        // Calculate tax if present
+        const taxLine = document.querySelector('.line-item[data-type="tax"]');
+        if (taxLine) {
+            const taxRate = parseFloat(taxLine.dataset.rate);
+            const appliesTo = taxLine.dataset.appliesTo;
             
-            let subtotal = 0;
-            let tax = 0;
-            
-            // Calculate subtotal from confirmed items
-            document.querySelectorAll('.line-item.confirmed').forEach(item => {
-                if (item.dataset.type === 'item' || item.dataset.type === 'labor') {
-                    subtotal += parseFloat(item.dataset.total) || 0;
+            // Recalculate taxable amount based on current line items
+            let taxableAmount = 0;
+            document.querySelectorAll('.line-item').forEach(item => {
+                if (item.dataset.type === 'labor' && (appliesTo === 'labor' || appliesTo === 'both')) {
+                    taxableAmount += parseFloat(item.dataset.total);
+                } else if (item.dataset.type === 'item' && (appliesTo === 'items' || appliesTo === 'both')) {
+                    taxableAmount += parseFloat(item.dataset.total);
                 }
             });
             
-            // Calculate tax
-            document.querySelectorAll('.line-item.confirmed').forEach(item => {
-                if (item.dataset.type === 'tax') {
-                    tax += parseFloat(item.dataset.total) || 0;
-                }
-            });
+            // Calculate new tax amount
+            taxAmount = (taxableAmount * taxRate / 100);
             
-            const total = subtotal + tax;
-            
-            subtotalElement.textContent = `$${subtotal.toFixed(2)}`;
-            taxElement.textContent = `$${tax.toFixed(2)}`;
-            totalElement.textContent = `$${total.toFixed(2)}`;
-        } catch (error) {
-            console.log('Error updating invoice totals:', error);
+            // Update the tax line item's total
+            taxLine.dataset.total = taxAmount;
+            const taxTotalElement = taxLine.querySelector('.detail-value:last-child');
+            if (taxTotalElement) {
+                taxTotalElement.textContent = `$${taxAmount.toFixed(2)}`;
+            }
         }
+        
+        // Update displays
+        document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+        document.getElementById('taxTotal').textContent = `$${taxAmount.toFixed(2)}`;
+        document.getElementById('grandTotal').textContent = `$${(subtotal + taxAmount).toFixed(2)}`;
     }
 
     // Function to add labor to invoice
@@ -955,7 +1063,7 @@
                     <span class="detail-value">${date}</span>
                 </div>
                 <div class="detail-item">
-                    <span class="detail-label">Hours:</span>
+                    <span class="detail-label">Time:</span>
                     <span class="detail-value">${hours}h ${minutes}m</span>
                 </div>
                 <div class="detail-item">
@@ -968,13 +1076,19 @@
                 </div>
             </div>
             <div class="line-item-actions">
-                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit labor">
+                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
                     <i class="fas fa-pencil-alt"></i>
                 </button>
-                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove labor">
+                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
+            <input type="hidden" name="item[]" value="${description}">
+            <input type="hidden" name="item_date[]" value="${date}">
+            <input type="hidden" name="hours[]" value="${hours}">
+            <input type="hidden" name="minutes[]" value="${minutes}">
+            <input type="hidden" name="item_price[]" value="${rate}">
+            <input type="hidden" name="total[]" value="${total}">
         `;
         
         lineItem.dataset.type = 'labor';
@@ -985,371 +1099,15 @@
         lineItem.dataset.rate = rate;
         lineItem.dataset.total = total;
         
-        const itemsContainer = document.getElementById('invoice-items');
-        if (itemsContainer) {
-            itemsContainer.appendChild(lineItem);
-            itemDiv.remove();
-            const mainActionButtons = document.querySelector('.main-action-buttons');
-            if (mainActionButtons) {
-                mainActionButtons.classList.remove('hidden');
-            }
-            // Save data without triggering unsaved changes warning
-            const currentHasUnsavedChanges = window.hasUnsavedChanges;
-            saveInvoiceData();
-            window.hasUnsavedChanges = currentHasUnsavedChanges;
-            updateInvoiceTotals();
-        } else {
-            console.error('Could not find invoice-items container');
-        }
-    };
-
-    // Function to add item to invoice
-    window.addItemToInvoice = function(button) {
-        try {
-            if (!button || typeof button.closest !== 'function') {
-                console.error('Invalid button element');
-                return;
-            }
-
-            const itemDiv = button.closest('.item');
-            if (!itemDiv) {
-                console.error('Could not find parent item div');
-                return;
-            }
-
-            const itemSelect = itemDiv.querySelector('select[name="item[]"]');
-            const quantityInput = itemDiv.querySelector('input[name="quantity[]"]');
-            const priceInput = itemDiv.querySelector('input[name="item_price[]"]');
-            const totalCost = itemDiv.querySelector('.total-cost');
-            
-            if (!itemSelect || !quantityInput || !priceInput || !totalCost) {
-                console.error('Required form elements not found');
-                return;
-            }
-            
-            if (!itemSelect.value) {
-                alert('Please select an item');
-                return;
-            }
-            
-            const selectedOption = itemSelect.options[itemSelect.selectedIndex];
-            const description = selectedOption.text;
-            const quantity = parseInt(quantityInput.value) || 1;
-            const price = parseFloat(priceInput.value);
-            const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
-            
-            const lineItem = document.createElement('div');
-            lineItem.className = 'line-item confirmed';
-            lineItem.innerHTML = `
-                <div class="line-item-content">
-                    <div class="detail-item">
-                        <span class="detail-label">Description:</span>
-                        <span class="detail-value">${description}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Quantity:</span>
-                        <span class="detail-value">${quantity}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Price:</span>
-                        <span class="detail-value">$${price.toFixed(2)}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Total:</span>
-                        <span class="detail-value">$${total.toFixed(2)}</span>
-                    </div>
-                </div>
-                <div class="line-item-actions">
-                    <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit item">
-                        <i class="fas fa-pencil-alt"></i>
-                    </button>
-                    <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove item">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            `;
-            
-            lineItem.dataset.type = 'item';
-            lineItem.dataset.description = description;
-            lineItem.dataset.quantity = quantity;
-            lineItem.dataset.price = price;
-            lineItem.dataset.total = total;
-            
-            const itemsContainer = document.getElementById('invoice-items');
-            if (itemsContainer) {
-                itemsContainer.appendChild(lineItem);
-                itemDiv.remove();
-                const mainActionButtons = document.querySelector('.main-action-buttons');
-                if (mainActionButtons) {
-                    mainActionButtons.classList.remove('hidden');
-                }
-                saveInvoiceData();
-                updateInvoiceTotals();
-            } else {
-                console.error('Could not find invoice-items container');
-            }
-        } catch (error) {
-            console.error('Error adding item to invoice:', error);
-        }
-    };
-
-    // Function to add note to invoice
-    window.addNoteToInvoice = function(button) {
-        const itemDiv = button.closest('.item');
-        const textarea = itemDiv.querySelector('textarea[name="note[]"]');
-        const noteText = textarea ? textarea.value.trim() : '';
-        if (!noteText) {
-            alert('Please enter a note.');
-            return;
-        }
-        const lineItem = document.createElement('div');
-        lineItem.className = 'line-item confirmed';
-        lineItem.dataset.type = 'note';
-        lineItem.dataset.description = noteText;
-        lineItem.innerHTML = `
-            <div class="line-item-content">
-                <div class="detail-item">
-                    <span class="detail-label">Note:</span>
-                    <span class="detail-value">${noteText}</span>
-                </div>
-            </div>
-            <div class="line-item-actions">
-                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit note">
-                    <i class="fas fa-pencil-alt"></i>
-                </button>
-                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove note">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
-        const itemsDiv = document.getElementById('invoice-items');
-        if (itemsDiv) {
-            itemsDiv.appendChild(lineItem);
-            itemDiv.remove();
-            const mainActionButtons = document.querySelector('.main-action-buttons');
-            if (mainActionButtons) {
-                mainActionButtons.classList.remove('hidden');
-            }
-            // Save data without triggering unsaved changes warning
-            const currentHasUnsavedChanges = window.hasUnsavedChanges;
-            saveInvoiceData();
-            window.hasUnsavedChanges = currentHasUnsavedChanges;
-            updateInvoiceTotals();
-        } else {
-            console.error('Could not find invoice-items container');
-        }
-    };
-
-    // Function to remove note from invoice
-    window.removeNoteFromInvoice = function(button) {
-        const notesSection = document.getElementById('notesSection');
-        notesSection.style.display = 'none';
-        document.getElementById('notes').value = '';
+        document.getElementById('items').appendChild(lineItem);
+        itemDiv.remove();
         document.querySelector('.main-action-buttons').classList.remove('hidden');
-    };
-
-    // Function to remove a line item
-    window.removeLineItem = function(button) {
-        const lineItem = button.closest('.line-item');
-        lineItem.remove();
         saveInvoiceData();
         updateInvoiceTotals();
     };
 
-    // Function to edit a line item
-    window.editLineItem = function(button) {
-        const lineItem = button.closest('.line-item');
-        const type = lineItem.dataset.type;
-        
-        if (type === 'labor') {
-            const itemsDiv = document.getElementById('items');
-            const newItem = document.createElement('div');
-            newItem.className = 'item';
-            newItem.innerHTML = 
-                '<label>Labor Item:</label>' +
-                '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
-                '<option value="" disabled selected>Select Labor Item</option>' +
-                '<option value="new">Create New Labor Item</option>' +
-                '{% for item in labor_items %}' +
-                '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
-                '{% endfor %}' +
-                '</select>' +
-                '<label>Date labor performed:</label>' +
-                '<input type="date" name="item_date[]" required>' +
-                '<label>Hours:</label>' +
-                '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-                '<label>Minutes:</label>' +
-                '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-                '<input type="hidden" name="labor_rate[]" value="0.00">' +
-                '<div class="total-cost">' +
-                '<span>Total Cost: $0.00</span>' +
-                '</div>' +
-                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                '</div>';
-            itemsDiv.appendChild(newItem);
-            lineItem.remove();
-            document.querySelector('.main-action-buttons').classList.add('hidden');
-            populateLaborItems();
-        } else if (type === 'item') {
-            const itemsDiv = document.getElementById('items');
-            const newItem = document.createElement('div');
-            newItem.className = 'item';
-            newItem.innerHTML = 
-                '<label>Item:</label>' +
-                '<select name="item[]" required onchange="handleItemSelection(this)">' +
-                '<option value="" disabled selected>Select Item</option>' +
-                '<option value="new">Create New Item</option>' +
-                '{% for item in items %}' +
-                '<option value="{{ item.id }}" data-price="{{ item.unit_price }}">{{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}</option>' +
-                '{% endfor %}' +
-                '</select>' +
-                '<label>Quantity:</label>' +
-                '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
-                '<input type="hidden" name="item_price[]" value="0.00">' +
-                '<div class="total-cost">' +
-                '<span>Total Cost: $0.00</span>' +
-                '</div>' +
-                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                '</div>';
-            itemsDiv.appendChild(newItem);
-            lineItem.remove();
-            document.querySelector('.main-action-buttons').classList.add('hidden');
-        } else if (type === 'note') {
-            const notesSection = document.getElementById('notesSection');
-            const notesText = document.getElementById('notes');
-            notesText.value = lineItem.dataset.description;
-            notesSection.style.display = 'block';
-            lineItem.remove();
-            document.querySelector('.main-action-buttons').classList.add('hidden');
-        }
-    };
-
-    // Initialize Bootstrap modals
-    // let laborDialog, itemDialog, notesDialog, salesTaxDialog;
-
-    // Function to show the labor dialog
-    // window.showAddLaborDialog = function() {
-    //     if (!laborDialog) {
-    //         laborDialog = new bootstrap.Modal(document.getElementById('laborDialog'));
-    //     }
-    //     laborDialog.show();
-    // };
-
-    // Function to show the item dialog
-    // window.showAddItemDialog = function() {
-    //     if (!itemDialog) {
-    //         itemDialog = new bootstrap.Modal(document.getElementById('itemDialog'));
-    //     }
-    //     itemDialog.show();
-    // };
-
-    // Function to show the notes dialog
-    // window.showAddNoteDialog = function() {
-    //     if (!notesDialog) {
-    //         notesDialog = new bootstrap.Modal(document.getElementById('notesDialog'));
-    //     }
-    //     notesDialog.show();
-    // };
-
-    // Function to show the sales tax dialog
-    // window.showAddSalesTaxDialog = function() {
-    //     if (!salesTaxDialog) {
-    //         salesTaxDialog = new bootstrap.Modal(document.getElementById('salesTaxDialog'));
-    //     }
-    //     salesTaxDialog.show();
-    // };
-
-    // Initialize everything when the page loads
-    document.addEventListener('DOMContentLoaded', function() {
-        try {
-            // Clear any existing draft data on page load
-            const userId = "{{ session.get('user_id') }}";
-            localStorage.removeItem(`invoiceData_${userId}`);
-            
-            // Initialize event listeners
-            const addItemBtn = document.getElementById('addItemBtn');
-            const addNoteBtn = document.getElementById('addNoteBtn');
-            const addTaxBtn = document.getElementById('addTaxBtn');
-            const addLaborBtn = document.getElementById('addLaborBtn');
-            
-            // Remove any existing event listeners and add new ones
-            if (addItemBtn) {
-                addItemBtn.onclick = null;
-                addItemBtn.onclick = showAddItemDialog;
-            }
-            if (addNoteBtn) {
-                addNoteBtn.onclick = null;
-                addNoteBtn.onclick = showAddNoteDialog;
-            }
-            if (addTaxBtn) {
-                addTaxBtn.onclick = null;
-                addTaxBtn.onclick = showAddSalesTaxDialog;
-            }
-            if (addLaborBtn) {
-                addLaborBtn.onclick = null;
-                addLaborBtn.onclick = showAddLaborDialog;
-            }
-            
-            // Initialize other event listeners (excluding the ones we just set)
-            const otherEventListeners = {
-                // Add any other event listeners here that don't conflict with the above
-                'client_id': handleClientChange,
-                'business_id': handleBusinessChange,
-                'invoice_number': handleInvoiceNumberChange
-            };
-            
-            // Attach other event listeners
-            Object.entries(otherEventListeners).forEach(([id, handler]) => {
-                const element = document.getElementById(id);
-                if (element) {
-                    element.onchange = handler;
-                }
-            });
-            
-            updateInvoiceTotals();
-        } catch (error) {
-            console.error('Error initializing invoice page:', error);
-        }
-    });
-
-    // Function to show add tax dialog
-    // Function to handle item selection
-    function handleItemSelection(selectElement) {
-        const value = selectElement.value;
-        if (value === 'new') {
-            // Get current client and business IDs
-            const clientId = document.querySelector('input[name="client_id"]').value;
-            const businessId = document.getElementById('business_id').value;
-            // Redirect with state preservation
-            window.location.href = "{{ url_for('item_details') }}?new=true&source=create_invoice&client_id=" + clientId + "&business_id=" + businessId;
-        } else {
-            const option = selectElement.options[selectElement.selectedIndex];
-            const price = option.getAttribute('data-price');
-            const itemDiv = selectElement.closest('.item');
-            const priceInput = itemDiv.querySelector('input[name="item_price[]"]');
-            priceInput.value = price;
-            calculateItemTotal(itemDiv);
-        }
-    }
-
-    // Function to handle tax selection
-    function handleTaxSelection(selectElement) {
-        const value = selectElement.value;
-        if (value === 'new') {
-            // Get current client and business IDs
-            const clientId = document.querySelector('input[name="client_id"]').value;
-            const businessId = document.getElementById('business_id').value;
-            // Redirect with state preservation
-            window.location.href = "{{ url_for('create_sales_tax_rate') }}?new=true&source=create_invoice&client_id=" + clientId + "&business_id=" + businessId;
-        }
-    }
-
     // Function to add item to invoice
-    function addItemToInvoice(button) {
+    window.addItemToInvoice = function(button) {
         const itemDiv = button.closest('.item');
         const itemSelect = itemDiv.querySelector('select[name="item[]"]');
         const quantityInput = itemDiv.querySelector('input[name="quantity[]"]');
@@ -1408,20 +1166,19 @@
         lineItem.dataset.price = price;
         lineItem.dataset.total = total;
         
-        const itemsDiv = document.getElementById('items');
-        itemsDiv.appendChild(lineItem);
+        document.getElementById('items').appendChild(lineItem);
         itemDiv.remove();
         document.querySelector('.main-action-buttons').classList.remove('hidden');
+        saveInvoiceData();
         updateInvoiceTotals();
-    }
+    };
 
     // Function to add note to invoice
-    function addNoteToInvoice(button) {
-        const noteDiv = button.closest('.item');
-        const noteText = noteDiv.querySelector('textarea').value;
+    window.addNoteToInvoice = function(button) {
+        const notesText = document.getElementById('notes').value.trim();
         
-        if (!noteText.trim()) {
-            alert('Please enter a note');
+        if (!notesText) {
+            alert('Please enter some notes');
             return;
         }
         
@@ -1430,8 +1187,8 @@
         lineItem.innerHTML = `
             <div class="line-item-content">
                 <div class="detail-item">
-                    <span class="detail-label">Note:</span>
-                    <span class="detail-value">${noteText}</span>
+                    <span class="detail-label">Notes:</span>
+                    <span class="detail-value">${notesText}</span>
                 </div>
             </div>
             <div class="line-item-actions">
@@ -1442,323 +1199,214 @@
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
-            <input type="hidden" name="note[]" value="${noteText}">
         `;
         
         lineItem.dataset.type = 'note';
-        lineItem.dataset.description = noteText;
+        lineItem.dataset.description = notesText;
         
-        const itemsDiv = document.getElementById('items');
-        itemsDiv.appendChild(lineItem);
-        noteDiv.remove();
+        document.getElementById('items').appendChild(lineItem);
+        document.getElementById('notesSection').style.display = 'none';
+        document.getElementById('notes').value = '';
         document.querySelector('.main-action-buttons').classList.remove('hidden');
-    }
-
-    // Function to add tax to invoice
-    function addTaxToInvoice(button) {
-        const taxDiv = button.closest('.item');
-        const taxSelect = taxDiv.querySelector('select[name="tax_rate[]"]');
-        const appliesToSelect = taxDiv.querySelector('select[name="tax_applies_to[]"]');
-        
-        if (!taxSelect.value || !appliesToSelect.value) {
-            alert('Please fill in all required fields');
-            return;
-        }
-        
-        const selectedOption = taxSelect.options[taxSelect.selectedIndex];
-        const description = selectedOption.text;
-        const appliesTo = appliesToSelect.value;
-        
-        const lineItem = document.createElement('div');
-        lineItem.className = 'line-item confirmed';
-        lineItem.innerHTML = `
-            <div class="line-item-content">
-                <div class="detail-item">
-                    <span class="detail-label">Tax Rate:</span>
-                    <span class="detail-value">${description}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Applies To:</span>
-                    <span class="detail-value">${appliesTo.charAt(0).toUpperCase() + appliesTo.slice(1)}</span>
-                </div>
-            </div>
-            <div class="line-item-actions">
-                <button type="button" class="edit-item-btn" onclick="editLineItem(this)" title="Edit tax">
-                    <i class="fas fa-pencil-alt"></i>
-                </button>
-                <button type="button" class="remove-item-btn" onclick="removeLineItem(this)" title="Remove tax">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-            <input type="hidden" name="tax_rate[]" value="${taxSelect.value}">
-            <input type="hidden" name="tax_applies_to[]" value="${appliesTo}">
-        `;
-        
-        lineItem.dataset.type = 'tax';
-        lineItem.dataset.description = description;
-        lineItem.dataset.appliesTo = appliesTo;
-        
-        const itemsDiv = document.getElementById('invoice-items');
-        if (itemsDiv) {
-            itemsDiv.appendChild(lineItem);
-            taxDiv.remove();
-            const mainActionButtons = document.querySelector('.main-action-buttons');
-            if (mainActionButtons) {
-                mainActionButtons.classList.remove('hidden');
-            }
-            // Save data without triggering unsaved changes warning
-            const currentHasUnsavedChanges = window.hasUnsavedChanges;
-            saveInvoiceData();
-            window.hasUnsavedChanges = currentHasUnsavedChanges;
-            updateInvoiceTotals();
-        } else {
-            console.error('Could not find invoice-items container');
-        }
-    }
-
-    // Function to remove item from invoice
-    function removeItemFromInvoice(button) {
-        const itemDiv = button.closest('.item');
-        if (itemDiv) {
-            itemDiv.remove();
-            document.querySelector('.main-action-buttons').classList.remove('hidden');
-        }
-    }
+        saveInvoiceData();
+    };
 
     // Function to remove note from invoice
-    function removeNoteFromInvoice(button) {
-        const noteDiv = button.closest('.item');
-        if (noteDiv) {
-            noteDiv.remove();
-            document.querySelector('.main-action-buttons').classList.remove('hidden');
-        }
-    }
+    window.removeNoteFromInvoice = function(button) {
+        const notesSection = document.getElementById('notesSection');
+        notesSection.style.display = 'none';
+        document.getElementById('notes').value = '';
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+    };
 
-    // Function to remove tax from invoice
-    function removeTaxFromInvoice(button) {
-        const taxDiv = button.closest('.item');
-        if (taxDiv) {
-            taxDiv.remove();
-            document.querySelector('.main-action-buttons').classList.remove('hidden');
-        }
-    }
+    // Function to remove a line item
+    window.removeLineItem = function(button) {
+        const lineItem = button.closest('.line-item');
+        lineItem.remove();
+        saveInvoiceData();
+        updateInvoiceTotals();
+    };
 
-    // Function to toggle invoice confirmation
-    function toggleInvoiceConfirmation() {
-        const confirmBtn = document.getElementById('confirmInvoiceBtn');
-        const cancelBtn = document.getElementById('cancelInvoiceBtn');
-        const submitBtn = document.getElementById('submitInvoiceBtn');
+    // Function to edit a line item
+    window.editLineItem = function(button) {
+        const lineItem = button.closest('.line-item');
+        const type = lineItem.dataset.type;
         
-        if (confirmBtn && cancelBtn && submitBtn) {
-            if (confirmBtn.style.display === 'none') {
-                confirmBtn.style.display = 'inline-block';
-                cancelBtn.style.display = 'inline-block';
-                submitBtn.style.display = 'none';
-            } else {
-                confirmBtn.style.display = 'none';
-                cancelBtn.style.display = 'none';
-                submitBtn.style.display = 'inline-block';
+        if (type === 'labor') {
+            const itemsDiv = document.getElementById('items');
+            const newItem = document.createElement('div');
+            newItem.className = 'item';
+            newItem.innerHTML = 
+                '<label>Labor Item:</label>' +
+                '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
+                '<option value="" disabled selected>Select Labor Item</option>' +
+                '<option value="new">Create New Labor Item</option>' +
+                '{% for item in labor_items %}' +
+                '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
+                '{% endfor %}' +
+                '</select>' +
+                '<label>Date labor performed:</label>' +
+                '<input type="date" name="item_date[]" value="' + lineItem.dataset.date + '" required>' +
+                '<label>Hours:</label>' +
+                '<input type="number" name="hours[]" min="0" value="' + lineItem.dataset.hours + '" required oninput="calculateTotalCost(this.parentElement)">' +
+                '<label>Minutes:</label>' +
+                '<input type="number" name="minutes[]" min="0" max="59" value="' + lineItem.dataset.minutes + '" required oninput="calculateTotalCost(this.parentElement)">' +
+                '<input type="hidden" name="labor_rate[]" value="' + lineItem.dataset.rate + '">' +
+                '<div class="total-cost">' +
+                '<span>Total Cost: $' + lineItem.dataset.total + '</span>' +
+                '</div>' +
+                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                '</div>';
+            itemsDiv.appendChild(newItem);
+            lineItem.remove();
+            document.querySelector('.main-action-buttons').classList.add('hidden');
+            updateInvoiceTotals();
+        } else if (type === 'item') {
+            const itemsDiv = document.getElementById('items');
+            const newItem = document.createElement('div');
+            newItem.className = 'item';
+            newItem.innerHTML = 
+                '<label>Item:</label>' +
+                '<select name="item[]" required onchange="handleItemSelection(this)">' +
+                '<option value="" disabled selected>Select Item</option>' +
+                '<option value="new">Create New Item</option>' +
+                '{% for item in items %}' +
+                '<option value="{{ item.id }}" data-price="{{ item.unit_price }}">{{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}</option>' +
+                '{% endfor %}' +
+                '</select>' +
+                '<label>Quantity:</label>' +
+                '<input type="number" name="quantity[]" min="1" value="' + lineItem.dataset.quantity + '" required oninput="calculateItemTotal(this.parentElement)">' +
+                '<input type="hidden" name="item_price[]" value="' + lineItem.dataset.price + '">' +
+                '<div class="total-cost">' +
+                '<span>Total Cost: $' + lineItem.dataset.total + '</span>' +
+                '</div>' +
+                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                '</div>';
+            itemsDiv.appendChild(newItem);
+            lineItem.remove();
+            document.querySelector('.main-action-buttons').classList.add('hidden');
+            updateInvoiceTotals();
+        } else if (type === 'note') {
+            const notesSection = document.getElementById('notesSection');
+            const notesText = document.getElementById('notes');
+            notesText.value = lineItem.dataset.description;
+            notesSection.style.display = 'block';
+            lineItem.remove();
+            document.querySelector('.main-action-buttons').classList.add('hidden');
+            updateInvoiceTotals();
+        }
+    };
+
+    // Initialize everything when the DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date').value = today;
+
+        // Initialize all event listeners
+        initializeEventListeners();
+
+        // Restore saved data
+        restoreInvoiceData();
+        restoreSelectedBusinessAndClient();
+
+        // Handle disabled edit buttons
+        const editButtons = document.querySelectorAll('.settings-link.disabled');
+        editButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                return false;
+            });
+        });
+
+        // Initialize the Edit Details button state
+        const editButton = document.querySelector('.settings-link');
+        // Only declare companySelect once here
+        let companySelect = document.querySelector('.company-selector');
+        if (editButton && companySelect) {
+            if (!companySelect.value || companySelect.value.startsWith('/settings')) {
+                editButton.classList.add('disabled');
+                editButton.href = '#';
+                editButton.style.pointerEvents = 'none';
+                editButton.style.opacity = '0.5';
             }
         }
-    }
 
-    // Function to remove labor item from invoice
-    function removeLaborItemFromInvoice(button) {
-        const itemDiv = button.closest('.item');
-        if (itemDiv) {
-            itemDiv.remove();
-            document.querySelector('.main-action-buttons').classList.remove('hidden');
+        // After restoring selected business and client, also update business details if a company is pre-selected
+        if (companySelect && companySelect.value) {
+            handleCompanySelection(companySelect.value);
         }
-    }
 
-    // ... existing code ...
-
-    // Function to show add item dialog
-    function showAddItemDialog() {
-        const itemsDiv = document.getElementById('invoice-items');
-        const newItem = document.createElement('div');
-        newItem.className = 'item';
-        newItem.innerHTML = 
-            '<label>Item:</label>' +
-            '<select name="item[]" required onchange="handleItemSelection(this)">' +
-            '<option value="" disabled selected>Select Item</option>' +
-            '<option value="new">Create New Item</option>' +
-            '{% for item in items %}' +
-            '<option value="{{ item.id }}" data-price="{{ item.unit_price }}">{{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}</option>' +
-            '{% endfor %}' +
-            '</select>' +
-            '<label>Quantity:</label>' +
-            '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
-            '<input type="hidden" name="item_price[]" value="0.00">' +
-            '<div class="total-cost">' +
-            '<span>Total Cost: $0.00</span>' +
-            '</div>' +
-            '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-            '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-            '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-            '</div>';
-        itemsDiv.appendChild(newItem);
-        document.querySelector('.main-action-buttons').classList.add('hidden');
-    }
-
-    // Function to show add note dialog
-    function showAddNoteDialog() {
-        const itemsDiv = document.getElementById('invoice-items');
-        if (!itemsDiv) {
-            console.error('Could not find invoice-items container');
-            return;
+        // --- Auto-open dialog and pre-select new item/labor if redirected with query params ---
+        function getQueryParam(name) {
+            const url = new URL(window.location.href);
+            return url.searchParams.get(name);
         }
-        const newNote = document.createElement('div');
-        newNote.className = 'line-item';
-        newNote.innerHTML = `
-            <div class="line-item-content">
-                <div class="detail-item">
-                    <label>Note:</label>
-                    <textarea class="form-control" rows="3" placeholder="Enter your note here..."></textarea>
-                </div>
-                <div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">
-                    <button type="button" class="add-to-invoice-btn" onclick="addNoteToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>
-                    <button type="button" class="remove-item-btn" onclick="removeNoteFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>
-                </div>
-            </div>
-        `;
-        itemsDiv.appendChild(newNote);
-        document.querySelector('.main-action-buttons').classList.add('hidden');
-    }
-
-    // Function to handle client change
-    function handleClientChange() {
-        const clientId = document.querySelector('input[name="client_id"]').value;
-        if (clientId) {
-            fetch(`/invoice/get_client/${clientId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const client = data.client;
-                        document.getElementById('client_name').value = client.name;
-                        document.getElementById('client_email').value = client.email;
-                        document.getElementById('client_phone').value = client.phone;
-                        document.getElementById('client_address').value = client.address;
-                    }
-                })
-                .catch(error => console.error('Error fetching client:', error));
+        function observeAndSetSelect(selector, value) {
+            const observer = new MutationObserver(function() {
+                const select = document.querySelector(selector);
+                if (select) {
+                    select.value = value;
+                    select.dispatchEvent(new Event('change'));
+                    observer.disconnect();
+                }
+            });
+            observer.observe(document.getElementById('items'), { childList: true, subtree: true });
+            // In case the select is already present
+            const select = document.querySelector(selector);
+            if (select) {
+                select.value = value;
+                select.dispatchEvent(new Event('change'));
+                observer.disconnect();
+            }
         }
-    }
-
-    // Function to handle business change
-    function handleBusinessChange() {
-        const businessId = document.getElementById('business_id').value;
-        if (businessId) {
-            fetch(`/invoice/get_company/${businessId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const company = data.company;
-                        document.getElementById('company_name').value = company.name;
-                        document.getElementById('company_email').value = company.email;
-                        document.getElementById('company_phone').value = company.phone;
-                        document.getElementById('company_address').value = company.address;
-                        
-                        // Update logo if available
-                        const logoPlaceholder = document.getElementById('logo-placeholder');
-                        if (logoPlaceholder && company.logo_path) {
-                            logoPlaceholder.innerHTML = `<img src="{{ url_for('serve_upload', filename='') }}${company.logo_path}" alt="Company Logo" style="max-width: 100%; max-height: 100%;">`;
-                        }
-                    }
-                })
-                .catch(error => console.error('Error fetching company:', error));
+        const openDialog = getQueryParam('open_dialog');
+        if (openDialog === 'add_item') {
+            showAddItemDialog();
+            const newItemId = getQueryParam('new_item_id');
+            if (newItemId) {
+                observeAndSetSelect('.item select[name="item[]"]', newItemId);
+            }
+        } else if (openDialog === 'add_labor') {
+            showAddLaborDialog();
+            const newLaborId = getQueryParam('new_labor_id');
+            if (newLaborId) {
+                observeAndSetSelect('.item select[name="labor_item[]"]', newLaborId);
+            }
         }
-    }
-
-    // Function to handle invoice number change
-    function handleInvoiceNumberChange() {
-        const invoiceNumber = document.getElementById('invoice_number').value;
-        if (invoiceNumber) {
-            fetch(`/invoice/check_invoice_number/${invoiceNumber}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.exists) {
-                        alert('This invoice number is already in use. Please choose a different one.');
-                        document.getElementById('invoice_number').value = '';
-                    }
-                })
-                .catch(error => console.error('Error checking invoice number:', error));
+        if (openDialog) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('open_dialog');
+            url.searchParams.delete('new_item_id');
+            url.searchParams.delete('new_labor_id');
+            window.history.replaceState({}, document.title, url.pathname + url.search);
         }
-    }
+    });
 
-    // Function to show add labor dialog
-    function showAddLaborDialog() {
-        const itemsDiv = document.getElementById('invoice-items');
-        const newLabor = document.createElement('div');
-        newLabor.className = 'item';
-        newLabor.innerHTML = 
-            '<label>Labor Item:</label>' +
-            '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
-            '<option value="" disabled selected>Select Labor Item</option>' +
-            '<option value="new">Create New Labor Item</option>' +
-            '{% for item in labor_items %}' +
-            '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
-            '{% endfor %}' +
-            '</select>' +
-            '<label>Date labor performed:</label>' +
-            '<input type="date" name="item_date[]" required>' +
-            '<label>Hours:</label>' +
-            '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-            '<label>Minutes:</label>' +
-            '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-            '<input type="hidden" name="labor_rate[]" value="0.00">' +
-            '<div class="total-cost">' +
-            '<span>Total Cost: $0.00</span>' +
-            '</div>' +
-            '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-            '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-            '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-            '</div>';
-        itemsDiv.appendChild(newLabor);
-        document.querySelector('.main-action-buttons').classList.add('hidden');
-    }
-
-    // Function to show add sales tax dialog
-    function showAddSalesTaxDialog() {
-        const itemsDiv = document.getElementById('invoice-items');
-        if (!itemsDiv) {
-            console.error('Could not find invoice-items container');
-            return;
+    // Function to initialize all event listeners
+    function initializeEventListeners() {
+        // Add Labor button
+        const addLaborBtn = document.getElementById('addLaborBtn');
+        if (addLaborBtn) {
+            addLaborBtn.addEventListener('click', showAddLaborDialog);
         }
-        const newTax = document.createElement('div');
-        newTax.className = 'item';
-        newTax.innerHTML = 
-            '<label>Tax Rate:</label>' +
-            '<select name="tax_rate[]" required onchange="handleTaxSelection(this)">' +
-            '<option value="" disabled selected>Select Tax Rate</option>' +
-            '<option value="new">Create New Tax Rate</option>' +
-            '{% for tax in tax_rates %}' +
-            '<option value="{{ tax.id }}" data-rate="{{ tax.rate }}">{{ tax.description }} - {{ tax.rate }}%</option>' +
-            '{% endfor %}' +
-            '</select>' +
-            '<label>Applies To:</label>' +
-            '<select name="tax_applies_to[]" required>' +
-            '<option value="all">All Items</option>' +
-            '<option value="labor">Labor Only</option>' +
-            '<option value="materials">Materials Only</option>' +
-            '</select>' +
-            '<input type="hidden" name="tax_amount[]" value="0.00">' +
-            '<div class="total-cost">' +
-            '<span>Tax Amount: $0.00</span>' +
-            '</div>' +
-            '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-            '<button type="button" class="add-to-invoice-btn" onclick="addTaxToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-            '<button type="button" class="remove-item-btn" onclick="removeTaxFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-            '</div>';
-        itemsDiv.appendChild(newTax);
-        document.querySelector('.main-action-buttons').classList.add('hidden');
-    }
 
-    // ... existing code ...
+        // Add Item button
+        const addItemBtn = document.getElementById('addItemBtn');
+        if (addItemBtn) {
+            addItemBtn.addEventListener('click', showAddItemDialog);
+        }
 
-    // Initialize confirm invoice button
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize confirm invoice button
+        // Add Note button
+        const addNoteBtn = document.getElementById('addNoteBtn');
+        if (addNoteBtn) {
+            addNoteBtn.addEventListener('click', showAddNoteDialog);
+        }
+
+        // Confirm Invoice button
         const confirmBtn = document.getElementById('confirmInvoiceBtn');
         if (confirmBtn) {
             confirmBtn.addEventListener('click', function() {
@@ -1777,7 +1425,7 @@
                         return;
                     }
                     
-                    fetch(`/invoice/check_invoice_number/${invoiceNumberInput.value}`)
+                    fetch(`${APP_ROOT}/check_invoice_number/${invoiceNumberInput.value}`)
                         .then(response => {
                             if (!response.ok) {
                                 throw new Error('Network response was not ok');
@@ -1814,20 +1462,564 @@
             });
         }
 
-        // Set today's date as default
-        const today = new Date().toISOString().split('T')[0];
-        const dateInput = document.getElementById('date');
-        if (dateInput) {
-            dateInput.value = today;
+        // Form submission
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                try {
+                    console.log('Form submit handler triggered');
+                    
+                    // Check if client is selected
+                    const clientIdInput = document.querySelector('input[name="client_id"]');
+                    if (!clientIdInput || !clientIdInput.value) {
+                        e.preventDefault();
+                        alert('Please select a client first');
+                        return;
+                    }
+                    
+                    // Check if invoice is confirmed
+                    const invoiceHeader = document.querySelector('.invoice-header');
+                    if (!invoiceHeader.classList.contains('confirmed')) {
+                        e.preventDefault();
+                        alert('Please confirm invoice date and invoice number');
+                        return;
+                    }
+                    
+                    // Check if there are any line items
+                    const lineItems = document.querySelectorAll('.line-item.confirmed');
+                    if (lineItems.length === 0) {
+                        e.preventDefault();
+                        alert('Please add at least one line item to the invoice');
+                        return;
+                    }
+
+                    // Log form data for debugging
+                    const formData = new FormData(form);
+                    console.log('Form data being submitted:');
+                    for (let [key, value] of formData.entries()) {
+                        console.log(`${key}: ${value}`);
+                    }
+                    
+                    // Add sales tax information to form if present
+                    const taxLine = document.querySelector('.line-item[data-type="tax"]');
+                    if (taxLine) {
+                        const salesTaxIdInput = document.createElement('input');
+                        salesTaxIdInput.type = 'hidden';
+                        salesTaxIdInput.name = 'sales_tax_id';
+                        salesTaxIdInput.value = taxLine.dataset.taxId;
+                        form.appendChild(salesTaxIdInput);
+
+                        const taxAppliesToInput = document.createElement('input');
+                        taxAppliesToInput.type = 'hidden';
+                        taxAppliesToInput.name = 'tax_applies_to';
+                        taxAppliesToInput.value = taxLine.dataset.appliesTo;
+                        form.appendChild(taxAppliesToInput);
+                    }
+                    
+                    // Clear invoice data from localStorage
+                    clearInvoiceData();
+
+                    // Serialize line items into JSON
+                    const lineItemsForSubmit = Array.from(document.querySelectorAll('.line-item.confirmed')).map(item => {
+                        const data = {
+                            type: item.dataset.type,
+                            description: item.dataset.description,
+                            total: item.dataset.total
+                        };
+                        if (item.dataset.type === 'labor') {
+                            data.date = item.dataset.date;
+                            data.hours = item.dataset.hours;
+                            data.minutes = item.dataset.minutes;
+                            data.rate = item.dataset.rate;
+                        } else if (item.dataset.type === 'item') {
+                            data.quantity = item.dataset.quantity;
+                            data.price = item.dataset.price;
+                            data.date = item.dataset.date;
+                        }
+                        return data;
+                    });
+                    document.getElementById('line_items_json').value = JSON.stringify(lineItemsForSubmit);
+                    console.log('Form submit handler completed');
+                } catch (err) {
+                    console.error('Error in form submit handler:', err);
+                    e.preventDefault();
+                    alert('An error occurred while submitting the form. Please try again.');
+                }
+            });
         }
-    });
+    }
+
+    function showAddSalesTaxDialog() {
+        const dialog = document.getElementById('salesTaxDialog');
+        dialog.style.display = 'block';
+        
+        // Load existing tax rates
+        fetch('/invoice/api/sales-tax')
+            .then(response => response.json())
+            .then(rates => {
+                const select = document.getElementById('salesTaxSelect');
+                // Clear existing options except the first three (including "Clear saved tax rates")
+                while (select.options.length > 3) {
+                    select.remove(3);
+                }
+                
+                // Add existing rates
+                rates.forEach(rate => {
+                    const option = document.createElement('option');
+                    option.value = rate.id;
+                    option.textContent = `${rate.description} (${rate.rate}%)`;
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading tax rates:', error));
+
+        // Add event listener to taxAppliesTo select
+        const taxAppliesTo = document.getElementById('taxAppliesTo');
+        taxAppliesTo.addEventListener('change', function() {
+            const select = document.getElementById('salesTaxSelect');
+            if (select.value && select.value !== 'new') {
+                handleSalesTaxSelection(select);
+            }
+        });
+    }
+    
+    function handleSalesTaxSelection(select) {
+        if (select.value === 'clear') {
+            if (confirm('Are you sure you want to clear all saved tax rates? This action cannot be undone.')) {
+                fetch('/invoice/api/sales-tax', {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Clear the select options except the first three
+                        while (select.options.length > 3) {
+                            select.remove(3);
+                        }
+                        // Reset to default selection
+                        select.value = '';
+                        alert('All tax rates have been cleared.');
+                    } else {
+                        throw new Error('Failed to clear tax rates');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error clearing tax rates:', error);
+                    alert('Error clearing tax rates. Please try again.');
+                });
+            } else {
+                // Reset to default selection if user cancels
+                select.value = '';
+            }
+            return;
+        }
+        
+        const newTaxFields = document.getElementById('newTaxRateFields');
+        newTaxFields.style.display = select.value === 'new' ? 'block' : 'none';
+
+        // Calculate and display tax amount in real-time when a rate is selected
+        if (select.value && select.value !== 'new') {
+            const appliesTo = document.getElementById('taxAppliesTo').value;
+            fetch('/invoice/api/sales-tax')
+                .then(response => response.json())
+                .then(rates => {
+                    const selectedRate = rates.find(r => r.id === parseInt(select.value));
+                    if (selectedRate) {
+                        // Calculate taxable amount based on appliesTo
+                        let taxableAmount = 0;
+                        document.querySelectorAll('.line-item').forEach(item => {
+                            if (item.dataset.type === 'labor' && (appliesTo === 'labor' || appliesTo === 'both')) {
+                                taxableAmount += parseFloat(item.dataset.total);
+                            } else if (item.dataset.type === 'item' && (appliesTo === 'items' || appliesTo === 'both')) {
+                                taxableAmount += parseFloat(item.dataset.total);
+                            }
+                        });
+                        
+                        const taxAmount = (taxableAmount * selectedRate.rate / 100);
+                        
+                        // Update the tax total display
+                        document.getElementById('taxTotal').textContent = `$${taxAmount.toFixed(2)}`;
+                        
+                        // Update the grand total
+                        const subtotal = parseFloat(document.getElementById('subtotal').textContent.replace('$', ''));
+                        document.getElementById('grandTotal').textContent = `$${(subtotal + taxAmount).toFixed(2)}`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading tax rate:', error);
+                });
+        } else {
+            // Reset tax total to 0 if no rate is selected
+            document.getElementById('taxTotal').textContent = '$0.00';
+            const subtotal = parseFloat(document.getElementById('subtotal').textContent.replace('$', ''));
+            document.getElementById('grandTotal').textContent = `$${subtotal.toFixed(2)}`;
+        }
+    }
+    
+    function closeSalesTaxDialog() {
+        document.getElementById('salesTaxDialog').style.display = 'none';
+        document.getElementById('newTaxRateFields').style.display = 'none';
+        document.getElementById('salesTaxSelect').value = '';
+        document.getElementById('taxDescription').value = '';
+        document.getElementById('taxRate').value = '';
+    }
+    
+    async function addSalesTaxToInvoice() {
+        const select = document.getElementById('salesTaxSelect');
+        const appliesTo = document.getElementById('taxAppliesTo').value;
+        
+        if (select.value === 'new') {
+            // Create new tax rate
+            const description = document.getElementById('taxDescription').value;
+            const rate = document.getElementById('taxRate').value;
+            
+            if (!description || !rate) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/invoice/api/sales-tax', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        rate: parseFloat(rate),
+                        description: description
+                    })
+                });
+                
+                console.log('Response status:', response.status);
+                const responseText = await response.text();
+                console.log('Response text:', responseText);
+                
+                if (!response.ok) {
+                    throw new Error(responseText || 'Failed to create tax rate');
+                }
+                
+                const data = JSON.parse(responseText);
+                addTaxToInvoice(data, appliesTo);
+            } catch (error) {
+                console.error('Error creating tax rate:', error);
+                alert(error.message || 'Error creating tax rate. Please try again.');
+            }
+        } else if (select.value) {
+            // Use existing tax rate
+            try {
+                const response = await fetch('/invoice/api/sales-tax');
+                const rates = await response.json();
+                const selectedRate = rates.find(r => r.id === parseInt(select.value));
+                if (selectedRate) {
+                    addTaxToInvoice(selectedRate, appliesTo);
+                }
+            } catch (error) {
+                console.error('Error loading tax rate:', error);
+                alert('Error loading tax rate. Please try again.');
+            }
+        } else {
+            alert('Please select a tax rate');
+        }
+    }
+    
+    function addTaxToInvoice(taxRate, appliesTo) {
+        // Calculate taxable amount based on appliesTo
+        let taxableAmount = 0;
+        document.querySelectorAll('.line-item').forEach(item => {
+            if (item.dataset.type === 'labor' && (appliesTo === 'labor' || appliesTo === 'both')) {
+                taxableAmount += parseFloat(item.dataset.total);
+            } else if (item.dataset.type === 'item' && (appliesTo === 'items' || appliesTo === 'both')) {
+                taxableAmount += parseFloat(item.dataset.total);
+            }
+        });
+        
+        const taxAmount = (taxableAmount * taxRate.rate / 100);
+        
+        // Remove existing tax line if present
+        const existingTax = document.querySelector('.line-item[data-type="tax"]');
+        if (existingTax) {
+            existingTax.remove();
+        }
+        
+        // Create new tax line
+        const taxLine = document.createElement('div');
+        taxLine.className = 'line-item confirmed';
+        taxLine.dataset.type = 'tax';
+        taxLine.dataset.rate = taxRate.rate;
+        taxLine.dataset.total = taxAmount;
+        taxLine.dataset.appliesTo = appliesTo;
+        taxLine.dataset.taxId = taxRate.id;
+        
+        taxLine.innerHTML = `
+            <div class="line-item-content">
+                <div class="detail-item">
+                    <span class="detail-label">Sales Tax:</span>
+                    <span class="detail-value">${taxRate.description} (${taxRate.rate}%)</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Applied to:</span>
+                    <span class="detail-value">${appliesTo === 'both' ? 'Both items and labor' : appliesTo === 'items' ? 'Items only' : 'Labor only'}</span>
+                </div>
+            </div>
+            <div class="line-item-actions">
+                <button type="button" class="edit-item-btn" onclick="editSalesTax(this)" title="Edit tax">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button type="button" class="remove-item-btn" onclick="removeSalesTax(this)" title="Remove tax">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        // Remove any inline styles that might be causing the size difference
+        taxLine.removeAttribute('style');
+        
+        // Insert tax line into the items container so it matches the width/layout of other line items
+        document.getElementById('items').appendChild(taxLine);
+        
+        // Update the sales tax button text
+        const salesTaxButton = document.getElementById('salesTaxButton');
+        salesTaxButton.innerHTML = '<i class="fas fa-percentage"></i> Edit Sales Tax';
+        
+        // Save the tax information to localStorage
+        saveInvoiceData();
+        updateInvoiceTotals();
+        closeSalesTaxDialog();
+    }
+    
+    function editSalesTax(button) {
+        const taxLine = button.closest('.line-item');
+        const rate = taxLine.dataset.rate;
+        const appliesTo = taxLine.dataset.appliesTo;
+        
+        showAddSalesTaxDialog();
+        
+        // Pre-select the tax rate
+        const select = document.getElementById('salesTaxSelect');
+        fetch('/invoice/api/sales-tax')
+            .then(response => response.json())
+            .then(rates => {
+                const matchingRate = rates.find(r => r.rate === parseFloat(rate));
+                if (matchingRate) {
+                    select.value = matchingRate.id;
+                }
+            });
+        
+        // Pre-select the applies to option
+        document.getElementById('taxAppliesTo').value = appliesTo;
+    }
+    
+    function removeSalesTax(button) {
+        const taxLine = button.closest('.line-item');
+        taxLine.remove();
+        
+        // Update the sales tax button text back to "Add Sales Tax"
+        const salesTaxButton = document.getElementById('salesTaxButton');
+        salesTaxButton.innerHTML = '<i class="fas fa-percentage"></i> Add Sales Tax';
+        
+        saveInvoiceData();
+        updateInvoiceTotals();
+    }
+
+    function showAddLaborDialog() {
+        const itemsDiv = document.getElementById('items');
+        const newItem = document.createElement('div');
+        newItem.className = 'item';
+        
+        // Fetch latest labor items
+        fetch(`${APP_ROOT}/labor_details`)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const laborItems = doc.querySelectorAll('select[name="labor_item"] option');
+                
+                let optionsHtml = '<option value="" disabled selected>Select Labor Item</option>' +
+                                '<option value="new">Create New Labor Item</option>';
+                
+                laborItems.forEach(option => {
+                    if (option.value && option.value !== 'new') {
+                        optionsHtml += `<option value="${option.value}" data-rate="${option.dataset.rate}">${option.text}</option>`;
+                    }
+                });
+                
+                newItem.innerHTML = 
+                    '<label>Labor Item:</label>' +
+                    '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
+                    optionsHtml +
+                    '</select>' +
+                    '<label>Date labor performed:</label>' +
+                    '<input type="date" name="item_date[]" required>' +
+                    '<label>Hours:</label>' +
+                    '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+                    '<label>Minutes:</label>' +
+                    '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+                    '<input type="hidden" name="labor_rate[]" value="0.00">' +
+                    '<div class="total-cost">' +
+                    '<span>Total Cost: $0.00</span>' +
+                    '</div>' +
+                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                    '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '</div>';
+                
+                itemsDiv.appendChild(newItem);
+                document.querySelector('.main-action-buttons').classList.add('hidden');
+                
+                // Check if we need to pre-select a new labor item
+                const urlParams = new URLSearchParams(window.location.search);
+                const newLaborId = urlParams.get('new_labor_id');
+                if (newLaborId) {
+                    const select = newItem.querySelector('select[name="labor_item[]"]');
+                    select.value = newLaborId;
+                    select.dispatchEvent(new Event('change'));
+                    
+                    // Clear the URL parameters
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('new_labor_id');
+                    url.searchParams.delete('open_dialog');
+                    window.history.replaceState({}, document.title, url.pathname + url.search);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching labor items:', error);
+                // Fallback to static options if fetch fails
+                newItem.innerHTML = 
+                    '<label>Labor Item:</label>' +
+                    '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
+                    '<option value="" disabled selected>Select Labor Item</option>' +
+                    '<option value="new">Create New Labor Item</option>' +
+                    '{% for item in labor_items %}' +
+                    '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
+                    '{% endfor %}' +
+                    '</select>' +
+                    '<label>Date labor performed:</label>' +
+                    '<input type="date" name="item_date[]" required>' +
+                    '<label>Hours:</label>' +
+                    '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+                    '<label>Minutes:</label>' +
+                    '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
+                    '<input type="hidden" name="labor_rate[]" value="0.00">' +
+                    '<div class="total-cost">' +
+                    '<span>Total Cost: $0.00</span>' +
+                    '</div>' +
+                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                    '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '</div>';
+                itemsDiv.appendChild(newItem);
+                document.querySelector('.main-action-buttons').classList.add('hidden');
+            });
+    }
+
+    function showAddItemDialog() {
+        const itemsDiv = document.getElementById('items');
+        const newItem = document.createElement('div');
+        newItem.className = 'item';
+        
+        // Fetch latest items
+        fetch(`${APP_ROOT}/item_details`)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const items = doc.querySelectorAll('select[name="item"] option');
+                
+                let optionsHtml = '<option value="" disabled selected>Select Item</option>' +
+                                '<option value="new">Create New Item</option>';
+                
+                items.forEach(option => {
+                    if (option.value && option.value !== 'new') {
+                        const description = option.text.split(' - $')[0];
+                        const price = option.text.split(' - $')[1];
+                        optionsHtml += `<option value="${option.value}" data-price="${price}">${option.text}</option>`;
+                    }
+                });
+                
+                newItem.innerHTML = 
+                    '<label>Item:</label>' +
+                    '<select name="item[]" required onchange="handleItemSelection(this)">' +
+                    optionsHtml +
+                    '</select>' +
+                    '<label>Quantity:</label>' +
+                    '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
+                    '<input type="hidden" name="item_price[]" value="0.00">' +
+                    '<div class="total-cost">' +
+                    '<span>Total Cost: $0.00</span>' +
+                    '</div>' +
+                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                    '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '</div>';
+                
+                itemsDiv.appendChild(newItem);
+                document.querySelector('.main-action-buttons').classList.add('hidden');
+                
+                // Check if we need to pre-select a new item
+                const urlParams = new URLSearchParams(window.location.search);
+                const newItemId = urlParams.get('new_item_id');
+                if (newItemId) {
+                    const select = newItem.querySelector('select[name="item[]"]');
+                    select.value = newItemId;
+                    select.dispatchEvent(new Event('change'));
+                    
+                    // Clear the URL parameters
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('new_item_id');
+                    url.searchParams.delete('open_dialog');
+                    window.history.replaceState({}, document.title, url.pathname + url.search);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching items:', error);
+                // Fallback to static options if fetch fails
+                newItem.innerHTML = 
+                    '<label>Item:</label>' +
+                    '<select name="item[]" required onchange="handleItemSelection(this)">' +
+                    '<option value="" disabled selected>Select Item</option>' +
+                    '<option value="new">Create New Item</option>' +
+                    '{% for item in items %}' +
+                    '<option value="{{ item.id }}" data-price="{{ item.unit_price }}">{{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}</option>' +
+                    '{% endfor %}' +
+                    '</select>' +
+                    '<label>Quantity:</label>' +
+                    '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
+                    '<input type="hidden" name="item_price[]" value="0.00">' +
+                    '<div class="total-cost">' +
+                    '<span>Total Cost: $0.00</span>' +
+                    '</div>' +
+                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
+                    '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '</div>';
+                itemsDiv.appendChild(newItem);
+                document.querySelector('.main-action-buttons').classList.add('hidden');
+            });
+    }
+
+    function showAddNoteDialog() {
+        const notesSection = document.getElementById('notesSection');
+        notesSection.style.display = 'block';
+        document.querySelector('.main-action-buttons').classList.add('hidden');
+    }
+
+    function removeItemFromInvoice(button) {
+        const itemDiv = button.closest('.item');
+        itemDiv.remove();
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+    }
+
+    function removeLaborItemFromInvoice(button) {
+        const itemDiv = button.closest('.item');
+        itemDiv.remove();
+        document.querySelector('.main-action-buttons').classList.remove('hidden');
+    }
 </script>
 {% if selected_company and selected_company.logo_path %}
 <script>
     var logoPlaceholderBusiness = document.getElementById('logo-placeholder');
     if (logoPlaceholderBusiness) {
         var logoPath = "{{ selected_company.logo_path }}";
-        logoPlaceholderBusiness.innerHTML = '<img src="' + APP_ROOT + '/serve_upload/' + logoPath + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
+        logoPlaceholderBusiness.innerHTML = '<img src="' + APP_ROOT + '/uploads/' + logoPath + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
     }
 </script>
 {% else %}
@@ -1848,7 +2040,7 @@
           <h2 class="accordion-header" id="businessAccordionHeader">
             <button class="accordion-button collapsed d-flex align-items-center gap-2" type="button" data-bs-toggle="collapse" data-bs-target="#businessAccordionCollapse" aria-expanded="false" aria-controls="businessAccordionCollapse" style="padding: 0.3rem 0.75rem;">
               {% if selected_company and selected_company.logo_path %}
-                <img src="{{ url_for('serve_upload', filename=selected_company.logo_path) }}" alt="Business Logo" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover;">
+                <img src="{{ APP_ROOT }}/uploads/{{ selected_company.logo_path }}" alt="Business Logo" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover;">
               {% else %}
                 <i class="fas fa-building fa-lg text-secondary" style="width: 32px; height: 22px; display: flex; align-items: center; justify-content: center;"></i>
               {% endif %}
@@ -1876,15 +2068,15 @@
                   <span class="detail-label">Phone:</span>
                   <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone if selected_company else '' }}</span>
                 </div>
-                <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else url_for('business_details', new='true', source='create_invoice') }}" 
-                   class="settings-link{% if not selected_company %} create-new-btn{% endif %} edit-business-btn-responsive"
+                <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else '#' }}" 
+                   class="settings-link{% if not selected_company %} disabled{% endif %} edit-business-btn-responsive"
                    data-app-root="{{ APP_ROOT }}">
-                    {% if selected_company %}Edit Business Details{% else %}Create New Business{% endif %}
+                  Edit Business Details
                 </a>
               </div>
               <div class="navigation mt-2">
                 <div class="selector-container">
-                  <select class="company-selector" onchange="handleCompanySelection(this.value, event)" onkeydown="handleCompanySelection(this.value, event)">
+                  <select class="company-selector" onchange="handleCompanySelection(this.value)">
                     <option value="" disabled selected>Select Your Business</option>
                     <option value="{{ url_for('business_details', new='true', source='create_invoice') }}">Create New Business</option>
                     {% for business in businesses %}
@@ -1904,7 +2096,7 @@
         <div class="company-details">
             <div id="logo-placeholder" class="logo-placeholder">
                 {% if selected_company and selected_company.logo_path %}
-                    <img src="{{ url_for('serve_upload', filename=selected_company.logo_path) }}" alt="Company Logo" class="company-logo">
+                    <img src="{{ APP_ROOT }}/uploads/{{ selected_company.logo_path }}" alt="Company Logo" class="company-logo">
                 {% else %}
                     <span class="logo-placeholder-text">Company Logo</span>
                 {% endif %}
@@ -1928,16 +2120,16 @@
                     <span class="detail-label">Phone:</span>
                     <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone if selected_company else '' }}</span>
                 </div>
-                <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else url_for('business_details', new='true', source='create_invoice') }}" 
-                   class="settings-link{% if not selected_company %} create-new-btn{% endif %} edit-business-btn-responsive"
+                <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else '#' }}" 
+                   class="settings-link{% if not selected_company %} disabled{% endif %} edit-business-btn-responsive"
                    data-app-root="{{ APP_ROOT }}">
-                    {% if selected_company %}Edit Business Details{% else %}Create New Business{% endif %}
+                    Edit Business Details
                 </a>
             </div>
         </div>
         <div class="navigation">
             <div class="selector-container">
-                <select class="company-selector" onchange="handleCompanySelection(this.value, event)" onkeydown="handleCompanySelection(this.value, event)">
+                <select class="company-selector" onchange="handleCompanySelection(this.value)">
                     <option value="" disabled selected>Select Your Business</option>
                     <option value="{{ url_for('business_details', new='true', source='create_invoice') }}">Create New Business</option>
                     {% for business in businesses %}
@@ -1996,15 +2188,11 @@
                 <span class="detail-value" data-placeholder="Your Client's Phone Number"></span>
               </div>
             {% endif %}
-            <a href="{{ url_for('client_details', new='true', source='create_invoice') if not selected_client else url_for('client_details', client_id=selected_client.id) }}" 
-               class="settings-link{% if not selected_client %} create-new-btn{% endif %} edit-client-btn-responsive"
-               data-app-root="{{ APP_ROOT }}">
-                    {% if selected_client %}Edit Client Details{% else %}Create New Client{% endif %}
-                </a>
+            <a href="#" class="btn btn-outline-secondary btn-sm settings-link{% if not selected_client %} disabled{% endif %} edit-client-btn-responsive" style="margin-top: 1rem; width: 200px; max-width: 100%;">Edit Client Details</a>
           </div>
           <div class="navigation mt-2">
             <div class="selector-container">
-              <select class="client-selector" onchange="handleClientSelection(this.value, event)" onkeydown="handleClientSelection(this.value, event)">
+              <select class="client-selector" onchange="handleClientSelection(this.value)">
                 <option value="" disabled selected>Select Client</option>
                 <option value="{{ url_for('client_details') }}?new=true&from_create_invoice=true">Create New Client</option>
                 {% for client in clients %}
@@ -2043,31 +2231,27 @@
         {% else %}
           <div class="detail-item">
             <span class="detail-label">Client Name:</span>
-            <span class="detail-value" data-placeholder="Your Client's Name">{{ selected_client.name if selected_client else '' }}</span>
+            <span class="detail-value" data-placeholder="Your Client's Name"></span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Address:</span>
-            <span class="detail-value" data-placeholder="Your Client's Address">{{ selected_client.address if selected_client else '' }}</span>
+            <span class="detail-value" data-placeholder="Your Client's Address"></span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Email:</span>
-            <span class="detail-value" data-placeholder="Your Client's Email">{{ selected_client.email if selected_client else '' }}</span>
+            <span class="detail-value" data-placeholder="Your Client's Email"></span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Phone Number:</span>
-            <span class="detail-value" data-placeholder="Your Client's Phone Number">{{ selected_client.phone if selected_client else '' }}</span>
+            <span class="detail-value" data-placeholder="Your Client's Phone Number"></span>
           </div>
         {% endif %}
-        <a href="{{ url_for('client_details', new='true', source='create_invoice') if not selected_client else url_for('client_details', client_id=selected_client.id) }}" 
-           class="settings-link{% if not selected_client %} create-new-btn{% endif %} edit-client-btn-responsive"
-           data-app-root="{{ APP_ROOT }}">
-                    {% if selected_client %}Edit Client Details{% else %}Create New Client{% endif %}
-                </a>
+        <a href="#" class="btn btn-outline-secondary btn-sm settings-link{% if not selected_client %} disabled{% endif %} edit-client-btn-responsive" style="margin-top: 1rem; width: 200px; max-width: 100%;">Edit Client Details</a>
       </div>
     </div>
     <div class="navigation">
       <div class="selector-container">
-        <select class="client-selector" onchange="handleClientSelection(this.value, event)" onkeydown="handleClientSelection(this.value, event)">
+        <select class="client-selector" onchange="handleClientSelection(this.value)">
           <option value="" disabled selected>Select Client</option>
           <option value="{{ url_for('client_details') }}?new=true&from_create_invoice=true">Create New Client</option>
           {% for client in clients %}
@@ -2089,184 +2273,25 @@
             {% endif %}
         {% endwith %}
         
-            <form id="invoiceForm" method="POST" action="{{ url_for('create_invoice') }}">
-                <input type="hidden" id="business_id" name="business_id" value="{{ selected_business.id if selected_business else '' }}">
+            <form id="businessForm" action="{{ url_for('create_invoice') }}" method="POST" enctype="multipart/form-data">
+                <input type="hidden" id="business_id" name="business_id" value="{{ selected_company.id if selected_company else '' }}">
                 <input type="hidden" name="from_create_invoice" value="true">
                 <input type="hidden" name="client_id" value="{{ selected_client.id if selected_client else '' }}">
                 <input type="hidden" id="line_items_json" name="line_items_json" value="">
-                <div class="invoice-header"> 
-                    <div class="invoice-fields row"> 
-                        <div class="form-group col-md-6"> 
-                            <label for="date">Invoice Date:</label>
-                            <input type="date" id="date" name="date" class="form-control" required>
-                        </div>
-                        <div class="form-group col-md-6">
-                            <label for="due_date">Due Date:</label>
-                            <input type="date" id="due_date" name="due_date" class="form-control" required>
-                        </div>
-                        <div class="form-group col-md-6 invoice-number-group"> 
-                            <label for="invoice_number">Invoice Number:</label>
-                            <input type="text" id="invoice_number" name="invoice_number" class="form-control" value="{{ get_setting('next_invoice_number', '1001') }}">
-                            <input type="hidden" id="auto_invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
-                            <button type="button" id="confirmInvoiceBtn" class="add-to-invoice-btn btn btn-success btn-sm" title="Add to invoice" style="margin-left: 8px;">
-                                <i class="fas fa-check"></i>
-                            </button>
-                        </div>
-                    </div>
+                <div class="invoice-header">
+                    {% include 'components/invoice_fields.html' %}
                 </div>
-
-                <!-- Add the invoice-items container before the totals -->
-                <div id="invoice-items"></div>
-
-                <!-- Invoice Totals -->
-                <div class="invoice-totals">
-                    <div class="total-row">
-                        <span>Subtotal:</span>
-                        <span id="subtotal">$0.00</span>
-                    </div>
-                    <div class="total-row">
-                        <span>Tax:</span>
-                        <span id="tax">$0.00</span>
-                    </div>
-                    <div class="total-row">
-                        <span>Total:</span>
-                        <span id="total">$0.00</span>
-                    </div>
-                </div>
-
-                <div class="main-action-buttons d-flex flex-wrap justify-content-start gap-2 mt-3 mb-3">
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddLaborDialog()">
-                        <i class="fas fa-tools"></i> <span class="hide-on-mobile">Add </span>Labor
-                    </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddItemDialog()">
-                        <i class="fas fa-box"></i> <span class="hide-on-mobile">Add </span>Item
-                    </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddNoteDialog()">
-                        <i class="fas fa-sticky-note"></i> <span class="hide-on-mobile">Add </span>Note
-                    </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddSalesTaxDialog()">
-                        <i class="fas fa-percentage"></i> <span class="hide-on-mobile">Add </span>Tax
-                    </button>
-                </div>
-
+                <div id="items"></div>
+                <!-- Sales Tax Dialog, Invoice Totals, Notes Section, etc. remain unchanged -->
+                {% include 'components/invoice_action_buttons.html' %}
                 <button type="submit" class="btn btn-success w-100">Generate Invoice</button>
             </form>
-    </div>
-
-    <!-- Add Note Dialog -->
-    <div id="addNoteDialog" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h2>Add Note</h2>
-            <textarea id="noteText" rows="4" class="form-control" placeholder="Enter your note here..."></textarea>
-            <div class="button-group">
-                <button type="button" class="btn btn-success" onclick="addNoteToInvoice()">Add Note</button>
-                <button type="button" class="btn btn-secondary" onclick="closeAddNoteDialog()">Cancel</button>
-            </div>
-        </div>
     </div>
 
         </div>
       </div>
     </div>
-{% endblock content %}
+{% endblock %}
 
-{% block scripts %}
-{% if not is_edit %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    restoreInvoiceData();
-    // Add navigation away prompt for unsaved draft (only on create, not edit)
-    window.addEventListener('beforeunload', function (e) {
-        const userId = "{{ session.get('user_id') }}";
-        const draft = localStorage.getItem(`invoiceData_${userId}`);
-        if (draft) {
-            e.preventDefault();
-            e.returnValue = '';
-            return '';
-        }
-    });
-    // Intercept navigation clicks
-    function confirmDraftDiscard(e) {
-        const userId = "{{ session.get('user_id') }}";
-        const draft = localStorage.getItem(`invoiceData_${userId}`);
-        if (draft) {
-            const result = confirm('You have an in-progress invoice. Would you like to discard it? Click OK to discard, Cancel to stay on this page.');
-            if (result) {
-                clearInvoiceData();
-            } else {
-                e.preventDefault();
-                return false;
-            }
-        }
-    }
-    document.querySelectorAll('a, button[type="button"]').forEach(el => {
-        el.addEventListener('click', function(e) {
-            // Only intercept if navigating away from create invoice and not the confirm invoice button
-            // and not one of the add item/labor/note/tax buttons
-            if (this.closest('form')?.id !== 'businessForm' && 
-                this.id !== 'confirmInvoiceBtn' &&
-                !this.closest('.main-action-buttons') &&
-                !this.onclick) {  // Don't intercept if the button has an onclick handler
-                confirmDraftDiscard(e);
-            }
-        });
-    });
-});
-
-// Function to show add note dialog
-function showAddNoteDialog() {
-    const itemsDiv = document.getElementById('invoice-items');
-    if (!itemsDiv) {
-        console.error('Could not find invoice-items container');
-        return;
-    }
-    const newNote = document.createElement('div');
-    newNote.className = 'line-item';
-    newNote.innerHTML = `
-        <div class="line-item-content">
-            <div class="detail-item">
-                <label>Note:</label>
-                <textarea class="form-control" rows="3" placeholder="Enter your note here..."></textarea>
-            </div>
-            <div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">
-                <button type="button" class="add-to-invoice-btn" onclick="addNoteToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>
-                <button type="button" class="remove-item-btn" onclick="removeNoteFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>
-            </div>
-        </div>
-    `;
-    itemsDiv.appendChild(newNote);
-    document.querySelector('.main-action-buttons').classList.add('hidden');
-}
-
-// Function to add note to invoice
-function addNoteToInvoice(button) {
-    const noteDiv = button.closest('.line-item');
-    const noteText = noteDiv.querySelector('textarea').value;
-    if (noteText.trim()) {
-        noteDiv.innerHTML = `
-            <div class="line-item-content">
-                <div class="detail-item">
-                    <span class="detail-label">Note:</span>
-                    <span class="detail-value">${noteText}</span>
-                </div>
-                <div class="button-group">
-                    <button type="button" class="remove-item-btn" onclick="removeNoteFromInvoice(this)" title="Remove note"><i class="fas fa-times"></i></button>
-                </div>
-            </div>
-        `;
-        noteDiv.classList.add('confirmed');
-        document.querySelector('.main-action-buttons').classList.remove('hidden');
-    }
-}
-
-// Function to remove note from invoice
-function removeNoteFromInvoice(button) {
-    const noteDiv = button.closest('.line-item');
-    if (noteDiv) {
-        noteDiv.remove();
-        document.querySelector('.main-action-buttons').classList.remove('hidden');
-    }
-}
-</script>
-{% endif %}
+{% block extra_scripts %}
 {% endblock %} 
