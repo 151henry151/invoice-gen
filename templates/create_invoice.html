@@ -30,30 +30,6 @@
         .line-item.preview-mode .form-control:focus, .notes-section.preview-mode .form-control:focus {
             box-shadow: none;
         }
-        .add-to-invoice-btn {
-            margin-top: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            width: 32px;
-            height: 32px;
-            padding: 0;
-            border-radius: 50%;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        
-        .add-to-invoice-btn:hover {
-            background-color: #218838;
-        }
-        
-        .add-to-invoice-btn i {
-            font-size: 1rem;
-        }
         .edit-button, .remove-button {
             display: none;
             margin-top: 1rem;
@@ -641,7 +617,7 @@
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Time:</span>
-                                <span class="detail-value">${item.hours}h ${item.minutes}m</span>
+                                <span class="detail-value">${hours}h ${minutes}m</span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Rate:</span>
@@ -1255,9 +1231,9 @@
                 '<div class="total-cost">' +
                 '<span>Total Cost: $' + lineItem.dataset.total + '</span>' +
                 '</div>' +
-                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                '<div class="d-flex gap-2 justify-content-end">' +
+                '<button type="button" class="btn btn-success btn-sm" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                '<button type="button" class="btn btn-danger btn-sm" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
                 '</div>';
             itemsDiv.appendChild(newItem);
             lineItem.remove();
@@ -1282,9 +1258,9 @@
                 '<div class="total-cost">' +
                 '<span>Total Cost: $' + lineItem.dataset.total + '</span>' +
                 '</div>' +
-                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                '<div class="d-flex gap-2 justify-content-end">' +
+                '<button type="button" class="btn btn-success btn-sm" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                '<button type="button" class="btn btn-danger btn-sm" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
                 '</div>';
             itemsDiv.appendChild(newItem);
             lineItem.remove();
@@ -1857,9 +1833,9 @@
                     '<div class="total-cost">' +
                     '<span>Total Cost: $0.00</span>' +
                     '</div>' +
-                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                    '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '<div class="d-flex gap-2 justify-content-end">' +
+                    '<button type="button" class="btn btn-success btn-sm" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="btn btn-danger btn-sm" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
                     '</div>';
                 
                 itemsDiv.appendChild(newItem);
@@ -1902,9 +1878,9 @@
                     '<div class="total-cost">' +
                     '<span>Total Cost: $0.00</span>' +
                     '</div>' +
-                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                    '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '<div class="d-flex gap-2 justify-content-end">' +
+                    '<button type="button" class="btn btn-success btn-sm" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="btn btn-danger btn-sm" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
                     '</div>';
                 itemsDiv.appendChild(newItem);
                 document.querySelector('.main-action-buttons').classList.add('hidden');
@@ -1946,9 +1922,9 @@
                     '<div class="total-cost">' +
                     '<span>Total Cost: $0.00</span>' +
                     '</div>' +
-                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                    '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '<div class="d-flex gap-2 justify-content-end">' +
+                    '<button type="button" class="btn btn-success btn-sm" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="btn btn-danger btn-sm" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
                     '</div>';
                 
                 itemsDiv.appendChild(newItem);
@@ -1987,9 +1963,9 @@
                     '<div class="total-cost">' +
                     '<span>Total Cost: $0.00</span>' +
                     '</div>' +
-                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                    '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '<div class="d-flex gap-2 justify-content-end">' +
+                    '<button type="button" class="btn btn-success btn-sm" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="btn btn-danger btn-sm" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
                     '</div>';
                 itemsDiv.appendChild(newItem);
                 document.querySelector('.main-action-buttons').classList.add('hidden');
