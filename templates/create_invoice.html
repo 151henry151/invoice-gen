@@ -2282,7 +2282,7 @@
                     {% include 'components/invoice_fields.html' %}
                 </div>
                 <div id="items"></div>
-                <!-- Sales Tax Dialog, Invoice Totals, Notes Section, etc. remain unchanged -->
+                {% include 'components/invoice_dialogs.html' %}
                 {% include 'components/invoice_action_buttons.html' %}
                 <button type="submit" class="btn btn-success w-100">Generate Invoice</button>
             </form>
