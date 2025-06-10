@@ -201,10 +201,9 @@ def register_routes(app):
         return redirect(url_for_with_prefix('login'))
 
     @app.route('/')
-    def root():
-        if 'user_id' in session:
-            return redirect(url_for_with_prefix('invoice_list'))
-        return redirect(url_for_with_prefix('login'))
+    @login_required
+    def index():
+        return redirect(url_for('dashboard'))
 
     @app.route('/dashboard')
     @login_required
@@ -664,14 +663,18 @@ def register_routes(app):
         client_id = request.args.get('client_id')
         business_id = request.args.get('business_id')
         
-        conn = get_db()
-        items = conn.execute('SELECT * FROM items WHERE user_id = ?', 
-                            (session['user_id'],)).fetchall()
+        # If this is an AJAX request for item details
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and item_id:
+            item = db.session.query(Item).filter_by(id=item_id, user_id=session['user_id']).first()
+            if item:
+                return jsonify(item.to_dict())
+            return jsonify({'error': 'Item not found'}), 404
         
+        # Regular page request
+        items = db.session.query(Item).filter_by(user_id=session['user_id']).all()
         selected_item = None
         if item_id and not is_new:
-            selected_item = conn.execute('SELECT * FROM items WHERE id = ? AND user_id = ?',
-                                       (item_id, session['user_id'])).fetchone()
+            selected_item = db.session.query(Item).filter_by(id=item_id, user_id=session['user_id']).first()
         
         # Store client and business IDs in session if provided
         if client_id:
@@ -1051,7 +1054,7 @@ def register_routes(app):
 
     @app.context_processor
     def inject_app_root():
-        return dict(app_root='/invoice')
+        return dict(APP_ROOT='/invoice')
 
     @app.context_processor
     def inject_get_setting():
@@ -1345,21 +1348,25 @@ def register_routes(app):
 
     app.jinja_env.filters['format_date'] = format_date
 
-    app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix)
+    app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix) 
 
-    @app.route('/get_labor_items')
+    # Register API routes
+    @app.route('/invoice/api/items')
+    @login_required
+    def get_items():
+        items = db.session.query(Item).filter_by(user_id=session['user_id']).all()
+        return jsonify([{
+            'id': item.id,
+            'description': item.description,
+            'price': float(item.unit_price)
+        } for item in items])
+
+    @app.route('/invoice/api/labor_items')
     @login_required
     def get_labor_items():
-        try:
-            labor_items = db.session.query(models.LaborItem).filter_by(user_id=session['user_id']).all()
-            items = [{
-                'id': item.id,
-                'description': item.description,
-                'rate': float(item.rate)
-            } for item in labor_items]
-            return jsonify(items)
-        except Exception as e:
-            app.logger.error(f"Error fetching labor items: {str(e)}")
-            return jsonify([])
-
-    app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix) 
+        labor_items = db.session.query(LaborItem).filter_by(user_id=session['user_id']).all()
+        return jsonify([{
+            'id': item.id,
+            'description': item.description,
+            'rate': float(item.rate)
+        } for item in labor_items]) 

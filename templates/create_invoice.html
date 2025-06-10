@@ -482,7 +482,7 @@
         }
     </style>
 <script>
-    const APP_ROOT = "{{ app_root }}";
+    const APP_ROOT = "{{ APP_ROOT }}";
     
     // Function to calculate total cost
     window.calculateTotalCost = function(itemDiv) {
@@ -697,7 +697,7 @@
                     lineItem.dataset.taxId = item.taxId;
                     
                     // Fetch the tax rate details to get the description
-                    fetch('/invoice/api/sales-tax')
+                    fetch('/api/sales-tax')
                         .then(response => response.json())
                         .then(rates => {
                             const taxRate = rates.find(r => r.id === parseInt(item.taxId));
@@ -1530,7 +1530,7 @@
         dialog.style.display = 'block';
         
         // Load existing tax rates
-        fetch('/invoice/api/sales-tax')
+        fetch('/api/sales-tax')
             .then(response => response.json())
             .then(rates => {
                 const select = document.getElementById('salesTaxSelect');
@@ -1562,7 +1562,7 @@
     function handleSalesTaxSelection(select) {
         if (select.value === 'clear') {
             if (confirm('Are you sure you want to clear all saved tax rates? This action cannot be undone.')) {
-                fetch('/invoice/api/sales-tax', {
+                fetch('/api/sales-tax', {
                     method: 'DELETE'
                 })
                 .then(response => {
@@ -1595,7 +1595,7 @@
         // Calculate and display tax amount in real-time when a rate is selected
         if (select.value && select.value !== 'new') {
             const appliesTo = document.getElementById('taxAppliesTo').value;
-            fetch('/invoice/api/sales-tax')
+            fetch('/api/sales-tax')
                 .then(response => response.json())
                 .then(rates => {
                     const selectedRate = rates.find(r => r.id === parseInt(select.value));
@@ -1654,7 +1654,7 @@
             }
             
             try {
-                const response = await fetch('/invoice/api/sales-tax', {
+                const response = await fetch('/api/sales-tax', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1682,7 +1682,7 @@
         } else if (select.value) {
             // Use existing tax rate
             try {
-                const response = await fetch('/invoice/api/sales-tax');
+                const response = await fetch('/api/sales-tax');
                 const rates = await response.json();
                 const selectedRate = rates.find(r => r.id === parseInt(select.value));
                 if (selectedRate) {
@@ -1771,7 +1771,7 @@
         
         // Pre-select the tax rate
         const select = document.getElementById('salesTaxSelect');
-        fetch('/invoice/api/sales-tax')
+        fetch('/api/sales-tax')
             .then(response => response.json())
             .then(rates => {
                 const matchingRate = rates.find(r => r.rate === parseFloat(rate));
@@ -1802,20 +1802,19 @@
         newItem.className = 'item';
         
         // Fetch latest labor items
-        fetch(`${APP_ROOT}/labor_details`)
-            .then(response => response.text())
-            .then(html => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const laborItems = doc.querySelectorAll('select[name="labor_item"] option');
-                
+        fetch(`${APP_ROOT}/api/labor_items`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(laborItems => {
                 let optionsHtml = '<option value="" disabled selected>Select Labor Item</option>' +
                                 '<option value="new">Create New Labor Item</option>';
                 
-                laborItems.forEach(option => {
-                    if (option.value && option.value !== 'new') {
-                        optionsHtml += `<option value="${option.value}" data-rate="${option.dataset.rate}">${option.text}</option>`;
-                    }
+                laborItems.forEach(item => {
+                    optionsHtml += `<option value="${item.id}" data-rate="${item.rate}">${item.description} - $${item.rate.toFixed(2)}/hr</option>`;
                 });
                 
                 newItem.innerHTML = 
@@ -1858,32 +1857,7 @@
             })
             .catch(error => {
                 console.error('Error fetching labor items:', error);
-                // Fallback to static options if fetch fails
-                newItem.innerHTML = 
-                    '<label>Labor Item:</label>' +
-                    '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
-                    '<option value="" disabled selected>Select Labor Item</option>' +
-                    '<option value="new">Create New Labor Item</option>' +
-                    '{% for item in labor_items %}' +
-                    '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
-                    '{% endfor %}' +
-                    '</select>' +
-                    '<label>Date labor performed:</label>' +
-                    '<input type="date" name="item_date[]" required>' +
-                    '<label>Hours:</label>' +
-                    '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-                    '<label>Minutes:</label>' +
-                    '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-                    '<input type="hidden" name="labor_rate[]" value="0.00">' +
-                    '<div class="total-cost">' +
-                    '<span>Total Cost: $0.00</span>' +
-                    '</div>' +
-                    '<div class="d-flex gap-2 justify-content-end">' +
-                    '<button type="button" class="btn btn-success btn-sm" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="btn btn-danger btn-sm" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                    '</div>';
-                itemsDiv.appendChild(newItem);
-                document.querySelector('.main-action-buttons').classList.add('hidden');
+                alert('Failed to load labor items. Please try again.');
             });
     }
 
@@ -1893,22 +1867,19 @@
         newItem.className = 'item';
         
         // Fetch latest items
-        fetch(`${APP_ROOT}/item_details`)
-            .then(response => response.text())
-            .then(html => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const items = doc.querySelectorAll('select[name="item"] option');
-                
+        fetch(`${APP_ROOT}/api/items`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(items => {
                 let optionsHtml = '<option value="" disabled selected>Select Item</option>' +
                                 '<option value="new">Create New Item</option>';
                 
-                items.forEach(option => {
-                    if (option.value && option.value !== 'new') {
-                        const description = option.text.split(' - $')[0];
-                        const price = option.text.split(' - $')[1];
-                        optionsHtml += `<option value="${option.value}" data-price="${price}">${option.text}</option>`;
-                    }
+                items.forEach(item => {
+                    optionsHtml += `<option value="${item.id}" data-price="${item.price}">${item.description} - $${item.price.toFixed(2)}</option>`;
                 });
                 
                 newItem.innerHTML = 
@@ -1947,28 +1918,7 @@
             })
             .catch(error => {
                 console.error('Error fetching items:', error);
-                // Fallback to static options if fetch fails
-                newItem.innerHTML = 
-                    '<label>Item:</label>' +
-                    '<select name="item[]" required onchange="handleItemSelection(this)">' +
-                    '<option value="" disabled selected>Select Item</option>' +
-                    '<option value="new">Create New Item</option>' +
-                    '{% for item in items %}' +
-                    '<option value="{{ item.id }}" data-price="{{ item.unit_price }}">{{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}</option>' +
-                    '{% endfor %}' +
-                    '</select>' +
-                    '<label>Quantity:</label>' +
-                    '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
-                    '<input type="hidden" name="item_price[]" value="0.00">' +
-                    '<div class="total-cost">' +
-                    '<span>Total Cost: $0.00</span>' +
-                    '</div>' +
-                    '<div class="d-flex gap-2 justify-content-end">' +
-                    '<button type="button" class="btn btn-success btn-sm" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="btn btn-danger btn-sm" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                    '</div>';
-                itemsDiv.appendChild(newItem);
-                document.querySelector('.main-action-buttons').classList.add('hidden');
+                alert('Failed to load items. Please try again.');
             });
     }
 

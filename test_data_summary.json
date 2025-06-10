@@ -5,55 +5,60 @@
     "email": "test@example.com"
   },
   "businesses": [
-    "Warren-Durham",
-    "Hernandez-Taylor",
-    "Roberts, Lee and Green"
+    "Middleton-Weiss",
+    "Macias, Martin and Thomas",
+    "Webster-Washington"
   ],
   "clients": [
-    "Oliver-Brown",
-    "Huerta, Rogers and Taylor",
-    "Ramirez Ltd",
-    "Farley Group",
-    "Harris-Jones"
+    "Bennett-Morrow",
+    "Murphy-Estrada",
+    "Davis, Herrera and Collins",
+    "Mejia-Padilla",
+    "Clarke Ltd"
   ],
   "items": [
-    "Order with produce ok help.",
-    "Certain control building bag near task difference.",
-    "Production without food contain down.",
-    "Out table close certain cell series.",
-    "Wife speak cup case even.",
-    "Training model say road.",
-    "Throw responsibility edge recent.",
-    "Black point first however.",
-    "Hit increase address stay guess.",
-    "Positive mind apply certainly skin very."
+    "4x8 Sheets of 3/4\" Plywood",
+    "Cleaning Supplies",
+    "Paint (1 Gallon)",
+    "Box of Nails (1000 ct)",
+    "LED Light Bulb (Pack of 4)",
+    "HVAC Air Filter",
+    "Office Chair",
+    "Desk Lamp",
+    "Extension Cord (25 ft)",
+    "Printer Paper (500 sheets)"
   ],
   "labor_items": [
-    "Radio will share bit color.",
-    "Hospital arm put might address better land.",
-    "Dark paper man medical three development hair then.",
-    "Son human today soldier without support.",
-    "Response growth exactly I sound claim modern."
+    "Carpentry",
+    "Plumbing",
+    "Cleaning Services",
+    "Electrical Work",
+    "Landscaping",
+    "Painting",
+    "HVAC Maintenance",
+    "IT Support",
+    "Window Installation",
+    "Roof Repair"
   ],
   "tax_rates": [
-    "0% Tax (0.0%)",
-    "5% Tax (5.0%)",
-    "10% Tax (10.0%)",
-    "15% Tax (15.0%)",
-    "20% Tax (20.0%)"
+    "VT State Tax (6.0%)",
+    "NY State Tax (8.875%)",
+    "Local Sales Tax (2.0%)",
+    "MA State Tax (6.25%)",
+    "NH No Sales Tax (0.0%)"
   ],
   "invoices": [
-    "INV-124738 - paid",
-    "INV-104288 - sent",
-    "INV-60893 - paid",
-    "INV-580485 - draft",
-    "INV-310011 - paid",
-    "INV-75051 - draft",
-    "INV-16322 - paid",
-    "INV-834401 - sent",
-    "INV-693773 - sent",
-    "INV-561987 - draft",
-    "INV-344305 - paid",
-    "INV-173968 - draft"
+    "INV-145653 - paid",
+    "INV-255702 - sent",
+    "INV-247161 - draft",
+    "INV-27284 - paid",
+    "INV-241141 - draft",
+    "INV-546197 - sent",
+    "INV-507456 - paid",
+    "INV-75248 - draft",
+    "INV-189426 - draft",
+    "INV-555979 - paid",
+    "INV-134279 - paid",
+    "INV-415124 - sent"
   ]
 }

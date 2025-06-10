@@ -189,46 +189,77 @@ def create_test_data():
         db.session.commit()
         print(f"Created {len(clients)} test clients")
         
-        # Create test items
+        # Create test items with realistic descriptions
+        item_descriptions = [
+            '4x8 Sheets of 3/4" Plywood',
+            'Cleaning Supplies',
+            'Paint (1 Gallon)',
+            'Box of Nails (1000 ct)',
+            'LED Light Bulb (Pack of 4)',
+            'HVAC Air Filter',
+            'Office Chair',
+            'Desk Lamp',
+            'Extension Cord (25 ft)',
+            'Printer Paper (500 sheets)'
+        ]
         items = []
-        for i in range(10):
+        for desc in item_descriptions:
             item = Item(
-                description=fake.sentence(),
+                description=desc,
                 quantity=1,
-                unit_price=round(fake.random_number(digits=3) / 100, 2),
+                unit_price=round(random.uniform(5, 120), 2),
                 user_id=test_user.id
             )
             db.session.add(item)
             items.append(item)
         db.session.commit()
         print(f"Created {len(items)} test items")
-        
-        # Create test labor items
+
+        # Create test labor items with realistic names
+        labor_names = [
+            'Carpentry',
+            'Plumbing',
+            'Cleaning Services',
+            'Electrical Work',
+            'Landscaping',
+            'Painting',
+            'HVAC Maintenance',
+            'IT Support',
+            'Window Installation',
+            'Roof Repair'
+        ]
         labor_items = []
-        for i in range(5):
-            labor_item = LaborItem(
-                description=fake.sentence(),
-                hours=1,
-                rate=round(fake.random_number(digits=2) + 20, 2),
+        for name in labor_names:
+            labor = LaborItem(
+                description=name,
+                hours=1.0,  # Set default hours for test data
+                rate=round(random.uniform(25, 120), 2),
                 user_id=test_user.id
             )
-            db.session.add(labor_item)
-            labor_items.append(labor_item)
+            db.session.add(labor)
+            labor_items.append(labor)
         db.session.commit()
         print(f"Created {len(labor_items)} test labor items")
-        
-        # Create test tax rates
-        tax_rates = []
-        for rate in [0, 5, 10, 15, 20]:
-            tax_rate = SalesTax(
-                description=f"{rate}% Tax",
+
+        # Create test sales tax rates with realistic names and values
+        tax_rates = [
+            ('VT State Tax', 6.0),
+            ('NY State Tax', 8.875),
+            ('Local Sales Tax', 2.0),
+            ('MA State Tax', 6.25),
+            ('NH No Sales Tax', 0.0)
+        ]
+        sales_taxes = []
+        for name, rate in tax_rates:
+            tax = SalesTax(
+                description=name,
                 rate=rate,
                 user_id=test_user.id
             )
-            db.session.add(tax_rate)
-            tax_rates.append(tax_rate)
+            db.session.add(tax)
+            sales_taxes.append(tax)
         db.session.commit()
-        print(f"Created {len(tax_rates)} test tax rates")
+        print(f"Created {len(sales_taxes)} test sales tax rates")
         
         # Create test invoices
         invoices = []
@@ -283,7 +314,7 @@ def create_test_data():
                     db.session.add(invoice_labor)
             
             # Add random tax rate
-            tax_rate = fake.random_element(tax_rates)
+            tax_rate = fake.random_element(sales_taxes)
             invoice.sales_tax_id = tax_rate.id
             
             invoices.append(invoice)
@@ -302,7 +333,7 @@ def create_test_data():
             "clients": [c.name for c in clients],
             "items": [i.description for i in items],
             "labor_items": [li.description for li in labor_items],
-            "tax_rates": [f"{tr.description} ({tr.rate}%)" for tr in tax_rates],
+            "tax_rates": [f"{tr.description} ({tr.rate}%)" for tr in sales_taxes],
             "invoices": [f"{inv.invoice_number} - {inv.status}" for inv in invoices]
         }
         
