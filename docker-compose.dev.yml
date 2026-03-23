@@ -2,33 +2,29 @@ version: '3'
 
 services:
   web:
-    build:
+    build: 
       context: .
-      dockerfile: ${DOCKERFILE:-Dockerfile}
+      dockerfile: Dockerfile.dev
     ports:
       - "8080:8080"
     volumes:
-      - .:/app
+      - .:/app  # Mount the entire project directory for live code changes
       - ./static:/app/static
       - ./uploads:/app/uploads
       - invoice_db_data:/app/db
       - invoice_migrations_data:/app/migrations
     environment:
-      - FLASK_APP=app_factory.py
-      - FLASK_ENV=${FLASK_ENV:-production}
-      - SECRET_KEY=dev-key-please-change-in-production
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - SECRET_KEY=dev-secret-key
       - DATABASE_URL=sqlite:////app/db/invoice_gen.db
       - SCRIPT_NAME=/invoice
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
     networks:
       - invoice_network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/static/style.css"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    command: flask run --host=0.0.0.0 --port=8080
 
 networks:
   invoice_network:
@@ -38,8 +34,4 @@ volumes:
   invoice_db_data:
     driver: local
   invoice_migrations_data:
-    driver: local
-
-# Optional: Define a volume for persistent data if not mounting a host directory
-# volumes:
-#   user_logos_data:
+    driver: local 

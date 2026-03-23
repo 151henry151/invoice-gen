@@ -1,0 +1,234 @@
+{# Business Info Accordion (mobile and desktop) #}
+<div class="container d-block d-sm-none">
+  <div class="accordion" id="businessAccordion">
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="businessAccordionHeader">
+        <button class="accordion-button collapsed d-flex align-items-center gap-2" type="button" data-bs-toggle="collapse" data-bs-target="#businessAccordionCollapse" aria-expanded="false" aria-controls="businessAccordionCollapse" style="padding: 0.3rem 0.75rem;">
+          {% if selected_company and selected_company.logo_path %}
+            <img src="{{ url_for('serve_upload', filename=selected_company.logo_path) }}" alt="Business Logo" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover;">
+          {% else %}
+            <i class="fas fa-building fa-lg text-secondary" style="width: 32px; height: 22px; display: flex; align-items: center; justify-content: center;"></i>
+          {% endif %}
+          <span class="fw-semibold">{{ selected_company.name if selected_company else 'Business' }}</span>
+        </button>
+      </h2>
+      <div id="businessAccordionCollapse" class="accordion-collapse collapse" aria-labelledby="businessAccordionHeader" data-bs-parent="#businessAccordion">
+        <div class="accordion-body p-2">
+          <div class="details-content">
+            <div class="details-header">
+              <div class="detail-item">
+                <span class="detail-label">Name:</span>
+                <span class="detail-value" data-placeholder="Business Name">{{ selected_company.name if selected_company else '' }}</span>
+              </div>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Address:</span>
+              <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address if selected_company else '' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Email:</span>
+              <span class="detail-value" data-placeholder="business@example.com">{{ selected_company.email if selected_company else '' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Phone:</span>
+              <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone if selected_company else '' }}</span>
+            </div>
+            <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else url_for('business_details', new='true', source='create_invoice') }}" 
+               class="settings-link{% if not selected_company %} create-new-btn{% endif %} edit-business-btn-responsive"
+               data-app-root="{{ APP_ROOT }}">
+                {% if selected_company %}Edit Business Details{% else %}Create New Business{% endif %}
+            </a>
+          </div>
+          <div class="navigation mt-2">
+            <div class="selector-container">
+              <select class="company-selector" onchange="handleCompanySelection(this.value, event)" onkeydown="handleCompanySelection(this.value, event)">
+                <option value="" disabled selected>Select Your Business</option>
+                <option value="{{ url_for('business_details', new='true', source='create_invoice') }}">Create New Business</option>
+                {% for business in businesses %}
+                  <option value="{{ business.id }}" {% if selected_business and selected_business.id == business.id %}selected{% endif %}>{{ business.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- End Business Accordion -->
+
+<div class="d-none d-sm-block">
+  <div class="container">
+    <div class="company-details">
+        <div id="logo-placeholder" class="logo-placeholder">
+            {% if selected_company and selected_company.logo_path %}
+                <img src="{{ url_for('serve_upload', filename=selected_company.logo_path) }}" alt="Company Logo" class="company-logo">
+            {% else %}
+                <span class="logo-placeholder-text">Company Logo</span>
+            {% endif %}
+        </div>
+        <div class="details-content">
+            <div class="details-header">
+                <div class="detail-item">
+                    <span class="detail-label">Name:</span>
+                    <span class="detail-value" data-placeholder="Business Name">{{ selected_company.name if selected_company else '' }}</span>
+                </div>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Address:</span>
+                <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address if selected_company else '' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Email:</span>
+                <span class="detail-value" data-placeholder="business@example.com">{{ selected_company.email if selected_company else '' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Phone:</span>
+                <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone if selected_company else '' }}</span>
+            </div>
+            <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else url_for('business_details', new='true', source='create_invoice') }}" 
+               class="settings-link{% if not selected_company %} create-new-btn{% endif %} edit-business-btn-responsive"
+               data-app-root="{{ APP_ROOT }}">
+                {% if selected_company %}Edit Business Details{% else %}Create New Business{% endif %}
+            </a>
+        </div>
+    </div>
+    <div class="navigation">
+        <div class="selector-container">
+            <select class="company-selector" onchange="handleCompanySelection(this.value, event)" onkeydown="handleCompanySelection(this.value, event)">
+                <option value="" disabled selected>Select Your Business</option>
+                <option value="{{ url_for('business_details', new='true', source='create_invoice') }}">Create New Business</option>
+                {% for business in businesses %}
+                    <option value="{{ business.id }}" {% if selected_business and selected_business.id == business.id %}selected{% endif %}>{{ business.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+  </div>
+</div>
+<!-- End Desktop Business Info -->
+
+{# Client Info Accordion (mobile and desktop) #}
+<div class="container d-block d-sm-none">
+  <div class="accordion" id="clientAccordion">
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="clientAccordionHeader">
+        <button class="accordion-button collapsed d-flex align-items-center gap-2" type="button" data-bs-toggle="collapse" data-bs-target="#clientAccordionCollapse" aria-expanded="false" aria-controls="clientAccordionCollapse" style="padding: 0.3rem 0.75rem;">
+          <i class="fas fa-user fa-lg text-secondary" style="width: 32px; height: 22px; display: flex; align-items: center; justify-content: center;"></i>
+          <span class="fw-semibold">{{ selected_client.name if selected_client else 'Client' }}</span>
+        </button>
+      </h2>
+      <div id="clientAccordionCollapse" class="accordion-collapse collapse" aria-labelledby="clientAccordionHeader" data-bs-parent="#clientAccordion">
+        <div class="accordion-body p-2">
+          <div class="details-content">
+            {% if selected_client %}
+              <div class="detail-item">
+                <span class="detail-label">Client Name:</span>
+                <span class="detail-value">{{ selected_client.name }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Address:</span>
+                <span class="detail-value">{{ selected_client.address }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Email:</span>
+                <span class="detail-value">{{ selected_client.email }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Phone Number:</span>
+                <span class="detail-value">{{ selected_client.phone }}</span>
+              </div>
+            {% else %}
+              <div class="detail-item">
+                <span class="detail-label">Client Name:</span>
+                <span class="detail-value" data-placeholder="Your Client's Name"></span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Address:</span>
+                <span class="detail-value" data-placeholder="Your Client's Address"></span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Email:</span>
+                <span class="detail-value" data-placeholder="Your Client's Email"></span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Phone Number:</span>
+                <span class="detail-value" data-placeholder="Your Client's Phone Number"></span>
+              </div>
+            {% endif %}
+            <a href="#" class="btn btn-outline-secondary btn-sm settings-link{% if not selected_client %} disabled{% endif %} edit-client-btn-responsive" style="margin-top: 1rem; width: 200px; max-width: 100%;">Edit Client Details</a>
+          </div>
+          <div class="navigation mt-2">
+            <div class="selector-container">
+              <select class="client-selector" onchange="handleClientSelection(this.value, event)" onkeydown="handleClientSelection(this.value, event)">
+                <option value="" disabled selected>Select Client</option>
+                <option value="{{ url_for('client_details') }}?new=true&from_create_invoice=true">Create New Client</option>
+                {% for client in clients %}
+                  <option value="{{ client.id }}" {% if selected_client and selected_client.id == client.id %}selected{% endif %}>{{ client.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- End Client Accordion -->
+
+<div class="d-none d-sm-block">
+  <div class="container">
+    <div class="client-details">
+      <div class="details-content">
+        {% if selected_client %}
+          <div class="detail-item">
+            <span class="detail-label">Client Name:</span>
+            <span class="detail-value">{{ selected_client.name }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Address:</span>
+            <span class="detail-value">{{ selected_client.address }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Email:</span>
+            <span class="detail-value">{{ selected_client.email }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Phone Number:</span>
+            <span class="detail-value">{{ selected_client.phone }}</span>
+          </div>
+        {% else %}
+          <div class="detail-item">
+            <span class="detail-label">Client Name:</span>
+            <span class="detail-value" data-placeholder="Your Client's Name"></span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Address:</span>
+            <span class="detail-value" data-placeholder="Your Client's Address"></span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Email:</span>
+            <span class="detail-value" data-placeholder="Your Client's Email"></span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Phone Number:</span>
+            <span class="detail-value" data-placeholder="Your Client's Phone Number"></span>
+          </div>
+        {% endif %}
+        <a href="#" class="btn btn-outline-secondary btn-sm settings-link{% if not selected_client %} disabled{% endif %} edit-client-btn-responsive" style="margin-top: 1rem; width: 200px; max-width: 100%;">Edit Client Details</a>
+      </div>
+    </div>
+    <div class="navigation">
+      <div class="selector-container">
+        <select class="client-selector" onchange="handleClientSelection(this.value, event)" onkeydown="handleClientSelection(this.value, event)">
+          <option value="" disabled selected>Select Client</option>
+          <option value="{{ url_for('client_details') }}?new=true&from_create_invoice=true">Create New Client</option>
+          {% for client in clients %}
+            <option value="{{ client.id }}" {% if selected_client and selected_client.id == client.id %}selected{% endif %}>{{ client.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- End Desktop Client Info --> 

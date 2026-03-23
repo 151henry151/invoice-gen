@@ -23,34 +23,40 @@
                                 <span class="invoice-number-text">{{ invoice.invoice_number }}</span>
                                 <div class="mobile-invoice-details">
                                     <div class="mobile-invoice-number"><span class="mobile-label">Invoice #:</span> {{ invoice.invoice_number }}</div>
-                                    <div><span class="mobile-label">Date:</span> {{ invoice.date }}</div>
+                                    <div><span class="mobile-label">Date:</span> {{ invoice.date|format_date }}</div>
                                     <div><span class="mobile-label">Client:</span> {{ invoice.client_name }}</div>
                                     <div><span class="mobile-label">Total:</span> ${{ "%.2f"|format(invoice.total) }}</div>
                                     <div class="mobile-btn-group">
-                                        <a href="{{ url_for('view_invoice', invoice_number=invoice.invoice_number) }}" class="btn btn-sm btn-outline-primary" title="View Invoice"><i class="fas fa-eye"></i></a>
-                                        <a href="{{ url_for('download_invoice', invoice_number=invoice.invoice_number) }}" class="btn btn-sm btn-outline-success" title="Download Invoice"><i class="fas fa-download"></i></a>
-                                        <form action="{{ url_for('delete_invoice', invoice_number=invoice.invoice_number) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete invoice #{{ invoice.invoice_number }}? This action cannot be undone.');">
+                                        <a href="{{ url_for_with_prefix('view_invoice', invoice_number=invoice.invoice_number) }}" class="btn btn-sm btn-outline-primary" title="View Invoice"><i class="fas fa-eye"></i></a>
+                                        <a href="{{ url_for_with_prefix('download_invoice', invoice_number=invoice.invoice_number) }}" class="btn btn-sm btn-outline-success" title="Download Invoice"><i class="fas fa-download"></i></a>
+                                        <a href="{{ url_for_with_prefix('edit_invoice', invoice_number=invoice.invoice_number) }}" class="btn btn-sm btn-outline-info" title="Edit Invoice"><i class="fas fa-edit"></i></a>
+                                        <form action="{{ url_for_with_prefix('delete_invoice', invoice_number=invoice.invoice_number) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete invoice #{{ invoice.invoice_number }}? This action cannot be undone.');">
                                             <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Invoice"><i class="fas fa-trash"></i></button>
                                         </form>
                                     </div>
                                 </div>
                             </td>
-                            <td class="desktop-date">{{ invoice.date }}</td>
+                            <td class="desktop-date">{{ invoice.date|format_date }}</td>
                             <td class="desktop-client">{{ invoice.client_name }}</td>
                             <td class="desktop-total">${{ "%.2f"|format(invoice.total) }}</td>
                             <td class="desktop-actions">
                                 <div class="btn-group invoice-btn-group">
-                                    <a href="{{ url_for('view_invoice', invoice_number=invoice.invoice_number) }}" 
+                                    <a href="{{ url_for_with_prefix('view_invoice', invoice_number=invoice.invoice_number) }}" 
                                        class="btn btn-sm btn-outline-primary" 
                                        title="View Invoice">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    <a href="{{ url_for('download_invoice', invoice_number=invoice.invoice_number) }}" 
+                                    <a href="{{ url_for_with_prefix('download_invoice', invoice_number=invoice.invoice_number) }}" 
                                        class="btn btn-sm btn-outline-success" 
                                        title="Download Invoice">
                                         <i class="fas fa-download"></i>
                                     </a>
-                                    <form action="{{ url_for('delete_invoice', invoice_number=invoice.invoice_number) }}" 
+                                    <a href="{{ url_for_with_prefix('edit_invoice', invoice_number=invoice.invoice_number) }}" 
+                                       class="btn btn-sm btn-outline-info" 
+                                       title="Edit Invoice">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form action="{{ url_for_with_prefix('delete_invoice', invoice_number=invoice.invoice_number) }}" 
                                           method="POST" 
                                           style="display: inline;"
                                           onsubmit="return confirm('Are you sure you want to delete invoice #{{ invoice.invoice_number }}? This action cannot be undone.');">

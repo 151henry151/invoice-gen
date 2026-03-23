@@ -30,30 +30,6 @@
         .line-item.preview-mode .form-control:focus, .notes-section.preview-mode .form-control:focus {
             box-shadow: none;
         }
-        .add-to-invoice-btn {
-            margin-top: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            width: 32px;
-            height: 32px;
-            padding: 0;
-            border-radius: 50%;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        
-        .add-to-invoice-btn:hover {
-            background-color: #218838;
-        }
-        
-        .add-to-invoice-btn i {
-            font-size: 1rem;
-        }
         .edit-button, .remove-button {
             display: none;
             margin-top: 1rem;
@@ -506,7 +482,7 @@
         }
     </style>
 <script>
-    const APP_ROOT = "{{ app_root }}";
+    const APP_ROOT = "{{ APP_ROOT }}";
     
     // Function to calculate total cost
     window.calculateTotalCost = function(itemDiv) {
@@ -707,7 +683,7 @@
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Time:</span>
-                                <span class="detail-value">${item.hours}h ${item.minutes}m</span>
+                                <span class="detail-value">${hours}h ${minutes}m</span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Rate:</span>
@@ -789,7 +765,7 @@
                     lineItem.dataset.taxId = item.taxId;
                     
                     // Fetch the tax rate details to get the description
-                    fetch('/invoice/api/sales-tax')
+                    fetch('/api/sales-tax')
                         .then(response => response.json())
                         .then(rates => {
                             const taxRate = rates.find(r => r.id === parseInt(item.taxId));
@@ -1380,9 +1356,9 @@
                 '<div class="total-cost">' +
                 '<span>Total Cost: $' + lineItem.dataset.total + '</span>' +
                 '</div>' +
-                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                '<div class="d-flex gap-2 justify-content-end">' +
+                '<button type="button" class="btn btn-success btn-sm" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                '<button type="button" class="btn btn-danger btn-sm" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
                 '</div>';
             itemsDiv.appendChild(newItem);
             lineItem.remove();
@@ -1398,7 +1374,7 @@
                 '<option value="" disabled selected>Select Item</option>' +
                 '<option value="new">Create New Item</option>' +
                 '{% for item in items %}' +
-                '<option value="{{ item.id }}" data-price="{{ item.price }}">{{ item.description }} - ${{ "%.2f"|format(item.price) }}</option>' +
+                '<option value="{{ item.id }}" data-price="{{ item.unit_price }}">{{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}</option>' +
                 '{% endfor %}' +
                 '</select>' +
                 '<label>Quantity:</label>' +
@@ -1407,9 +1383,9 @@
                 '<div class="total-cost">' +
                 '<span>Total Cost: $' + lineItem.dataset.total + '</span>' +
                 '</div>' +
-                '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                '<div class="d-flex gap-2 justify-content-end">' +
+                '<button type="button" class="btn btn-success btn-sm" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                '<button type="button" class="btn btn-danger btn-sm" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
                 '</div>';
             itemsDiv.appendChild(newItem);
             lineItem.remove();
@@ -1711,7 +1687,7 @@
         dialog.style.display = 'block';
         
         // Load existing tax rates
-        fetch('/invoice/api/sales-tax')
+        fetch('/api/sales-tax')
             .then(response => response.json())
             .then(rates => {
                 const select = document.getElementById('salesTaxSelect');
@@ -1743,7 +1719,7 @@
     function handleSalesTaxSelection(select) {
         if (select.value === 'clear') {
             if (confirm('Are you sure you want to clear all saved tax rates? This action cannot be undone.')) {
-                fetch('/invoice/api/sales-tax', {
+                fetch('/api/sales-tax', {
                     method: 'DELETE'
                 })
                 .then(response => {
@@ -1776,7 +1752,7 @@
         // Calculate and display tax amount in real-time when a rate is selected
         if (select.value && select.value !== 'new') {
             const appliesTo = document.getElementById('taxAppliesTo').value;
-            fetch('/invoice/api/sales-tax')
+            fetch('/api/sales-tax')
                 .then(response => response.json())
                 .then(rates => {
                     const selectedRate = rates.find(r => r.id === parseInt(select.value));
@@ -1835,7 +1811,7 @@
             }
             
             try {
-                const response = await fetch('/invoice/api/sales-tax', {
+                const response = await fetch('/api/sales-tax', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1863,7 +1839,7 @@
         } else if (select.value) {
             // Use existing tax rate
             try {
-                const response = await fetch('/invoice/api/sales-tax');
+                const response = await fetch('/api/sales-tax');
                 const rates = await response.json();
                 const selectedRate = rates.find(r => r.id === parseInt(select.value));
                 if (selectedRate) {
@@ -1952,7 +1928,7 @@
         
         // Pre-select the tax rate
         const select = document.getElementById('salesTaxSelect');
-        fetch('/invoice/api/sales-tax')
+        fetch('/api/sales-tax')
             .then(response => response.json())
             .then(rates => {
                 const matchingRate = rates.find(r => r.rate === parseFloat(rate));
@@ -1983,20 +1959,19 @@
         newItem.className = 'item';
         
         // Fetch latest labor items
-        fetch(`${APP_ROOT}/labor_details`)
-            .then(response => response.text())
-            .then(html => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const laborItems = doc.querySelectorAll('select[name="labor_item"] option');
-                
+        fetch(`${APP_ROOT}/api/labor_items`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(laborItems => {
                 let optionsHtml = '<option value="" disabled selected>Select Labor Item</option>' +
                                 '<option value="new">Create New Labor Item</option>';
                 
-                laborItems.forEach(option => {
-                    if (option.value && option.value !== 'new') {
-                        optionsHtml += `<option value="${option.value}" data-rate="${option.dataset.rate}">${option.text}</option>`;
-                    }
+                laborItems.forEach(item => {
+                    optionsHtml += `<option value="${item.id}" data-rate="${item.rate}">${item.description} - $${item.rate.toFixed(2)}/hr</option>`;
                 });
                 
                 newItem.innerHTML = 
@@ -2014,9 +1989,9 @@
                     '<div class="total-cost">' +
                     '<span>Total Cost: $0.00</span>' +
                     '</div>' +
-                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                    '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '<div class="d-flex gap-2 justify-content-end">' +
+                    '<button type="button" class="btn btn-success btn-sm" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="btn btn-danger btn-sm" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
                     '</div>';
                 
                 itemsDiv.appendChild(newItem);
@@ -2039,32 +2014,7 @@
             })
             .catch(error => {
                 console.error('Error fetching labor items:', error);
-                // Fallback to static options if fetch fails
-                newItem.innerHTML = 
-                    '<label>Labor Item:</label>' +
-                    '<select name="labor_item[]" required onchange="handleLaborItemSelection(this)">' +
-                    '<option value="" disabled selected>Select Labor Item</option>' +
-                    '<option value="new">Create New Labor Item</option>' +
-                    '{% for item in labor_items %}' +
-                    '<option value="{{ item.id }}" data-rate="{{ item.rate }}">{{ item.description }} - ${{ "%.2f"|format(item.rate) }}/hr</option>' +
-                    '{% endfor %}' +
-                    '</select>' +
-                    '<label>Date labor performed:</label>' +
-                    '<input type="date" name="item_date[]" required>' +
-                    '<label>Hours:</label>' +
-                    '<input type="number" name="hours[]" min="0" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-                    '<label>Minutes:</label>' +
-                    '<input type="number" name="minutes[]" min="0" max="59" value="0" required oninput="calculateTotalCost(this.parentElement)">' +
-                    '<input type="hidden" name="labor_rate[]" value="0.00">' +
-                    '<div class="total-cost">' +
-                    '<span>Total Cost: $0.00</span>' +
-                    '</div>' +
-                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                    '<button type="button" class="add-to-invoice-btn" onclick="addLaborToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="remove-item-btn" onclick="removeLaborItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                    '</div>';
-                itemsDiv.appendChild(newItem);
-                document.querySelector('.main-action-buttons').classList.add('hidden');
+                alert('Failed to load labor items. Please try again.');
             });
     }
 
@@ -2074,22 +2024,19 @@
         newItem.className = 'item';
         
         // Fetch latest items
-        fetch(`${APP_ROOT}/item_details`)
-            .then(response => response.text())
-            .then(html => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const items = doc.querySelectorAll('select[name="item"] option');
-                
+        fetch(`${APP_ROOT}/api/items`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(items => {
                 let optionsHtml = '<option value="" disabled selected>Select Item</option>' +
                                 '<option value="new">Create New Item</option>';
                 
-                items.forEach(option => {
-                    if (option.value && option.value !== 'new') {
-                        const description = option.text.split(' - $')[0];
-                        const price = option.text.split(' - $')[1];
-                        optionsHtml += `<option value="${option.value}" data-price="${price}">${option.text}</option>`;
-                    }
+                items.forEach(item => {
+                    optionsHtml += `<option value="${item.id}" data-price="${item.price}">${item.description} - $${item.price.toFixed(2)}</option>`;
                 });
                 
                 newItem.innerHTML = 
@@ -2103,9 +2050,9 @@
                     '<div class="total-cost">' +
                     '<span>Total Cost: $0.00</span>' +
                     '</div>' +
-                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                    '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
+                    '<div class="d-flex gap-2 justify-content-end">' +
+                    '<button type="button" class="btn btn-success btn-sm" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
+                    '<button type="button" class="btn btn-danger btn-sm" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
                     '</div>';
                 
                 itemsDiv.appendChild(newItem);
@@ -2128,28 +2075,7 @@
             })
             .catch(error => {
                 console.error('Error fetching items:', error);
-                // Fallback to static options if fetch fails
-                newItem.innerHTML = 
-                    '<label>Item:</label>' +
-                    '<select name="item[]" required onchange="handleItemSelection(this)">' +
-                    '<option value="" disabled selected>Select Item</option>' +
-                    '<option value="new">Create New Item</option>' +
-                    '{% for item in items %}' +
-                    '<option value="{{ item.id }}" data-price="{{ item.unit_price }}">{{ item.description }} - ${{ "%.2f"|format(item.unit_price) }}</option>' +
-                    '{% endfor %}' +
-                    '</select>' +
-                    '<label>Quantity:</label>' +
-                    '<input type="number" name="quantity[]" min="1" value="1" required oninput="calculateItemTotal(this.parentElement)">' +
-                    '<input type="hidden" name="item_price[]" value="0.00">' +
-                    '<div class="total-cost">' +
-                    '<span>Total Cost: $0.00</span>' +
-                    '</div>' +
-                    '<div class="button-group" style="display: flex !important; visibility: visible !important; margin-top: 10px;">' +
-                    '<button type="button" class="add-to-invoice-btn" onclick="addItemToInvoice(this)" title="Add to invoice"><i class="fas fa-check"></i></button>' +
-                    '<button type="button" class="remove-item-btn" onclick="removeItemFromInvoice(this)" title="Cancel"><i class="fas fa-times"></i></button>' +
-                    '</div>';
-                itemsDiv.appendChild(newItem);
-                document.querySelector('.main-action-buttons').classList.add('hidden');
+                alert('Failed to load items. Please try again.');
             });
     }
 
@@ -2435,124 +2361,14 @@
                 <input type="hidden" name="from_create_invoice" value="true">
                 <input type="hidden" id="client_id" name="client_id" value="{{ selected_client.id if selected_client else '' }}">
                 <input type="hidden" id="line_items_json" name="line_items_json" value="">
-                <div class="invoice-header"> 
-                    <div class="invoice-fields row"> 
-                        <div class="form-group col-md-6"> 
-                            <label for="date">Invoice Date:</label>
-                            <input type="date" id="date" name="date" class="form-control" required> 
-                        </div>
-                        <div class="form-group col-md-6">
-                            <label for="due_date">Due Date:</label>
-                            <input type="date" id="due_date" name="due_date" class="form-control" required>
-                        </div>
-                        <div class="form-group col-md-6 invoice-number-group"> 
-                            <label for="invoice_number">Invoice Number:</label>
-                            <input type="text" id="invoice_number" name="invoice_number" class="form-control" value="{{ get_setting('next_invoice_number', '1001') }}">
-                            <input type="hidden" id="auto_invoice_number" value="{{ get_setting('next_invoice_number', '1001') }}">
-                            <button type="button" id="confirmInvoiceBtn" class="add-to-invoice-btn btn btn-success btn-sm" title="Add to invoice" style="margin-left: 8px;"> 
-                                <i class="fas fa-check"></i>
-                            </button>
-                        </div>
-                    </div>
+                <div class="invoice-header">
+                    {% include 'components/invoice_fields.html' %}
                 </div>
-            
-                <div id="items">
-                </div>
-                
-                <!-- Sales Tax Dialog -->
-                <div id="salesTaxDialog" class="dialog" style="display: none; margin: 1rem 0;">
-                    <div class="dialog-content card card-body"> 
-                        <h2 class="h5 mb-3">Sales Tax</h2> 
-                        <div class="form-group mb-3"> 
-                            <label for="salesTaxSelect">Select Tax Rate:</label> 
-                            <select id="salesTaxSelect" name="sales_tax_id" class="form-select" onchange="handleSalesTaxSelection(this)"> 
-                                <option value="" disabled selected>Select Tax Rate</option>
-                                <option value="new">Create New Tax Rate</option>
-                                <option value="clear">Clear saved tax rates</option>
-                                {% for rate in tax_rates %}
-                                <option value="{{ rate.id }}" data-rate="{{ rate.rate }}">{{ rate.description }} ({{ rate.rate }}%)</option>
-                                {% endfor %}
-                            </select>
-                </div>
-                        <div id="newTaxRateFields" style="display: none;">
-                            <div class="form-group mb-3"> 
-                                <label for="taxDescription">Description:</label> 
-                                <input type="text" id="taxDescription" class="form-control" placeholder="e.g., State Sales Tax"> 
-                            </div>
-                            <div class="form-group mb-3"> 
-                                <label for="taxRate">Rate (%):</label> 
-                                <input type="number" id="taxRate" class="form-control" min="0" step="0.01" placeholder="e.g., 8.5"> 
-                            </div>
-                        </div>
-                        <div class="form-group mb-3"> 
-                            <label for="taxAppliesTo">Apply Tax To:</label> 
-                            <select id="taxAppliesTo" name="tax_applies_to" class="form-select" required> 
-                                <option value="items" selected>Items only</option>
-                                <option value="labor">Labor only</option>
-                                <option value="both">Both items and labor</option>
-                            </select>
-                        </div>
-                        <div class="d-flex gap-2 justify-content-end"> 
-                            <button type="button" class="btn btn-success btn-sm" onclick="addSalesTaxToInvoice()" title="Add to invoice"> 
-                            <i class="fas fa-check"></i>
-                        </button>
-                            <button type="button" class="btn btn-danger btn-sm" onclick="closeSalesTaxDialog()" title="Cancel"> 
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-                
-                <!-- Invoice Totals Section -->
-                <div id="invoice-totals" class="mt-4 mb-4 text-end"> 
-                    <div class="totals-row d-flex justify-content-end gap-3"> 
-                        <span class="totals-label fw-bold">Subtotal:</span> 
-                        <span id="subtotal" class="totals-value fw-bold">$0.00</span> 
-                    </div>
-                    <div class="totals-row d-flex justify-content-end gap-3 mt-2"> 
-                        <span class="totals-label fw-bold">Sales Tax:</span> 
-                        <span id="taxTotal" class="totals-value fw-bold">$0.00</span> 
-                    </div>
-                    <div class="totals-row d-flex justify-content-end gap-3 mt-2"> 
-                        <span class="totals-label fw-bolder fs-5">Grand Total:</span> 
-                        <span id="grandTotal" class="totals-value fw-bolder fs-5">$0.00</span> 
-                    </div>
-                </div>
-                
-                <!-- Notes Section -->
-                <!-- Notes Section -->
-                <div id="notesSection" class="card card-body my-3" style="display: none;"> 
-                    <div class="form-group mb-3"> 
-                        <label for="notes">Add a note that will display on the invoice:</label>
-                        <textarea id="notes" name="notes" class="form-control" rows="3"></textarea> 
-                    </div>
-                    <div class="d-flex gap-2 justify-content-end"> 
-                        <button type="button" class="btn btn-success btn-sm" onclick="addNoteToInvoice(this)" title="Add to invoice"> 
-                            <i class="fas fa-check"></i>
-                        </button>
-                        <button type="button" class="btn btn-danger btn-sm" onclick="removeNoteFromInvoice(this)" title="Cancel"> 
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="main-action-buttons d-flex flex-wrap justify-content-start gap-2 mt-3 mb-3"> 
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddLaborDialog()"> 
-                        <i class="fas fa-tools"></i> <span class="hide-on-mobile">Add </span>Labor
-                    </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddItemDialog()"> 
-                        <i class="fas fa-box"></i> <span class="hide-on-mobile">Add </span>Item
-                    </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddNoteDialog()"> 
-                        <i class="fas fa-sticky-note"></i> <span class="hide-on-mobile">Add </span>Note
-                    </button>
-                    <button type="button" class="btn btn-secondary btn-sm mb-2" id="salesTaxButton" onclick="showAddSalesTaxDialog()"> 
-                        <i class="fas fa-percentage"></i> <span class="hide-on-mobile">Add </span>Tax
-                    </button>
-                </div>
-                
-                <button type="submit" class="btn btn-success w-100">Generate Invoice</button> 
-                </form>
+                <div id="items"></div>
+                {% include 'components/invoice_dialogs.html' %}
+                {% include 'components/invoice_action_buttons.html' %}
+                <button type="submit" class="btn btn-success w-100">Generate Invoice</button>
+            </form>
     </div>
 
         </div>

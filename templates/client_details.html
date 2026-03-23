@@ -4,6 +4,8 @@
 
 {% block page_subtitle %}Client Details{% endblock %}
 
+{% import "components/address_picker.html" as address_picker with context %}
+
 {% block content %}
 <div class="container">
     {% with messages = get_flashed_messages() %}
@@ -26,10 +28,13 @@
             
             <input type="text" id="name" name="name" placeholder="Client Name" value="{{ selected_client.name if selected_client else '' }}" required>
             
-            <input type="text" id="address" name="address" placeholder="Address" value="{{ selected_client.address if selected_client else '' }}" required>
+            {% if selected_client %}
+                {{ address_picker.address_picker(form_prefix='client_', required=true, address=selected_client.address) }}
+            {% else %}
+                {{ address_picker.address_picker(form_prefix='client_', required=true) }}
+            {% endif %}
             
             <input type="email" id="email" name="email" placeholder="Email" value="{{ selected_client.email if selected_client else '' }}">
-            
             <input type="tel" id="phone" name="phone" placeholder="Phone Number" value="{{ selected_client.phone if selected_client else '' }}" required>
             
             <div class="button-container">
@@ -52,7 +57,7 @@
     // Add form validation
     document.getElementById('client-form').addEventListener('submit', function(event) {
         const name = document.getElementById('name').value.trim();
-        const address = document.getElementById('address').value.trim();
+        const address = document.getElementById('client_address').value.trim();
         const email = document.getElementById('email').value.trim();
         const phone = document.getElementById('phone').value.trim();
 

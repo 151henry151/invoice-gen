@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.9.0-beta.2] - 2026-03-22
 
+### Merged
+
+- Merge remote `master` (app factory, templates, tests, Docker dev tooling) into this release branch
+
 ### Added
 
 - Add `InvoiceDraft` model and `GET`/`PUT`/`DELETE` `/api/invoice-draft` (and `/invoice/api/invoice-draft`) for server-side autosave of the create-invoice form

@@ -16,11 +16,10 @@
                 <div class="card-body">
                     {% if business.logo_path %}
                     <div class="text-center mb-3">
-                        <img src="/invoice/uploads/{{ business.logo_path }}" 
-                             alt="{{ business.name }} logo" 
-                             class="img-fluid rounded" 
-                             style="max-height: 100px;">
+                        <img src="{{ url_for('serve_upload', filename=business.logo_path) }}" alt="Business Logo" style="max-height: 100px;">
                     </div>
+                    {% else %}
+                        <img src="{{ url_for('static', filename='default_logo.png') }}" alt="Default Logo" style="max-height: 100px;">
                     {% endif %}
                     <h5 class="card-title">{{ business.name }}</h5>
                     <p class="card-text">

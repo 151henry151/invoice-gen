@@ -174,23 +174,30 @@
         </tr>
         </thead>
         <tbody>
-        {% for item in line_items %}
-        <tr>
-            <td>{{ item.date }}</td>
-            <td>{{ item.description }}</td>
-            <td>{{ item.quantity }}</td>
-            <td>${{ '%.2f'|format(item.unit_price) }}</td>
-            <td>${{ '%.2f'|format(item.total) }}</td>
-        </tr>
-        {% endfor %}
-        {% for item in labor_items %}
-        <tr>
-            <td>{{ item.date }}</td>
-            <td>{{ item.description }}</td>
-            <td>{{ '%.2f'|format(item.hours) }} hours</td>
-            <td>${{ '%.2f'|format(item.rate) }}/hr</td>
-            <td>${{ '%.2f'|format(item.total) }}</td>
-        </tr>
+        {% for item in all_line_items %}
+            {% if item.type == 'note' %}
+                <tr>
+                    <td>{{ item.date }}</td>
+                    <td colspan="3"><strong>Note:</strong> {{ item.description }}</td>
+                    <td></td>
+                </tr>
+            {% elif item.type == 'labor' %}
+                <tr>
+                    <td>{{ item.date }}</td>
+                    <td>{{ item.description }}</td>
+                    <td>{{ '%.2f'|format(item.hours) }} hours</td>
+                    <td>${{ '%.2f'|format(item.rate) }}/hr</td>
+                    <td>${{ '%.2f'|format(item.total) }}</td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td>{{ item.date }}</td>
+                    <td>{{ item.description }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>${{ '%.2f'|format(item.unit_price) }}</td>
+                    <td>${{ '%.2f'|format(item.total) }}</td>
+                </tr>
+            {% endif %}
         {% endfor %}
         </tbody>
         <tfoot class="totals-section">

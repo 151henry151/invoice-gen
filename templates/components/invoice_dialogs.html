@@ -1,0 +1,53 @@
+<!-- Sales Tax Dialog -->
+<div id="salesTaxDialog" class="card card-body my-3" style="display: none;">
+    <div class="form-group mb-3">
+        <label for="salesTaxSelect">Select Tax Rate:</label>
+        <select id="salesTaxSelect" name="sales_tax_id" class="form-select" required>
+            <option value="" disabled selected>Select Tax Rate</option>
+            <option value="new">Create New Tax Rate</option>
+            <option value="clear">Clear saved tax rates</option>
+        </select>
+    </div>
+    <div id="newTaxRateFields" style="display: none;">
+        <div class="form-group mb-3">
+            <label for="taxRate">Tax Rate (%):</label>
+            <input type="number" id="taxRate" name="tax_rate" class="form-control" step="0.01" min="0" max="100">
+        </div>
+        <div class="form-group mb-3">
+            <label for="taxDescription">Description:</label>
+            <input type="text" id="taxDescription" name="tax_description" class="form-control" placeholder="e.g., State Sales Tax">
+        </div>
+    </div>
+    <div class="form-group mb-3">
+        <label for="taxAppliesTo">Apply Tax To:</label>
+        <select id="taxAppliesTo" name="tax_applies_to" class="form-select" required>
+            <option value="items" selected>Items only</option>
+            <option value="labor">Labor only</option>
+            <option value="both">Both items and labor</option>
+        </select>
+    </div>
+    <div class="d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-success btn-sm" onclick="addSalesTaxToInvoice()" title="Add to invoice">
+            <i class="fas fa-check"></i>
+        </button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="closeSalesTaxDialog()" title="Cancel">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Notes Section -->
+<div id="notesSection" class="card card-body my-3" style="display: none;">
+    <div class="form-group mb-3">
+        <label for="notes">Add a note that will display on the invoice:</label>
+        <textarea id="notes" name="notes" class="form-control" rows="3"></textarea>
+    </div>
+    <div class="d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-success btn-sm" onclick="addNoteToInvoice(this)" title="Add to invoice">
+            <i class="fas fa-check"></i>
+        </button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="removeNoteFromInvoice(this)" title="Cancel">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+</div> 

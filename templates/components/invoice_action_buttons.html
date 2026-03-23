@@ -1,0 +1,30 @@
+<div class="main-action-buttons d-flex flex-wrap justify-content-start gap-2 mt-3 mb-3">
+    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddLaborDialog()">
+        <i class="fas fa-tools"></i> <span class="hide-on-mobile">Add </span>Labor
+    </button>
+    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddItemDialog()">
+        <i class="fas fa-box"></i> <span class="hide-on-mobile">Add </span>Item
+    </button>
+    <button type="button" class="btn btn-secondary btn-sm mb-2" onclick="showAddNoteDialog()">
+        <i class="fas fa-sticky-note"></i> <span class="hide-on-mobile">Add </span>Note
+    </button>
+    <button type="button" class="btn btn-secondary btn-sm mb-2" id="salesTaxButton" onclick="showAddSalesTaxDialog()">
+        <i class="fas fa-percentage"></i> <span class="hide-on-mobile">Add </span>Tax
+    </button>
+</div>
+
+<style>
+.main-action-buttons {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin-top: 1rem !important;
+    margin-bottom: 1rem !important;
+}
+
+.main-action-buttons button {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+</style> 

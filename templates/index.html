@@ -543,18 +543,16 @@
         }
     };
 
-    // Function to save invoice data to localStorage
+    // Function to save invoice data
     function saveInvoiceData() {
         const userId = "{{ session.get('user_id') }}";  // Get the current user's ID from session
         const invoiceData = {
-            date: document.getElementById('date').value,
-            invoiceNumber: document.getElementById('invoice_number').value,
-            isConfirmed: document.querySelector('.invoice-header').classList.contains('confirmed'),
             items: Array.from(document.querySelectorAll('.line-item.confirmed')).map(item => {
                 const data = {
                     type: item.dataset.type,
                     description: item.dataset.description,
-                    total: item.dataset.total
+                    total: item.dataset.total,
+                    isConfirmed: true
                 };
                 
                 if (item.dataset.type === 'labor') {
@@ -583,19 +581,6 @@
         const savedData = localStorage.getItem(`invoiceData_${userId}`);
         if (savedData) {
             const invoiceData = JSON.parse(savedData);
-            
-            // Restore invoice header
-            document.getElementById('date').value = invoiceData.date;
-            document.getElementById('invoice_number').value = invoiceData.invoiceNumber;
-            if (invoiceData.isConfirmed) {
-                const invoiceHeader = document.querySelector('.invoice-header');
-                const confirmBtn = document.getElementById('confirmInvoiceBtn');
-                invoiceHeader.classList.add('confirmed');
-                document.getElementById('date').readOnly = true;
-                document.getElementById('invoice_number').readOnly = true;
-                confirmBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
-                confirmBtn.title = 'Edit invoice';
-            }
             
             // Restore line items
             const itemsContainer = document.getElementById('items');
@@ -721,7 +706,7 @@
                     lineItem.dataset.taxId = item.taxId;
                     
                     // Fetch the tax rate details to get the description
-                    fetch('/invoice/api/sales-tax')
+                    fetch('/api/sales-tax')
                         .then(response => response.json())
                         .then(rates => {
                             const taxRate = rates.find(r => r.id === parseInt(item.taxId));
@@ -881,7 +866,7 @@
                 const logoPlaceholder = document.querySelector('.logo-placeholder');
                 if (logoPlaceholder) {
                     if (company.logo_path) {
-                        logoPlaceholder.innerHTML = '<img src="' + APP_ROOT + '/uploads/' + company.logo_path + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
+                        logoPlaceholder.innerHTML = '<img src="' + APP_ROOT + '/serve_upload/' + company.logo_path + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
                     } else {
                         logoPlaceholder.innerHTML = '<span class="logo-placeholder-text">Company Logo</span>';
                     }
@@ -1567,7 +1552,7 @@
         dialog.style.display = 'block';
         
         // Load existing tax rates
-        fetch('/invoice/api/sales-tax')
+        fetch('/api/sales-tax')
             .then(response => response.json())
             .then(rates => {
                 const select = document.getElementById('salesTaxSelect');
@@ -1599,7 +1584,7 @@
     function handleSalesTaxSelection(select) {
         if (select.value === 'clear') {
             if (confirm('Are you sure you want to clear all saved tax rates? This action cannot be undone.')) {
-                fetch('/invoice/api/sales-tax', {
+                fetch('/api/sales-tax', {
                     method: 'DELETE'
                 })
                 .then(response => {
@@ -1632,7 +1617,7 @@
         // Calculate and display tax amount in real-time when a rate is selected
         if (select.value && select.value !== 'new') {
             const appliesTo = document.getElementById('taxAppliesTo').value;
-            fetch('/invoice/api/sales-tax')
+            fetch('/api/sales-tax')
                 .then(response => response.json())
                 .then(rates => {
                     const selectedRate = rates.find(r => r.id === parseInt(select.value));
@@ -1691,7 +1676,7 @@
             }
             
             try {
-                const response = await fetch('/invoice/api/sales-tax', {
+                const response = await fetch('/api/sales-tax', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1719,7 +1704,7 @@
         } else if (select.value) {
             // Use existing tax rate
             try {
-                const response = await fetch('/invoice/api/sales-tax');
+                const response = await fetch('/api/sales-tax');
                 const rates = await response.json();
                 const selectedRate = rates.find(r => r.id === parseInt(select.value));
                 if (selectedRate) {
@@ -1808,7 +1793,7 @@
         
         // Pre-select the tax rate
         const select = document.getElementById('salesTaxSelect');
-        fetch('/invoice/api/sales-tax')
+        fetch('/api/sales-tax')
             .then(response => response.json())
             .then(rates => {
                 const matchingRate = rates.find(r => r.rate === parseFloat(rate));
@@ -1914,7 +1899,7 @@
     var logoPlaceholderBusiness = document.getElementById('logo-placeholder');
     if (logoPlaceholderBusiness) {
         var logoPath = "{{ selected_company.logo_path }}";
-        logoPlaceholderBusiness.innerHTML = '<img src="' + APP_ROOT + '/uploads/' + logoPath + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
+        logoPlaceholderBusiness.innerHTML = '<img src="' + APP_ROOT + '/serve_upload/' + logoPath + '" alt="Company Logo" style="max-width: 100%; max-height: 100%;">';
     }
 </script>
 {% else %}
@@ -1935,7 +1920,7 @@
           <h2 class="accordion-header" id="businessAccordionHeader">
             <button class="accordion-button collapsed d-flex align-items-center gap-2" type="button" data-bs-toggle="collapse" data-bs-target="#businessAccordionCollapse" aria-expanded="false" aria-controls="businessAccordionCollapse" style="padding: 0.3rem 0.75rem;">
               {% if selected_company and selected_company.logo_path %}
-                <img src="{{ APP_ROOT }}/uploads/{{ selected_company.logo_path }}" alt="Business Logo" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover;">
+                <img src="{{ APP_ROOT }}/serve_upload/{{ selected_company.logo_path }}" alt="Business Logo" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover;">
               {% else %}
                 <i class="fas fa-building fa-lg text-secondary" style="width: 32px; height: 22px; display: flex; align-items: center; justify-content: center;"></i>
               {% endif %}
@@ -1991,7 +1976,7 @@
         <div class="company-details">
             <div id="logo-placeholder" class="logo-placeholder">
                 {% if selected_company and selected_company.logo_path %}
-                    <img src="{{ APP_ROOT }}/uploads/{{ selected_company.logo_path }}" alt="Company Logo" class="company-logo">
+                    <img src="{{ APP_ROOT }}/serve_upload/{{ selected_company.logo_path }}" alt="Company Logo" class="company-logo">
                 {% else %}
                     <span class="logo-placeholder-text">Company Logo</span>
                 {% endif %}
