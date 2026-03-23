@@ -13,6 +13,8 @@ services:
       - ./uploads:/app/uploads
       - invoice_db_data:/app/db
       - invoice_migrations_data:/app/migrations
+    # Bind mount hides image-only /app/start.sh; use repo entrypoint on the host tree
+    command: ["/bin/bash", "/app/entrypoint.sh"]
     environment:
       - FLASK_APP=app_factory.py
       - FLASK_ENV=${FLASK_ENV:-production}

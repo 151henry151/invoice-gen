@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.3] - 2026-03-22
+
+### Fixed
+
+- Set docker-compose `web` `command` to `/app/entrypoint.sh` so the app starts when `.:/app` hides image-only `/app/start.sh`
+
 ## [0.9.0-beta.2] - 2026-03-22
 
 ### Merged
@@ -34,5 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial beta release with core invoice generation functionality (see README)
 
+[0.9.0-beta.3]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.2]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.1]: https://github.com/151henry151/invoice-gen
