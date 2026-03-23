@@ -24,7 +24,7 @@ import glob
 import io
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
-from models import db, User, Business, Setting, Client, Invoice, SalesTax, Item, LaborItem, InvoiceItem, InvoiceLabor
+from models import db, User, Business, Setting, Client, Invoice, SalesTax, Item, LaborItem, InvoiceItem, InvoiceLabor, InvoiceDraft
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1, x_port=1, x_prefix=1)
@@ -321,6 +321,14 @@ def create_invoice():
                         db.session.add(invoice_labor)
             
             db.session.commit()
+            # Remove server-side draft after a successful invoice (safe if table missing until migrate/create_all)
+            try:
+                draft = db.session.query(InvoiceDraft).filter_by(user_id=session['user_id']).first()
+                if draft:
+                    db.session.delete(draft)
+                    db.session.commit()
+            except Exception:
+                db.session.rollback()
             flash('Invoice generated successfully!')
             return redirect(url_for_with_prefix('invoice_list'))
         except Exception as e:
@@ -721,6 +729,7 @@ def get_company(company_id):
     return jsonify({'error': 'Company not found'}), 404
 
 @app.route('/get_client/<int:client_id>')
+@app.route('/invoice/get_client/<int:client_id>')
 @login_required
 def get_client(client_id):
     client = db.session.query(Client).filter_by(id=client_id, user_id=session['user_id']).first()
@@ -750,6 +759,67 @@ def save_selections():
     session['selected_client_id'] = client_id
     
     return jsonify({'success': True})
+
+
+def _get_invoice_draft_response():
+    row = db.session.query(InvoiceDraft).filter_by(user_id=session['user_id']).first()
+    if not row:
+        return jsonify({'draft': None, 'updated_at': None})
+    try:
+        payload = json.loads(row.payload)
+    except json.JSONDecodeError:
+        payload = None
+    return jsonify({
+        'draft': payload,
+        'updated_at': row.updated_at.isoformat() if row.updated_at else None,
+    })
+
+
+@app.route('/api/invoice-draft', methods=['GET'])
+@app.route('/invoice/api/invoice-draft', methods=['GET'])
+@login_required
+def get_invoice_draft():
+    return _get_invoice_draft_response()
+
+
+@app.route('/api/invoice-draft', methods=['PUT'])
+@login_required
+def put_invoice_draft():
+    if not request.is_json:
+        return jsonify({'error': 'Expected JSON body'}), 400
+    body = request.get_json()
+    if body is None:
+        return jsonify({'error': 'Invalid JSON'}), 400
+    payload_str = json.dumps(body)
+    row = db.session.query(InvoiceDraft).filter_by(user_id=session['user_id']).first()
+    if row:
+        row.payload = payload_str
+    else:
+        row = InvoiceDraft(user_id=session['user_id'], payload=payload_str)
+        db.session.add(row)
+    db.session.commit()
+    return jsonify({'success': True, 'updated_at': row.updated_at.isoformat()})
+
+
+@app.route('/invoice/api/invoice-draft', methods=['PUT'])
+@login_required
+def put_invoice_draft_prefixed():
+    return put_invoice_draft()
+
+
+@app.route('/api/invoice-draft', methods=['DELETE'])
+@login_required
+def delete_invoice_draft():
+    db.session.query(InvoiceDraft).filter_by(user_id=session['user_id']).delete()
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/invoice/api/invoice-draft', methods=['DELETE'])
+@login_required
+def delete_invoice_draft_prefixed():
+    return delete_invoice_draft()
+
 
 @app.route('/api/sales-tax', methods=['GET'])
 @login_required

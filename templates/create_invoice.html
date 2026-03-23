@@ -543,20 +543,29 @@
         }
     };
 
-    // Function to save invoice data to localStorage
-    function saveInvoiceData() {
-        const userId = "{{ session.get('user_id') }}";  // Get the current user's ID from session
-        const invoiceData = {
+    let serverDraftSaveTimer = null;
+
+    function gatherInvoicePayload() {
+        const businessIdInput = document.getElementById('business_id');
+        const clientIdInput = document.getElementById('client_id') || document.querySelector('input[name="client_id"]');
+        const dueEl = document.getElementById('due_date');
+        const notesEl = document.getElementById('notes');
+        return {
             date: document.getElementById('date').value,
+            dueDate: dueEl ? dueEl.value : '',
             invoiceNumber: document.getElementById('invoice_number').value,
             isConfirmed: document.querySelector('.invoice-header').classList.contains('confirmed'),
+            businessId: businessIdInput ? businessIdInput.value : '',
+            clientId: clientIdInput ? clientIdInput.value : '',
+            pendingNotes: notesEl ? notesEl.value : '',
+            savedAt: Date.now(),
             items: Array.from(document.querySelectorAll('.line-item.confirmed')).map(item => {
                 const data = {
                     type: item.dataset.type,
                     description: item.dataset.description,
                     total: item.dataset.total
                 };
-                
+
                 if (item.dataset.type === 'labor') {
                     data.date = item.dataset.date;
                     data.hours = item.dataset.hours;
@@ -565,51 +574,108 @@
                 } else if (item.dataset.type === 'item') {
                     data.quantity = item.dataset.quantity;
                     data.price = item.dataset.price;
+                    if (item.dataset.date) {
+                        data.date = item.dataset.date;
+                    }
                 } else if (item.dataset.type === 'tax') {
                     data.rate = item.dataset.rate;
                     data.appliesTo = item.dataset.appliesTo;
                     data.taxId = item.dataset.taxId;
                 }
-                
+
                 return data;
             })
         };
-        localStorage.setItem(`invoiceData_${userId}`, JSON.stringify(invoiceData));
     }
 
-    // Function to restore invoice data from localStorage
-    function restoreInvoiceData() {
-        const userId = "{{ session.get('user_id') }}";  // Get the current user's ID from session
-        const savedData = localStorage.getItem(`invoiceData_${userId}`);
-        if (savedData) {
-            const invoiceData = JSON.parse(savedData);
-            
-            // Restore invoice header
+    function scheduleServerDraftSave() {
+        clearTimeout(serverDraftSaveTimer);
+        serverDraftSaveTimer = setTimeout(pushInvoiceDraftToServer, 1500);
+    }
+
+    function pushInvoiceDraftToServer() {
+        const payload = gatherInvoicePayload();
+        fetch(`${APP_ROOT}/api/invoice-draft`, {
+            method: 'PUT',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(function() { /* offline or server error; local draft remains */ });
+    }
+
+    // Function to save invoice data to localStorage and queue server autosave
+    function saveInvoiceData() {
+        const userId = "{{ session.get('user_id') }}";
+        const invoiceData = gatherInvoicePayload();
+        localStorage.setItem(`invoiceData_${userId}`, JSON.stringify(invoiceData));
+        scheduleServerDraftSave();
+    }
+
+    function applyInvoicePayload(invoiceData) {
+        if (!invoiceData) {
+            return;
+        }
+
+        const businessIdInput = document.getElementById('business_id');
+        const clientIdInput = document.getElementById('client_id') || document.querySelector('input[name="client_id"]');
+        if (invoiceData.businessId != null && businessIdInput) {
+            businessIdInput.value = invoiceData.businessId;
+        }
+        if (invoiceData.clientId != null && clientIdInput) {
+            clientIdInput.value = invoiceData.clientId;
+        }
+
+        if (invoiceData.date != null) {
             document.getElementById('date').value = invoiceData.date;
+        }
+        const dueEl = document.getElementById('due_date');
+        if (dueEl && invoiceData.dueDate != null) {
+            dueEl.value = invoiceData.dueDate;
+        }
+        if (invoiceData.invoiceNumber != null) {
             document.getElementById('invoice_number').value = invoiceData.invoiceNumber;
-            if (invoiceData.isConfirmed) {
-                const invoiceHeader = document.querySelector('.invoice-header');
-                const confirmBtn = document.getElementById('confirmInvoiceBtn');
-                invoiceHeader.classList.add('confirmed');
-                document.getElementById('date').readOnly = true;
-                document.getElementById('invoice_number').readOnly = true;
-                confirmBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
-                confirmBtn.title = 'Edit invoice';
+        }
+        const notesEl = document.getElementById('notes');
+        if (notesEl && invoiceData.pendingNotes != null) {
+            notesEl.value = invoiceData.pendingNotes;
+        }
+
+        const invoiceHeader = document.querySelector('.invoice-header');
+        const confirmBtn = document.getElementById('confirmInvoiceBtn');
+        if (invoiceData.isConfirmed) {
+            invoiceHeader.classList.add('confirmed');
+            document.getElementById('date').readOnly = true;
+            document.getElementById('invoice_number').readOnly = true;
+            confirmBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+            confirmBtn.title = 'Edit invoice';
+        } else {
+            invoiceHeader.classList.remove('confirmed');
+            document.getElementById('date').readOnly = false;
+            document.getElementById('invoice_number').readOnly = false;
+            confirmBtn.innerHTML = '<i class="fas fa-check"></i>';
+            confirmBtn.title = 'Add to invoice';
+        }
+
+        const itemsContainer = document.getElementById('items');
+        itemsContainer.innerHTML = '';
+
+        const items = Array.isArray(invoiceData.items) ? invoiceData.items : [];
+
+        items.forEach(item => {
+            if (!item.type) {
+                return;
             }
-            
-            // Restore line items
-            const itemsContainer = document.getElementById('items');
-            itemsContainer.innerHTML = ''; // Clear existing items
-            
-            // First, restore non-tax items
-            invoiceData.items.forEach(item => {
-                if (!item.type || !item.description) return; // Skip invalid items
-                if (item.type === 'tax') return; // Skip tax items for now
-                
-                const lineItem = document.createElement('div');
-                lineItem.className = 'line-item confirmed';
-                
-                if (item.type === 'note') {
+            if (item.type !== 'note' && item.type !== 'tax' && !item.description) {
+                return;
+            }
+            if (item.type === 'tax') {
+                return;
+            }
+
+            const lineItem = document.createElement('div');
+            lineItem.className = 'line-item confirmed';
+
+            if (item.type === 'note') {
                     lineItem.innerHTML = `
                         <div class="line-item-content">
                             <div class="detail-item">
@@ -704,14 +770,16 @@
                     lineItem.dataset.quantity = item.quantity;
                     lineItem.dataset.price = item.price;
                     lineItem.dataset.total = item.total;
+                    if (item.date) {
+                        lineItem.dataset.date = item.date;
+                    }
                 }
-                
-                itemsContainer.appendChild(lineItem);
-            });
-            
-            // Then restore tax items
-            invoiceData.items.forEach(item => {
-                if (item.type === 'tax') {
+
+            itemsContainer.appendChild(lineItem);
+        });
+
+        items.forEach(item => {
+            if (item.type === 'tax') {
                     const lineItem = document.createElement('div');
                     lineItem.className = 'line-item confirmed';
                     lineItem.dataset.type = 'tax';
@@ -752,7 +820,9 @@
                                 
                                 // Update the sales tax button text
                                 const salesTaxButton = document.getElementById('salesTaxButton');
-                                salesTaxButton.innerHTML = '<i class="fas fa-percentage"></i> Edit Sales Tax';
+                                if (salesTaxButton) {
+                                    salesTaxButton.innerHTML = '<i class="fas fa-percentage"></i> Edit Sales Tax';
+                                }
 
                                 // Add hidden fields to form so sales tax is submitted
                                 const form = document.querySelector('form');
@@ -778,9 +848,49 @@
                         .catch(error => {
                             console.error('Error loading tax rate:', error);
                         });
-                }
-            });
+            }
+        });
+
+        updateInvoiceTotals();
+    }
+
+    function restoreInvoiceData() {
+        const userId = "{{ session.get('user_id') }}";
+        const savedData = localStorage.getItem(`invoiceData_${userId}`);
+        if (savedData) {
+            try {
+                applyInvoicePayload(JSON.parse(savedData));
+            } catch (e) {
+                console.error('Failed to restore invoice draft from localStorage', e);
+            }
         }
+    }
+
+    function mergeServerDraftAfterLocalRestore() {
+        const userId = "{{ session.get('user_id') }}";
+        return fetch(`${APP_ROOT}/api/invoice-draft`, { credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                const serverDraft = resp.draft;
+                const updatedAt = resp.updated_at;
+                if (!serverDraft) {
+                    return;
+                }
+                const serverTime = updatedAt ? new Date(updatedAt).getTime() : 0;
+                let local = null;
+                try {
+                    const localRaw = localStorage.getItem(`invoiceData_${userId}`);
+                    local = localRaw ? JSON.parse(localRaw) : null;
+                } catch (e) {
+                    local = null;
+                }
+                const localTime = local && local.savedAt ? Number(local.savedAt) : 0;
+                if (serverTime >= localTime) {
+                    applyInvoicePayload(serverDraft);
+                    localStorage.setItem(`invoiceData_${userId}`, JSON.stringify(serverDraft));
+                }
+            })
+            .catch(function() { /* ignore */ });
     }
 
     // Function to clear invoice data from localStorage
@@ -789,12 +899,20 @@
         localStorage.removeItem(`invoiceData_${userId}`);
     }
 
+    function clearServerDraft() {
+        fetch(`${APP_ROOT}/api/invoice-draft`, { method: 'DELETE', credentials: 'same-origin' }).catch(function() {});
+    }
+
     // Function to save selected business and client
     function saveSelectedBusinessAndClient() {
         const businessId = document.getElementById('business_id')?.value;
         const clientId = document.getElementById('client_id')?.value;
-        
+        const userId = "{{ session.get('user_id') }}";
         if (businessId || clientId) {
+            localStorage.setItem(`selectionData_${userId}`, JSON.stringify({
+                businessId: businessId || '',
+                clientId: clientId || ''
+            }));
             fetch(`${APP_ROOT}/save_selections`, {
                 method: 'POST',
                 headers: {
@@ -814,23 +932,25 @@
     function restoreSelectedBusinessAndClient() {
         const userId = "{{ session.get('user_id') }}";
         const savedData = localStorage.getItem(`selectionData_${userId}`);
-        
+
         if (savedData) {
             const selectionData = JSON.parse(savedData);
-            
-            // Restore business selection
-            const businessSelect = document.querySelector('.company-selector');
-            if (businessSelect && selectionData.businessId) {
-                businessSelect.value = selectionData.businessId;
-                // Trigger the company selection handler to update the UI
+
+            document.querySelectorAll('.company-selector').forEach(function(businessSelect) {
+                if (selectionData.businessId) {
+                    businessSelect.value = selectionData.businessId;
+                }
+            });
+            document.querySelectorAll('.client-selector').forEach(function(clientSelect) {
+                if (selectionData.clientId) {
+                    clientSelect.value = selectionData.clientId;
+                }
+            });
+
+            if (selectionData.businessId && /^[0-9]+$/.test(String(selectionData.businessId))) {
                 handleCompanySelection(selectionData.businessId);
             }
-            
-            // Restore client selection
-            const clientSelect = document.querySelector('.client-selector');
-            if (clientSelect && selectionData.clientId) {
-                clientSelect.value = selectionData.clientId;
-                // Trigger the client selection handler to update the UI
+            if (selectionData.clientId && /^[0-9]+$/.test(String(selectionData.clientId))) {
                 handleClientSelection(selectionData.clientId);
             }
         }
@@ -888,26 +1008,42 @@
             });
     }
 
+    function setClientPreviewFields(data) {
+        document.querySelectorAll('[data-client-preview]').forEach(function(el) {
+            const key = el.getAttribute('data-client-preview');
+            if (key && data[key] !== undefined && data[key] !== null) {
+                el.textContent = data[key];
+            }
+        });
+        const titleEl = document.getElementById('clientAccordionTitle');
+        if (titleEl && data.name) {
+            titleEl.textContent = data.name;
+        }
+    }
+
     // Update the handleClientSelection function
     function handleClientSelection(value) {
         if (value.startsWith('/')) {
             window.location.href = value;
-            document.querySelector('.client-selector').selectedIndex = 0;
+            document.querySelectorAll('.client-selector').forEach(function(sel) {
+                sel.selectedIndex = 0;
+            });
             return;
         }
         if (!/^[0-9]+$/.test(value)) {
             return;
         }
-        
-        // Update the hidden client_id input field
-        const clientIdInput = document.querySelector('input[name="client_id"]');
+
+        const clientIdInput = document.getElementById('client_id') || document.querySelector('input[name="client_id"]');
         if (clientIdInput) {
             clientIdInput.value = value;
         }
-        
-        // Otherwise, update the client details on the page
-        console.log('Fetching client details for ID:', value);
-        fetch(`${APP_ROOT}/get_client/${value}`)
+
+        document.querySelectorAll('.client-selector').forEach(function(sel) {
+            sel.value = value;
+        });
+
+        fetch(`${APP_ROOT}/invoice/get_client/${value}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -915,28 +1051,17 @@
                 return response.json();
             })
             .then(data => {
-                // Update client details display
-                const clientDetails = document.querySelector('.client-details');
-                if (clientDetails) {
-                    clientDetails.innerHTML = `
-                        <p><strong>${data.name}</strong></p>
-                        <p>${data.address}</p>
-                        <p>${data.phone}</p>
-                        <p>${data.email}</p>
-                    `;
-                }
-                
-                // Enable edit button if it exists
-                const editButton = document.querySelector('.edit-client-btn-responsive');
-                if (editButton) {
+                setClientPreviewFields(data);
+
+                document.querySelectorAll('.edit-client-btn-responsive').forEach(function(editButton) {
                     editButton.classList.remove('disabled');
                     editButton.href = `${APP_ROOT}/client_details?client_id=${value}`;
                     editButton.style.pointerEvents = 'auto';
                     editButton.style.opacity = '1';
-                }
-                
-                // Save the selection
+                });
+
                 saveSelectedBusinessAndClient();
+                saveInvoiceData();
             })
             .catch(error => {
                 console.error('Error fetching client details:', error);
@@ -1309,9 +1434,34 @@
         // Initialize all event listeners
         initializeEventListeners();
 
-        // Restore saved data
+        // Restore saved data (localStorage, then server draft if newer)
         restoreInvoiceData();
-        restoreSelectedBusinessAndClient();
+        mergeServerDraftAfterLocalRestore().then(function() {
+            const bid = document.getElementById('business_id') && document.getElementById('business_id').value;
+            const cidEl = document.getElementById('client_id') || document.querySelector('input[name="client_id"]');
+            const cid = cidEl ? cidEl.value : '';
+            document.querySelectorAll('.company-selector').forEach(function(s) {
+                if (bid) {
+                    s.value = bid;
+                }
+            });
+            document.querySelectorAll('.client-selector').forEach(function(s) {
+                if (cid) {
+                    s.value = cid;
+                }
+            });
+            const hasBiz = bid && /^[0-9]+$/.test(String(bid));
+            const hasCli = cid && /^[0-9]+$/.test(String(cid));
+            if (hasBiz) {
+                handleCompanySelection(bid);
+            }
+            if (hasCli) {
+                handleClientSelection(cid);
+            }
+            if (!hasBiz && !hasCli) {
+                restoreSelectedBusinessAndClient();
+            }
+        });
 
         // Handle disabled edit buttons
         const editButtons = document.querySelectorAll('.settings-link.disabled');
@@ -1333,11 +1483,6 @@
                 editButton.style.pointerEvents = 'none';
                 editButton.style.opacity = '0.5';
             }
-        }
-
-        // After restoring selected business and client, also update business details if a company is pre-selected
-        if (companySelect && companySelect.value) {
-            handleCompanySelection(companySelect.value);
         }
 
         // --- Auto-open dialog and pre-select new item/labor if redirected with query params ---
@@ -1462,30 +1607,25 @@
             });
         }
 
-        // Form submission
+        // Form submission (fetch + redirect so we only clear drafts after the server accepts the invoice)
         const form = document.querySelector('form');
         if (form) {
             form.addEventListener('submit', function(e) {
                 try {
-                    console.log('Form submit handler triggered');
-                    
-                    // Check if client is selected
                     const clientIdInput = document.querySelector('input[name="client_id"]');
                     if (!clientIdInput || !clientIdInput.value) {
                         e.preventDefault();
                         alert('Please select a client first');
                         return;
                     }
-                    
-                    // Check if invoice is confirmed
+
                     const invoiceHeader = document.querySelector('.invoice-header');
                     if (!invoiceHeader.classList.contains('confirmed')) {
                         e.preventDefault();
                         alert('Please confirm invoice date and invoice number');
                         return;
                     }
-                    
-                    // Check if there are any line items
+
                     const lineItems = document.querySelectorAll('.line-item.confirmed');
                     if (lineItems.length === 0) {
                         e.preventDefault();
@@ -1493,33 +1633,26 @@
                         return;
                     }
 
-                    // Log form data for debugging
-                    const formData = new FormData(form);
-                    console.log('Form data being submitted:');
-                    for (let [key, value] of formData.entries()) {
-                        console.log(`${key}: ${value}`);
-                    }
-                    
-                    // Add sales tax information to form if present
+                    e.preventDefault();
+
                     const taxLine = document.querySelector('.line-item[data-type="tax"]');
                     if (taxLine) {
-                        const salesTaxIdInput = document.createElement('input');
-                        salesTaxIdInput.type = 'hidden';
-                        salesTaxIdInput.name = 'sales_tax_id';
-                        salesTaxIdInput.value = taxLine.dataset.taxId;
-                        form.appendChild(salesTaxIdInput);
-
-                        const taxAppliesToInput = document.createElement('input');
-                        taxAppliesToInput.type = 'hidden';
-                        taxAppliesToInput.name = 'tax_applies_to';
-                        taxAppliesToInput.value = taxLine.dataset.appliesTo;
-                        form.appendChild(taxAppliesToInput);
+                        if (!form.querySelector('input[name="sales_tax_id"]')) {
+                            const salesTaxIdInput = document.createElement('input');
+                            salesTaxIdInput.type = 'hidden';
+                            salesTaxIdInput.name = 'sales_tax_id';
+                            salesTaxIdInput.value = taxLine.dataset.taxId;
+                            form.appendChild(salesTaxIdInput);
+                        }
+                        if (!form.querySelector('input[name="tax_applies_to"]')) {
+                            const taxAppliesToInput = document.createElement('input');
+                            taxAppliesToInput.type = 'hidden';
+                            taxAppliesToInput.name = 'tax_applies_to';
+                            taxAppliesToInput.value = taxLine.dataset.appliesTo;
+                            form.appendChild(taxAppliesToInput);
+                        }
                     }
-                    
-                    // Clear invoice data from localStorage
-                    clearInvoiceData();
 
-                    // Serialize line items into JSON
                     const lineItemsForSubmit = Array.from(document.querySelectorAll('.line-item.confirmed')).map(item => {
                         const data = {
                             type: item.dataset.type,
@@ -1534,12 +1667,36 @@
                         } else if (item.dataset.type === 'item') {
                             data.quantity = item.dataset.quantity;
                             data.price = item.dataset.price;
-                            data.date = item.dataset.date;
+                            if (item.dataset.date) {
+                                data.date = item.dataset.date;
+                            }
                         }
                         return data;
                     });
-                    document.getElementById('line_items_json').value = JSON.stringify(lineItemsForSubmit);
-                    console.log('Form submit handler completed');
+
+                    const formData = new FormData(form);
+                    formData.set('line_items_json', JSON.stringify(lineItemsForSubmit));
+
+                    fetch(form.action, {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'same-origin',
+                        redirect: 'manual'
+                    }).then(function(response) {
+                        if (response.status >= 300 && response.status < 400) {
+                            const loc = response.headers.get('Location') || '';
+                            if (loc.indexOf('invoice_list') !== -1) {
+                                clearInvoiceData();
+                                clearServerDraft();
+                            }
+                            window.location.href = loc || window.location.href;
+                            return;
+                        }
+                        alert('Could not generate invoice. Your draft is still saved; fix any issues and try again.');
+                    }).catch(function(err) {
+                        console.error('Invoice submit failed:', err);
+                        alert('Network error while submitting. Your draft is unchanged.');
+                    });
                 } catch (err) {
                     console.error('Error in form submit handler:', err);
                     e.preventDefault();
@@ -2147,7 +2304,7 @@
       <h2 class="accordion-header" id="clientAccordionHeader">
         <button class="accordion-button collapsed d-flex align-items-center gap-2" type="button" data-bs-toggle="collapse" data-bs-target="#clientAccordionCollapse" aria-expanded="false" aria-controls="clientAccordionCollapse" style="padding: 0.3rem 0.75rem;">
           <i class="fas fa-user fa-lg text-secondary" style="width: 32px; height: 22px; display: flex; align-items: center; justify-content: center;"></i>
-          <span class="fw-semibold">{{ selected_client.name if selected_client else 'Client' }}</span>
+          <span class="fw-semibold" id="clientAccordionTitle">{{ selected_client.name if selected_client else 'Client' }}</span>
         </button>
       </h2>
       <div id="clientAccordionCollapse" class="accordion-collapse collapse" aria-labelledby="clientAccordionHeader" data-bs-parent="#clientAccordion">
@@ -2156,36 +2313,36 @@
             {% if selected_client %}
               <div class="detail-item">
                 <span class="detail-label">Client Name:</span>
-                <span class="detail-value">{{ selected_client.name }}</span>
+                <span class="detail-value" data-client-preview="name">{{ selected_client.name }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Address:</span>
-                <span class="detail-value">{{ selected_client.address }}</span>
+                <span class="detail-value" data-client-preview="address">{{ selected_client.address }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Email:</span>
-                <span class="detail-value">{{ selected_client.email }}</span>
+                <span class="detail-value" data-client-preview="email">{{ selected_client.email }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Phone Number:</span>
-                <span class="detail-value">{{ selected_client.phone }}</span>
+                <span class="detail-value" data-client-preview="phone">{{ selected_client.phone }}</span>
               </div>
             {% else %}
               <div class="detail-item">
                 <span class="detail-label">Client Name:</span>
-                <span class="detail-value" data-placeholder="Your Client's Name"></span>
+                <span class="detail-value" data-client-preview="name" data-placeholder="Your Client's Name"></span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Address:</span>
-                <span class="detail-value" data-placeholder="Your Client's Address"></span>
+                <span class="detail-value" data-client-preview="address" data-placeholder="Your Client's Address"></span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Email:</span>
-                <span class="detail-value" data-placeholder="Your Client's Email"></span>
+                <span class="detail-value" data-client-preview="email" data-placeholder="Your Client's Email"></span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Phone Number:</span>
-                <span class="detail-value" data-placeholder="Your Client's Phone Number"></span>
+                <span class="detail-value" data-client-preview="phone" data-placeholder="Your Client's Phone Number"></span>
               </div>
             {% endif %}
             <a href="#" class="btn btn-outline-secondary btn-sm settings-link{% if not selected_client %} disabled{% endif %} edit-client-btn-responsive" style="margin-top: 1rem; width: 200px; max-width: 100%;">Edit Client Details</a>
@@ -2214,36 +2371,36 @@
         {% if selected_client %}
           <div class="detail-item">
             <span class="detail-label">Client Name:</span>
-            <span class="detail-value">{{ selected_client.name }}</span>
+            <span class="detail-value" data-client-preview="name">{{ selected_client.name }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Address:</span>
-            <span class="detail-value">{{ selected_client.address }}</span>
+            <span class="detail-value" data-client-preview="address">{{ selected_client.address }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Email:</span>
-            <span class="detail-value">{{ selected_client.email }}</span>
+            <span class="detail-value" data-client-preview="email">{{ selected_client.email }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Phone Number:</span>
-            <span class="detail-value">{{ selected_client.phone }}</span>
+            <span class="detail-value" data-client-preview="phone">{{ selected_client.phone }}</span>
           </div>
         {% else %}
           <div class="detail-item">
             <span class="detail-label">Client Name:</span>
-            <span class="detail-value" data-placeholder="Your Client's Name"></span>
+            <span class="detail-value" data-client-preview="name" data-placeholder="Your Client's Name"></span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Address:</span>
-            <span class="detail-value" data-placeholder="Your Client's Address"></span>
+            <span class="detail-value" data-client-preview="address" data-placeholder="Your Client's Address"></span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Email:</span>
-            <span class="detail-value" data-placeholder="Your Client's Email"></span>
+            <span class="detail-value" data-client-preview="email" data-placeholder="Your Client's Email"></span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Phone Number:</span>
-            <span class="detail-value" data-placeholder="Your Client's Phone Number"></span>
+            <span class="detail-value" data-client-preview="phone" data-placeholder="Your Client's Phone Number"></span>
           </div>
         {% endif %}
         <a href="#" class="btn btn-outline-secondary btn-sm settings-link{% if not selected_client %} disabled{% endif %} edit-client-btn-responsive" style="margin-top: 1rem; width: 200px; max-width: 100%;">Edit Client Details</a>
@@ -2276,7 +2433,7 @@
             <form id="businessForm" action="{{ url_for('create_invoice') }}" method="POST" enctype="multipart/form-data">
                 <input type="hidden" id="business_id" name="business_id" value="{{ selected_company.id if selected_company else '' }}">
                 <input type="hidden" name="from_create_invoice" value="true">
-                <input type="hidden" name="client_id" value="{{ selected_client.id if selected_client else '' }}">
+                <input type="hidden" id="client_id" name="client_id" value="{{ selected_client.id if selected_client else '' }}">
                 <input type="hidden" id="line_items_json" name="line_items_json" value="">
                 <div class="invoice-header"> 
                     <div class="invoice-fields row"> 

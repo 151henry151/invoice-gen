@@ -272,6 +272,19 @@ class Item(db.Model):
             'updated_at': self.updated_at.isoformat()
         }
 
+class InvoiceDraft(db.Model):
+    """Server-side autosave for the create-invoice form (one row per user)."""
+
+    __tablename__ = 'invoice_draft'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
+    payload = db.Column(db.Text, nullable=False)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('invoice_draft', uselist=False))
+
+
 class LaborItem(db.Model):
     __tablename__ = 'labor_items'
     

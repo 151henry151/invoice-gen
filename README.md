@@ -1,8 +1,9 @@
 # Invoice Generator
 
-Current Version: 0.9.0-beta.1
+Current Version: 0.9.0-beta.2
 
 ## Version History
+- 0.9.0-beta.2: Client preview fix, draft autosave (local + server), safer invoice submit without losing line items — see [CHANGELOG.md](CHANGELOG.md)
 - 0.9.0-beta.1: Initial beta release with core invoice generation functionality
 
 ## Versioning
