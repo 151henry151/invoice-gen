@@ -33,6 +33,138 @@ invoice_gen/
 └── ...                   # Other supporting files
 ```
 
+## Development and Production Environments
+
+The application supports both development and production environments. The environment can be toggled using environment variables in the `docker-compose.yml` file.
+
+### Environment Toggle
+
+To switch between development and production modes, you can use either of these methods:
+
+1. Using the provided script (recommended):
+   ```bash
+   # For development mode
+   ./switch-env.sh dev
+
+   # For production mode
+   ./switch-env.sh prod
+   ```
+
+2. Using docker-compose directly:
+   ```bash
+   # For development mode
+   DOCKERFILE=Dockerfile.dev FLASK_ENV=development docker-compose up --build
+
+   # For production mode
+   docker-compose up --build
+   ```
+
+The script method is recommended as it handles stopping the current environment and provides clear feedback about the switching process.
+
+### Key Differences
+
+#### Development Mode
+- Uses Flask's development server with hot-reloading
+- Debug mode enabled
+- Mounts local directories for live code changes
+- Uses HTTP instead of HTTPS
+- More verbose logging
+- Development-specific settings:
+  - `SESSION_COOKIE_SECURE = False`
+  - `PREFERRED_URL_SCHEME = 'http'`
+  - Debug PIN enabled for debugging
+  - Hot-reloading enabled
+
+#### Production Mode
+- Uses Gunicorn as WSGI server
+- Debug mode disabled
+- Optimized for performance
+- Uses HTTPS (when configured)
+- Minimal logging
+- Production-specific settings:
+  - `SESSION_COOKIE_SECURE = True`
+  - `PREFERRED_URL_SCHEME = 'https'`
+  - Debug PIN disabled
+  - Hot-reloading disabled
+
+### Environment Variables
+
+Key environment variables that control the environment:
+
+- `FLASK_ENV`: Set to `development` or `production`
+- `DOCKERFILE`: Set to `Dockerfile.dev` for development or `Dockerfile` for production
+- `SECRET_KEY`: Different keys for development and production
+- `SCRIPT_NAME`: Application root path (e.g., `/invoice`)
+
+### Switching Environments
+
+1. Stop the current environment:
+   ```bash
+   docker-compose down
+   ```
+
+2. Clear any cached data (optional):
+   ```bash
+   docker-compose down -v
+   ```
+
+3. Start the desired environment:
+   ```bash
+   # For development
+   DOCKERFILE=Dockerfile.dev FLASK_ENV=development docker-compose up --build
+
+   # For production
+   docker-compose up --build
+   ```
+
+### Important Notes
+
+- Always use different secret keys for development and production
+- Development mode should never be used in production
+- Keep development-specific settings in `Dockerfile.dev`
+- Production settings should be secure by default
+- Database migrations work in both environments
+- Static files are served differently in each environment
+
+## Google Maps API Key Setup (for Address Autocomplete)
+
+To enable address autocomplete using Google Places in the business details form, you must obtain a Google Maps API key with the Places API enabled. Follow these steps:
+
+1. **Create a Google Cloud Project**
+   - Go to the [Google Cloud Console](https://console.cloud.google.com/).
+   - Sign in with your Google account.
+   - Click the project drop-down at the top and select **New Project**.
+   - Enter a project name (e.g., "InvoiceGen Address Picker") and click **Create**.
+
+2. **Enable Billing**
+   - Go to the [Billing page](https://console.cloud.google.com/billing) and link your project to a billing account.
+   - Google provides a generous free tier for Maps/Places usage.
+
+3. **Enable the Places API**
+   - In the Cloud Console, make sure your project is selected.
+   - Go to the [Places API page](https://console.cloud.google.com/apis/library/places-backend.googleapis.com) and click **Enable**.
+   - (Optional but recommended) Also enable the [Maps JavaScript API](https://console.cloud.google.com/apis/library/maps-backend.googleapis.com).
+
+4. **Create an API Key**
+   - Go to the [Credentials page](https://console.cloud.google.com/apis/credentials).
+   - Click **+ Create Credentials** > **API key**.
+   - Copy the generated API key.
+
+5. **Restrict Your API Key (Recommended)**
+   - On the Credentials page, click your new API key.
+   - Under **API restrictions**, select **Restrict key** and choose **Places API** and **Maps JavaScript API**.
+   - Under **Application restrictions**, select **HTTP referrers** and add your domain (e.g., `localhost` for local development, or your production domain).
+
+6. **Configure Your Application**
+   - Copy `example_credentials.ini` to `credentials.ini` in your project root.
+   - Paste your API key as the value for `GOOGLE_MAPS_API_KEY` in `credentials.ini`.
+   - **Do not commit `credentials.ini` to version control!** (It is already in `.gitignore`.)
+
+7. **Further Reading**
+   - See the [Google Maps Platform documentation](https://developers.google.com/maps/documentation/places/web-service/overview) for more details.
+
+**Note:** The address picker will not function until a valid API key is provided.
+
 ## API Documentation
 
 The application provides several RESTful API endpoints for managing invoices, clients, and settings. All endpoints require authentication unless specified otherwise.
@@ -173,6 +305,40 @@ All API endpoints may return the following error responses:
 - `404 Not Found`: Requested resource not found
 - `500 Internal Server Error`: Server-side error
 
+## Testing
+
+The application includes a test harness for populating the database with test data. This is useful for manual testing and development purposes.
+
+### Test Harness
+
+The test harness is located in the `tests` directory and can be run using the provided script:
+
+```bash
+# Run the test harness
+./tests/run_test_harness.sh
+```
+
+The test harness will:
+1. Clear any existing test data
+2. Create a test user with the following credentials:
+   - Username: `testuser`
+   - Password: `TestPass123!@#`
+   - Email: `test@example.com`
+3. Generate test data including:
+   - 3 test businesses with generated logos
+   - 5 test clients
+   - 10 test items
+   - 5 test labor items
+   - 5 tax rates (0%, 5%, 10%, 15%, 20%)
+   - 12 test invoices with various line items and labor entries
+4. Generate a summary of the created data in `test_data_summary.json`
+
+After running the test harness, you can log in to the application using the test user credentials to explore and test the functionality with the generated data.
+
+### Test Environment
+
+The test harness uses the application's database and automatically cleans up any existing test data before creating new test data. This ensures a clean state for testing while preserving any production data.
+
 ## Customizing Invoice Templates
 
 The Invoice Generator uses a single HTML (Jinja2) template for invoice generation. You can customize this template to match your branding, layout, and required fields.
@@ -266,6 +432,76 @@ The Invoice Generator uses a single HTML (Jinja2) template for invoice generatio
    flask run
    ```
    The app will be available at `http://127.0.0.1:5000/`.
+
+## Development Environment
+
+The project includes a Docker-based development environment that provides hot-reloading, debugging tools, and a consistent development experience.
+
+### Starting the Development Environment
+
+1. **Build and start the development containers:**
+   ```bash
+   docker-compose -f docker-compose.dev.yml up --build
+   ```
+
+2. **Access the application:**
+   - Main application: http://localhost:8080/invoice
+   - Debug toolbar will be available in the browser
+
+### Development Features
+
+- **Hot Reloading**: Changes to Python files automatically trigger a server reload
+- **Debug Mode**: Detailed error messages and Flask debug toolbar
+- **Development Tools**: Testing, formatting, and linting tools included
+- **Separate Database**: Development database is isolated from production
+- **No Rebuilding**: Code changes don't require container rebuilds
+
+### Development Commands
+
+1. **View logs:**
+   ```bash
+   docker-compose -f docker-compose.dev.yml logs -f
+   ```
+
+2. **Run tests:**
+   ```bash
+   docker-compose -f docker-compose.dev.yml exec web pytest
+   ```
+
+3. **Format code:**
+   ```bash
+   docker-compose -f docker-compose.dev.yml exec web black .
+   ```
+
+4. **Lint code:**
+   ```bash
+   docker-compose -f docker-compose.dev.yml exec web flake8
+   ```
+
+5. **Stop the development environment:**
+   ```bash
+   docker-compose -f docker-compose.dev.yml down
+   ```
+
+### Development Tools Included
+
+- **pytest**: Testing framework
+- **pytest-cov**: Test coverage reporting
+- **black**: Code formatter
+- **flake8**: Code linter
+- **flask-debugtoolbar**: Debug toolbar for Flask applications
+
+### Development Environment Structure
+
+```
+invoice-gen/
+├── docker-compose.dev.yml    # Development Docker Compose configuration
+├── Dockerfile.dev           # Development Dockerfile
+├── entrypoint.dev.sh        # Development container entrypoint script
+└── ...                      # Other project files
+```
+
+The development environment mounts your local code directory into the container, allowing for immediate code changes without rebuilding. The database and migrations are stored in Docker volumes to persist data between container restarts.
 
 ## Running with Docker
 

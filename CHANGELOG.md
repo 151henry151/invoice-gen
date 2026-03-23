@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Set docker-compose `web` `command` to `/app/entrypoint.sh` so the app starts when `.:/app` hides image-only `/app/start.sh`
+- Restore `README.md` body after accidental truncation in the same release commit
 
 ## [0.9.0-beta.2] - 2026-03-22
 
