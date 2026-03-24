@@ -50,3 +50,5 @@ Pre-existing lint warnings exist (unused imports, formatting). These are in the 
 - The `docker-compose.dev.yml` sets `FLASK_APP=app.py` but the correct entry point is `app_factory.py`. When running locally (outside Docker), always set `FLASK_APP=app_factory.py`.
 - The app uses `APPLICATION_ROOT = '/invoice'` but when running locally without a reverse proxy, routes work without the `/invoice` prefix.
 - Google Maps API key is optional; the app works fully without it (address autocomplete is just disabled).
+- WeasyPrint 62.0 requires `pydyf<0.12` (0.11.x). If pydyf 0.12+ is installed, PDF generation fails with `AttributeError: 'super' object has no attribute 'transform'`. The update script pins `pydyf<0.12` to prevent this.
+- After changing Python dependencies, the Flask dev server must be fully restarted (not just hot-reloaded) to pick up the changes.
