@@ -765,7 +765,7 @@
                     lineItem.dataset.taxId = item.taxId;
                     
                     // Fetch the tax rate details to get the description
-                    fetch('/api/sales-tax')
+                    fetch(`${APP_ROOT}/api/sales-tax`)
                         .then(response => response.json())
                         .then(rates => {
                             const taxRate = rates.find(r => r.id === parseInt(item.taxId));
@@ -944,7 +944,7 @@
             return;
         }
 
-        fetch(`${APP_ROOT}/invoice/get_company/${value}`)
+        fetch(`${APP_ROOT}/get_company/${value}`)
             .then(response => response.json())
             .then(company => {
                 // Update all company details
@@ -1019,7 +1019,7 @@
             sel.value = value;
         });
 
-        fetch(`${APP_ROOT}/invoice/get_client/${value}`)
+        fetch(`${APP_ROOT}/get_client/${value}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -1687,7 +1687,7 @@
         dialog.style.display = 'block';
         
         // Load existing tax rates
-        fetch('/api/sales-tax')
+        fetch(`${APP_ROOT}/api/sales-tax`)
             .then(response => response.json())
             .then(rates => {
                 const select = document.getElementById('salesTaxSelect');
@@ -1719,7 +1719,7 @@
     function handleSalesTaxSelection(select) {
         if (select.value === 'clear') {
             if (confirm('Are you sure you want to clear all saved tax rates? This action cannot be undone.')) {
-                fetch('/api/sales-tax', {
+                fetch(`${APP_ROOT}/api/sales-tax`, {
                     method: 'DELETE'
                 })
                 .then(response => {
@@ -1752,7 +1752,7 @@
         // Calculate and display tax amount in real-time when a rate is selected
         if (select.value && select.value !== 'new') {
             const appliesTo = document.getElementById('taxAppliesTo').value;
-            fetch('/api/sales-tax')
+            fetch(`${APP_ROOT}/api/sales-tax`)
                 .then(response => response.json())
                 .then(rates => {
                     const selectedRate = rates.find(r => r.id === parseInt(select.value));
@@ -1811,7 +1811,7 @@
             }
             
             try {
-                const response = await fetch('/api/sales-tax', {
+                const response = await fetch(`${APP_ROOT}/api/sales-tax`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1839,7 +1839,7 @@
         } else if (select.value) {
             // Use existing tax rate
             try {
-                const response = await fetch('/api/sales-tax');
+                const response = await fetch(`${APP_ROOT}/api/sales-tax`);
                 const rates = await response.json();
                 const selectedRate = rates.find(r => r.id === parseInt(select.value));
                 if (selectedRate) {
@@ -1928,7 +1928,7 @@
         
         // Pre-select the tax rate
         const select = document.getElementById('salesTaxSelect');
-        fetch('/api/sales-tax')
+        fetch(`${APP_ROOT}/api/sales-tax`)
             .then(response => response.json())
             .then(rates => {
                 const matchingRate = rates.find(r => r.rate === parseFloat(rate));

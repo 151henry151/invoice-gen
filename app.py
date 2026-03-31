@@ -827,6 +827,7 @@ def register_routes(app):
             flash('Item removed successfully!')
         return redirect(url_for_with_prefix('item_details'))
 
+    @app.route('/get_company/<int:company_id>')
     @app.route('/invoice/get_company/<int:company_id>')
     @login_required
     def get_company(company_id):
@@ -851,6 +852,7 @@ def register_routes(app):
             return jsonify(client.to_dict())
         return jsonify({'error': 'Client not found'}), 404
 
+    @app.route('/check_invoice_number/<invoice_number>')
     @app.route('/invoice/check_invoice_number/<invoice_number>')
     @login_required
     def check_invoice_number(invoice_number):
@@ -950,6 +952,8 @@ def register_routes(app):
             app.logger.error(f"Error clearing tax rates: {str(e)}")
             return jsonify({'success': False, 'error': str(e)})
 
+    @app.route('/api/sales-tax', methods=['POST'])
+    @app.route('/create_sales_tax_rate', methods=['POST'])
     @app.route('/invoice/create_sales_tax_rate', methods=['POST'])
     @login_required
     def create_sales_tax_rate():
@@ -1413,6 +1417,7 @@ def register_routes(app):
     app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix) 
 
     # Register API routes
+    @app.route('/api/items')
     @app.route('/invoice/api/items')
     @login_required
     def get_items():
@@ -1423,6 +1428,7 @@ def register_routes(app):
             'price': float(item.unit_price)
         } for item in items])
 
+    @app.route('/api/labor_items')
     @app.route('/invoice/api/labor_items')
     @login_required
     def get_labor_items():
