@@ -1,8 +1,9 @@
 # Invoice Generator
 
-Current Version: 0.9.0-beta.3
+Current Version: 0.9.0-beta.4
 
 ## Version History
+- 0.9.0-beta.4: Fix regular and labor item create/update routes for SQLAlchemy 2.x (`update_item` / `update_labor`) — see [CHANGELOG.md](CHANGELOG.md)
 - 0.9.0-beta.3: Docker Compose runs `entrypoint.sh` so bind-mounted source does not hide the container start script — see [CHANGELOG.md](CHANGELOG.md)
 - 0.9.0-beta.2: Client preview fix, draft autosave (local + server), safer invoice submit without losing line items — see [CHANGELOG.md](CHANGELOG.md)
 - 0.9.0-beta.1: Initial beta release with core invoice generation functionality

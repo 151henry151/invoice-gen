@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.4] - 2026-04-02
+
+### Fixed
+
+- Replace raw SQL in `update_item` and `update_labor` with ORM writes so SQLAlchemy 2.x no longer raises on `session.execute()` for plain strings; map form price to `Item.unit_price` (legacy SQL used non-existent column `price`)
+
+### Changed
+
+- Align `tests/test_items.py` success assertions with flash text `Item saved successfully` / `Labor item saved successfully`
+
 ## [0.9.0-beta.3] - 2026-03-22
 
 ### Fixed
@@ -41,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial beta release with core invoice generation functionality (see README)
 
+[0.9.0-beta.4]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.3]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.2]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.1]: https://github.com/151henry151/invoice-gen

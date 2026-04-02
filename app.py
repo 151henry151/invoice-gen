@@ -732,25 +732,42 @@ def register_routes(app):
     def update_labor():
         item_id = request.form.get('item_id')
         description = request.form.get('description')
-        rate = request.form.get('rate')
+        rate_raw = request.form.get('rate')
         source = request.form.get('source')
-        
-        conn = get_db()
+
+        try:
+            rate_val = float(rate_raw)
+        except (TypeError, ValueError):
+            flash('Invalid rate.')
+            return redirect(url_for_with_prefix('labor_details'))
+
         if item_id:
-            # Update existing labor item
-            conn.execute('''UPDATE labor_items 
-                           SET description = ?, rate = ?
-                           WHERE id = ? AND user_id = ?''',
-                        (description, rate, item_id, session['user_id']))
-            new_id = item_id
+            try:
+                lid = int(item_id)
+            except (TypeError, ValueError):
+                flash('Invalid labor item.')
+                return redirect(url_for_with_prefix('labor_details'))
+            labor = db.session.query(LaborItem).filter_by(
+                id=lid, user_id=session['user_id']
+            ).first()
+            if not labor:
+                flash('Labor item not found.')
+                return redirect(url_for_with_prefix('labor_details'))
+            labor.description = description
+            labor.rate = rate_val
+            new_id = labor.id
         else:
-            # Create new labor item
-            cursor = conn.execute('''INSERT INTO labor_items (user_id, description, rate, hours)
-                           VALUES (?, ?, ?, ?)''',
-                        (session['user_id'], description, rate, 0))
-            new_id = cursor.lastrowid
-        
-        conn.commit()
+            labor = LaborItem(
+                user_id=session['user_id'],
+                description=description,
+                hours=0.0,
+                rate=rate_val,
+            )
+            db.session.add(labor)
+            db.session.flush()
+            new_id = labor.id
+
+        db.session.commit()
         flash('Labor item saved successfully!')
         
         # Get client and business IDs from session
@@ -782,25 +799,42 @@ def register_routes(app):
     def update_item():
         item_id = request.form.get('item_id')
         description = request.form.get('description')
-        price = request.form.get('price')
+        price_raw = request.form.get('price')
         source = request.form.get('source')
-        
-        conn = get_db()
+
+        try:
+            price_val = float(price_raw)
+        except (TypeError, ValueError):
+            flash('Invalid price.')
+            return redirect(url_for_with_prefix('item_details'))
+
         if item_id:
-            # Update existing item
-            conn.execute('''UPDATE items 
-                           SET description = ?, price = ?
-                           WHERE id = ? AND user_id = ?''',
-                        (description, price, item_id, session['user_id']))
-            new_id = item_id
+            try:
+                iid = int(item_id)
+            except (TypeError, ValueError):
+                flash('Invalid item.')
+                return redirect(url_for_with_prefix('item_details'))
+            item = db.session.query(Item).filter_by(
+                id=iid, user_id=session['user_id']
+            ).first()
+            if not item:
+                flash('Item not found.')
+                return redirect(url_for_with_prefix('item_details'))
+            item.description = description
+            item.unit_price = price_val
+            new_id = item.id
         else:
-            # Create new item
-            cursor = conn.execute('''INSERT INTO items (user_id, description, price)
-                           VALUES (?, ?, ?)''',
-                        (session['user_id'], description, price))
-            new_id = cursor.lastrowid
-        
-        conn.commit()
+            item = Item(
+                user_id=session['user_id'],
+                description=description,
+                quantity=1,
+                unit_price=price_val,
+            )
+            db.session.add(item)
+            db.session.flush()
+            new_id = item.id
+
+        db.session.commit()
         flash('Item saved successfully!')
         
         # Get client and business IDs from session
