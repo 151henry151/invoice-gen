@@ -1,8 +1,9 @@
 # Invoice Generator
 
-Current Version: 0.9.0-beta.5
+Current Version: 0.9.0-beta.6
 
 ## Version History
+- 0.9.0-beta.6: Prevent server draft merge from clearing local line items on reload — see [CHANGELOG.md](CHANGELOG.md)
 - 0.9.0-beta.5: Fix generate-invoice redirect for HTTPS (`url_for_with_prefix` relative URLs + submit handler) — see [CHANGELOG.md](CHANGELOG.md)
 - 0.9.0-beta.4: Fix regular and labor item create/update routes for SQLAlchemy 2.x (`update_item` / `update_labor`) — see [CHANGELOG.md](CHANGELOG.md)
 - 0.9.0-beta.3: Docker Compose runs `entrypoint.sh` so bind-mounted source does not hide the container start script — see [CHANGELOG.md](CHANGELOG.md)

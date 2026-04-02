@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.6] - 2026-04-02
+
+### Fixed
+
+- Skip applying server invoice draft over localStorage when the server snapshot has no line items but local draft has items (prevents reload from wiping in-progress invoices after a stale or partial autosave)
+
 ## [0.9.0-beta.5] - 2026-04-02
 
 ### Fixed
@@ -62,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial beta release with core invoice generation functionality (see README)
 
+[0.9.0-beta.6]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.5]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.4]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.3]: https://github.com/151henry151/invoice-gen

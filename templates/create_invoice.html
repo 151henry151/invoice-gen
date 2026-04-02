@@ -861,7 +861,13 @@
                     local = null;
                 }
                 const localTime = local && local.savedAt ? Number(local.savedAt) : 0;
+                const localItemCount = local && Array.isArray(local.items) ? local.items.length : 0;
+                const serverItemCount = serverDraft && Array.isArray(serverDraft.items) ? serverDraft.items.length : 0;
+                // Do not clobber local line items with a newer but empty server snapshot (autosave race / partial payload).
                 if (serverTime >= localTime) {
+                    if (serverItemCount === 0 && localItemCount > 0) {
+                        return;
+                    }
                     applyInvoicePayload(serverDraft);
                     localStorage.setItem(`invoiceData_${userId}`, JSON.stringify(serverDraft));
                 }
