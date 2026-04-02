@@ -46,10 +46,12 @@ def register_routes(app):
             kwargs['_scheme'] = None
             kwargs['_anchor'] = None
             return url_for(*args, **kwargs)
-        
-        # For all other routes, use the prefix
-        kwargs['_external'] = True
-        kwargs['_scheme'] = 'http'  # Always use HTTP for local development
+
+        # Relative URLs so redirects work behind HTTPS reverse proxies. Absolute http://
+        # URLs from _external=True break fetch(..., redirect: 'manual') (opaque redirect /
+        # Location not readable) when the page is served over HTTPS.
+        kwargs['_external'] = False
+        kwargs.pop('_scheme', None)
         return url_for(*args, **kwargs)
 
     def allowed_file(filename):

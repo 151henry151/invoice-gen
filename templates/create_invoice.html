@@ -1660,12 +1660,19 @@
                         redirect: 'manual'
                     }).then(function(response) {
                         if (response.status >= 300 && response.status < 400) {
-                            const loc = response.headers.get('Location') || '';
+                            let loc = response.headers.get('Location') || '';
+                            if (!loc && response.url) {
+                                loc = response.url;
+                            }
                             if (loc.indexOf('invoice_list') !== -1) {
                                 clearInvoiceData();
                                 clearServerDraft();
                             }
-                            window.location.href = loc || window.location.href;
+                            if (loc) {
+                                window.location.href = loc;
+                            } else {
+                                window.location.reload();
+                            }
                             return;
                         }
                         alert('Could not generate invoice. Your draft is still saved; fix any issues and try again.');

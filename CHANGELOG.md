@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.5] - 2026-04-02
+
+### Fixed
+
+- Emit relative URLs from `url_for_with_prefix` so HTTPS deployments expose `Location` to `fetch(..., redirect: 'manual')` after generating an invoice (avoid opaque redirects from absolute `http://` redirects)
+- Use `response.url` when `Location` header is missing on redirect responses in create-invoice submit handler
+
+### Added
+
+- Add `tests/test_create_invoice_submit.py` asserting successful invoice POST returns a non-absolute redirect
+
 ## [0.9.0-beta.4] - 2026-04-02
 
 ### Fixed
@@ -51,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial beta release with core invoice generation functionality (see README)
 
+[0.9.0-beta.5]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.4]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.3]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.2]: https://github.com/151henry151/invoice-gen
