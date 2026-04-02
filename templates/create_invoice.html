@@ -671,6 +671,8 @@
                     lineItem.dataset.type = 'note';
                     lineItem.dataset.description = item.description;
                 } else if (item.type === 'labor') {
+                    const lh = item.hours != null && item.hours !== '' ? item.hours : 0;
+                    const lm = item.minutes != null && item.minutes !== '' ? item.minutes : 0;
                     lineItem.innerHTML = `
                         <div class="line-item-content">
                             <div class="detail-item">
@@ -683,7 +685,7 @@
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Time:</span>
-                                <span class="detail-value">${hours}h ${minutes}m</span>
+                                <span class="detail-value">${lh}h ${lm}m</span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Rate:</span>
@@ -863,9 +865,12 @@
                 const localTime = local && local.savedAt ? Number(local.savedAt) : 0;
                 const localItemCount = local && Array.isArray(local.items) ? local.items.length : 0;
                 const serverItemCount = serverDraft && Array.isArray(serverDraft.items) ? serverDraft.items.length : 0;
-                // Do not clobber local line items with a newer but empty server snapshot (autosave race / partial payload).
+                // Do not clobber local line items with a newer but empty or partial server snapshot.
                 if (serverTime >= localTime) {
                     if (serverItemCount === 0 && localItemCount > 0) {
+                        return;
+                    }
+                    if (localItemCount > 0 && serverItemCount < localItemCount) {
                         return;
                     }
                     applyInvoicePayload(serverDraft);

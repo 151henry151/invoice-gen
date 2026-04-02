@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.7] - 2026-04-02
+
+### Fixed
+
+- Fix labor line restore in `applyInvoicePayload` on create-invoice page: use `item.hours` / `item.minutes` for display (was undefined `hours` / `minutes`, throwing on restore and clearing line items after navigation)
+- Skip server draft merge when server has fewer line items than local draft (partial server snapshot)
+
 ## [0.9.0-beta.6] - 2026-04-02
 
 ### Fixed
@@ -68,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial beta release with core invoice generation functionality (see README)
 
+[0.9.0-beta.7]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.6]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.5]: https://github.com/151henry151/invoice-gen
 [0.9.0-beta.4]: https://github.com/151henry151/invoice-gen
