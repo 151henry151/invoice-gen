@@ -1732,17 +1732,22 @@
                     const formData = new FormData(form);
                     formData.set('line_items_json', JSON.stringify(lineItemsForSubmit));
 
+                    // Follow the redirect: our server emits relative Location
+                    // headers, so following stays same-origin over HTTPS. A
+                    // manual redirect yields an opaque response (status 0, no
+                    // readable Location), which previously made a successful
+                    // save look like a failure.
                     fetch(form.action, {
                         method: 'POST',
                         body: formData,
                         credentials: 'same-origin',
-                        redirect: 'manual'
+                        redirect: 'follow'
                     }).then(function(response) {
-                        if (response.status >= 300 && response.status < 400) {
-                            let loc = response.headers.get('Location') || '';
-                            if (!loc && response.url) {
-                                loc = response.url;
-                            }
+                        const loc = response.url || '';
+                        const succeeded = response.ok || response.redirected ||
+                            (response.status >= 300 && response.status < 400) ||
+                            response.type === 'opaqueredirect';
+                        if (succeeded) {
                             if (loc.indexOf('invoice_list') !== -1) {
                                 clearInvoiceData();
                                 clearServerDraft();
@@ -1754,7 +1759,7 @@
                             }
                             return;
                         }
-                        alert('Could not generate invoice. Your draft is still saved; fix any issues and try again.');
+                        alert('Could not save the invoice. Your draft is still saved; fix any issues and try again.');
                     }).catch(function(err) {
                         console.error('Invoice submit failed:', err);
                         alert('Network error while submitting. Your draft is unchanged.');

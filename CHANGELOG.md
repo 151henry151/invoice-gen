@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.10] - 2026-05-31
+
+### Fixed
+
+- Change the invoice submit handler from `fetch(redirect: 'manual')` to `redirect: 'follow'` and treat `response.ok`/`response.redirected`/`response.url` as success, so a successful save no longer shows the "Could not generate invoice" alert (the manual redirect produced an opaque response with `status === 0`)
+
+### Changed
+
+- Reword the submit failure alert to "Could not save the invoice." and navigate to `response.url` after a successful save
+
+### Added
+
+- Add `tests/test_edit_invoice_submit.py` asserting the edit POST persists changes and redirects to `invoice_list` with a relative Location
+
 ## [0.9.0-beta.9] - 2026-05-31
 
 ### Fixed
