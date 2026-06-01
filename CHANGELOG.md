@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.9] - 2026-05-31
+
+### Fixed
+
+- Remove the duplicate `confirmInvoiceBtn` click handler in `components/invoice_fields.html` that unconditionally re-set the date/due-date/invoice-number fields to `readOnly` on every click, which prevented editing the invoice number after confirming
+
+### Changed
+
+- Toggle the due-date `readOnly` state and the confirm button color (`btn-success`/`btn-warning`) inside the authoritative `confirmInvoiceBtn` handler and `applyInvoicePayload` in `create_invoice.html`, preserving the behavior previously provided by the removed component handler
+
 ## [0.9.0-beta.8] - 2026-05-31
 
 ### Added

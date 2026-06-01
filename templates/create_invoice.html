@@ -624,18 +624,29 @@
 
         const invoiceHeader = document.querySelector('.invoice-header');
         const confirmBtn = document.getElementById('confirmInvoiceBtn');
+        const dueDateEl = document.getElementById('due_date');
         if (invoiceData.isConfirmed) {
             invoiceHeader.classList.add('confirmed');
             document.getElementById('date').readOnly = true;
+            if (dueDateEl) {
+                dueDateEl.readOnly = true;
+            }
             document.getElementById('invoice_number').readOnly = true;
             confirmBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
             confirmBtn.title = 'Edit invoice';
+            confirmBtn.classList.remove('btn-success');
+            confirmBtn.classList.add('btn-warning');
         } else {
             invoiceHeader.classList.remove('confirmed');
             document.getElementById('date').readOnly = false;
+            if (dueDateEl) {
+                dueDateEl.readOnly = false;
+            }
             document.getElementById('invoice_number').readOnly = false;
             confirmBtn.innerHTML = '<i class="fas fa-check"></i>';
             confirmBtn.title = 'Add to invoice';
+            confirmBtn.classList.remove('btn-warning');
+            confirmBtn.classList.add('btn-success');
         }
 
         const itemsContainer = document.getElementById('items');
@@ -1590,6 +1601,7 @@
             confirmBtn.addEventListener('click', function() {
                 const invoiceHeader = document.querySelector('.invoice-header');
                 const dateInput = document.getElementById('date');
+                const dueDateInput = document.getElementById('due_date');
                 const invoiceNumberInput = document.getElementById('invoice_number');
                 
                 if (this.innerHTML.includes('fa-check')) {
@@ -1619,9 +1631,14 @@
                             
                             invoiceHeader.classList.add('confirmed');
                             dateInput.readOnly = true;
+                            if (dueDateInput) {
+                                dueDateInput.readOnly = true;
+                            }
                             invoiceNumberInput.readOnly = true;
                             this.innerHTML = '<i class="fas fa-pencil-alt"></i>';
                             this.title = 'Edit invoice';
+                            this.classList.remove('btn-success');
+                            this.classList.add('btn-warning');
                             saveInvoiceData();
                         })
                         .catch(error => {
@@ -1632,9 +1649,14 @@
                     // Edit mode
                     invoiceHeader.classList.remove('confirmed');
                     dateInput.readOnly = false;
+                    if (dueDateInput) {
+                        dueDateInput.readOnly = false;
+                    }
                     invoiceNumberInput.readOnly = false;
                     this.innerHTML = '<i class="fas fa-check"></i>';
                     this.title = 'Add to invoice';
+                    this.classList.remove('btn-warning');
+                    this.classList.add('btn-success');
                     saveInvoiceData();
                 }
             });

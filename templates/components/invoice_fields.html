@@ -19,29 +19,10 @@
   </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const confirmBtn = document.getElementById('confirmInvoiceBtn');
-  if (confirmBtn) {
-    confirmBtn.addEventListener('click', function() {
-      const invoiceNumber = document.getElementById('invoice_number');
-      const date = document.getElementById('date');
-      const dueDate = document.getElementById('due_date');
-      if (invoiceNumber.value && date.value && dueDate.value) {
-        invoiceNumber.readOnly = true;
-        date.readOnly = true;
-        dueDate.readOnly = true;
-        confirmBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
-        confirmBtn.title = 'Edit invoice fields';
-        confirmBtn.classList.remove('btn-success');
-        confirmBtn.classList.add('btn-warning');
-      } else {
-        alert('Please fill in all invoice fields before confirming.');
-      }
-    });
-  }
-});
-</script>
+{# The confirm/edit toggle for #confirmInvoiceBtn is handled in create_invoice.html
+   (initializeEventListeners). A second handler here previously re-locked the
+   fields on every click, which prevented editing the invoice number after
+   confirming. #}
 
 <style>
 .invoice-fields {
