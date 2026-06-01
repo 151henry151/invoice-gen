@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.8] - 2026-05-31
+
+### Added
+
+- Embed a pristine JSON snapshot (`INVOICE_SNAPSHOT`) of the saved invoice and the edit POST URL (`EDIT_POST_URL`) in the edit-invoice page via `edit_invoice` GET
+- Add a `discardInvoiceEdits` handler and a "Discard changes" button (edit mode only) that restores the invoice to its last saved state and resets the autosave draft
+- Add `tests/test_edit_invoice_cancel.py` covering snapshot embedding, the discard control, and line-item round-tripping
+
+### Changed
+
+- Seed the create-invoice page from `INVOICE_SNAPSHOT` when in edit mode (ignoring stale create drafts) and point the form `action` at `EDIT_POST_URL`, instead of restoring the create draft
+- Extract `finalizeBusinessClientSelection` from the `DOMContentLoaded` handler and reuse it for the edit-seed and discard paths
+- Label the submit button "Save Changes" in edit mode (was "Generate Invoice")
+
 ## [0.9.0-beta.7] - 2026-04-02
 
 ### Fixed

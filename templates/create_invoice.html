@@ -483,7 +483,13 @@
     </style>
 <script>
     const APP_ROOT = "{{ APP_ROOT }}";
-    
+    const CURRENT_USER_ID = "{{ session.get('user_id') }}";
+    const IS_EDIT = {% if is_edit %}true{% else %}false{% endif %};
+    const INVOICE_SNAPSHOT = {% if is_edit %}{{ invoice_snapshot|tojson }}{% else %}null{% endif %};
+    const EDIT_POST_URL = {% if is_edit %}{{ edit_post_url|tojson }}{% else %}null{% endif %};
+    // Pristine copy of the saved invoice used to discard in-progress edits.
+    let pristineEditSnapshot = null;
+
     // Function to calculate total cost
     window.calculateTotalCost = function(itemDiv) {
         const hours = parseFloat(itemDiv.querySelector('input[name="hours[]"]').value) || 0;
@@ -1413,6 +1419,59 @@
         }
     };
 
+    // Sync the business/client dropdowns to the hidden inputs and trigger their
+    // selection handlers. Shared by the create-draft restore and edit-snapshot
+    // seeding / discard paths.
+    function finalizeBusinessClientSelection() {
+        const bid = document.getElementById('business_id') && document.getElementById('business_id').value;
+        const cidEl = document.getElementById('client_id') || document.querySelector('input[name="client_id"]');
+        const cid = cidEl ? cidEl.value : '';
+        document.querySelectorAll('.company-selector').forEach(function(s) {
+            if (bid) {
+                s.value = bid;
+            }
+        });
+        document.querySelectorAll('.client-selector').forEach(function(s) {
+            if (cid) {
+                s.value = cid;
+            }
+        });
+        const hasBiz = bid && /^[0-9]+$/.test(String(bid));
+        const hasCli = cid && /^[0-9]+$/.test(String(cid));
+        if (hasBiz) {
+            handleCompanySelection(bid);
+        }
+        if (hasCli) {
+            handleClientSelection(cid);
+        }
+        if (!hasBiz && !hasCli) {
+            restoreSelectedBusinessAndClient();
+        }
+    }
+
+    // Discard all in-progress edits and restore the invoice to its last saved
+    // (generated) state, so the user can start editing over.
+    window.discardInvoiceEdits = function() {
+        if (!IS_EDIT || !pristineEditSnapshot) {
+            return;
+        }
+        if (!confirm('Discard all changes and restore this invoice to its last saved version? Any edits you made since opening it will be lost.')) {
+            return;
+        }
+        const restored = JSON.parse(JSON.stringify(pristineEditSnapshot));
+        applyInvoicePayload(restored);
+        finalizeBusinessClientSelection();
+        // Reset the autosave draft to the pristine snapshot so a reload or the
+        // background autosave cannot resurrect the discarded edits.
+        try {
+            localStorage.setItem(`invoiceData_${CURRENT_USER_ID}`, JSON.stringify(restored));
+        } catch (e) {
+            /* ignore storage errors */
+        }
+        scheduleServerDraftSave();
+        updateInvoiceTotals();
+    };
+
     // Initialize everything when the DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
         const today = new Date().toISOString().split('T')[0];
@@ -1421,34 +1480,21 @@
         // Initialize all event listeners
         initializeEventListeners();
 
-        // Restore saved data (localStorage, then server draft if newer)
-        restoreInvoiceData();
-        mergeServerDraftAfterLocalRestore().then(function() {
-            const bid = document.getElementById('business_id') && document.getElementById('business_id').value;
-            const cidEl = document.getElementById('client_id') || document.querySelector('input[name="client_id"]');
-            const cid = cidEl ? cidEl.value : '';
-            document.querySelectorAll('.company-selector').forEach(function(s) {
-                if (bid) {
-                    s.value = bid;
-                }
-            });
-            document.querySelectorAll('.client-selector').forEach(function(s) {
-                if (cid) {
-                    s.value = cid;
-                }
-            });
-            const hasBiz = bid && /^[0-9]+$/.test(String(bid));
-            const hasCli = cid && /^[0-9]+$/.test(String(cid));
-            if (hasBiz) {
-                handleCompanySelection(bid);
+        // Restore saved data. In edit mode, seed from the saved-invoice snapshot
+        // (ignoring any stale create draft) so the page shows the generated
+        // invoice and saving updates it; otherwise restore the create draft.
+        if (IS_EDIT && INVOICE_SNAPSHOT) {
+            pristineEditSnapshot = JSON.parse(JSON.stringify(INVOICE_SNAPSHOT));
+            applyInvoicePayload(INVOICE_SNAPSHOT);
+            const editForm = document.querySelector('form');
+            if (editForm && EDIT_POST_URL) {
+                editForm.action = EDIT_POST_URL;
             }
-            if (hasCli) {
-                handleClientSelection(cid);
-            }
-            if (!hasBiz && !hasCli) {
-                restoreSelectedBusinessAndClient();
-            }
-        });
+            finalizeBusinessClientSelection();
+        } else {
+            restoreInvoiceData();
+            mergeServerDraftAfterLocalRestore().then(finalizeBusinessClientSelection);
+        }
 
         // Handle disabled edit buttons
         const editButtons = document.querySelectorAll('.settings-link.disabled');
@@ -2385,7 +2431,10 @@
                 <div id="items"></div>
                 {% include 'components/invoice_dialogs.html' %}
                 {% include 'components/invoice_action_buttons.html' %}
-                <button type="submit" class="btn btn-success w-100">Generate Invoice</button>
+                <button type="submit" class="btn btn-success w-100">{% if is_edit %}Save Changes{% else %}Generate Invoice{% endif %}</button>
+                {% if is_edit %}
+                <button type="button" id="discardEditBtn" class="btn btn-outline-danger w-100" style="margin-top: 0.5rem;" onclick="discardInvoiceEdits()" title="Discard your in-progress edits and restore the saved invoice">Discard changes</button>
+                {% endif %}
             </form>
     </div>
 

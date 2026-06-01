@@ -1397,6 +1397,71 @@ def register_routes(app):
         line_items = db.session.query(InvoiceItem).filter_by(invoice_id=invoice.id).all()
         labor_items = db.session.query(InvoiceLabor).filter_by(invoice_id=invoice.id).all()
         items = db.session.query(Item).filter_by(user_id=session['user_id']).all()
+
+        # Build a pristine snapshot of the saved invoice (in the shape the
+        # create/edit page's applyInvoicePayload expects) so an in-progress edit
+        # can be discarded and restored to the generated invoice.
+        snapshot_items = []
+        items_subtotal = 0.0
+        labor_subtotal = 0.0
+        for li in line_items:
+            li_total = float(li.total or 0)
+            if li_total == 0 and float(li.unit_price or 0) == 0:
+                snapshot_items.append({
+                    'type': 'note',
+                    'description': li.description,
+                    'total': '0',
+                })
+            else:
+                items_subtotal += li_total
+                snapshot_items.append({
+                    'type': 'item',
+                    'description': li.description,
+                    'quantity': li.quantity,
+                    'price': float(li.unit_price or 0),
+                    'total': li_total,
+                })
+        for lb in labor_items:
+            lb_total = float(lb.total or 0)
+            labor_subtotal += lb_total
+            whole_hours = int(lb.hours or 0)
+            minutes = int(round((float(lb.hours or 0) - whole_hours) * 60))
+            snapshot_items.append({
+                'type': 'labor',
+                'description': lb.description,
+                'date': lb.date.isoformat() if lb.date else '',
+                'hours': whole_hours,
+                'minutes': minutes,
+                'rate': float(lb.rate or 0),
+                'total': lb_total,
+            })
+        if invoice.sales_tax_id and invoice.sales_tax:
+            if invoice.tax_applies_to == 'items':
+                taxable = items_subtotal
+            elif invoice.tax_applies_to == 'labor':
+                taxable = labor_subtotal
+            else:
+                taxable = items_subtotal + labor_subtotal
+            tax_total = round(taxable * (float(invoice.sales_tax.rate) / 100), 2)
+            snapshot_items.append({
+                'type': 'tax',
+                'rate': float(invoice.sales_tax.rate),
+                'total': tax_total,
+                'appliesTo': invoice.tax_applies_to or 'both',
+                'taxId': invoice.sales_tax_id,
+            })
+
+        invoice_snapshot = {
+            'date': invoice.date.isoformat() if invoice.date else '',
+            'dueDate': invoice.due_date.isoformat() if invoice.due_date else '',
+            'invoiceNumber': invoice.invoice_number,
+            'isConfirmed': True,
+            'businessId': invoice.business_id,
+            'clientId': invoice.client_id,
+            'pendingNotes': invoice.notes or '',
+            'items': snapshot_items,
+        }
+
         return render_template('create_invoice.html',
             businesses=businesses,
             selected_business=invoice.business,
@@ -1408,7 +1473,9 @@ def register_routes(app):
             is_edit=True,
             line_items=line_items,
             labor_items=labor_items,
-            items=items
+            items=items,
+            invoice_snapshot=invoice_snapshot,
+            edit_post_url=url_for_with_prefix('edit_invoice', invoice_number=invoice.invoice_number)
         )
 
     def format_labor_hours(hours):
