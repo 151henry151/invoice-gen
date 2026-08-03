@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.16] - 2026-08-03
+
+### Fixed
+
+- Recompute invoice line-item totals from quantity × price when the client submits a zero or missing total
+- Stop `handleItemSelection` from throwing on a missing description input so item totals update before add-to-invoice
+- Compute confirmed item totals from quantity and price instead of parsing the Total Cost label
+- Make ZIP code and country optional on the address picker and business-details validation so they can be omitted from invoices
+
+### Changed
+
+- Strip catalog price suffixes from item and labor descriptions when saving invoices
+
 ## [0.9.0-beta.15] - 2026-08-03
 
 ### Changed

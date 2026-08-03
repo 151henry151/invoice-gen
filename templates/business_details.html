@@ -130,16 +130,6 @@
             alert('Please enter a state');
             return;
         }
-        if (!postal_code) {
-            event.preventDefault();
-            alert('Please enter a ZIP code');
-            return;
-        }
-        if (!country) {
-            event.preventDefault();
-            alert('Please enter a country');
-            return;
-        }
         if (email && !isValidEmail(email)) {
             event.preventDefault();
             alert('Please enter a valid email address');

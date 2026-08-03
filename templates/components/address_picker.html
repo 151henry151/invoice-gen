@@ -8,7 +8,7 @@
         'city': '',
         'state': '',
         'postal_code': '',
-        'country': 'United States'
+        'country': ''
     } %}
 {% endif %}
 {% set address_line1 = parsed.address_line1 %}
@@ -16,7 +16,7 @@
 {% set city = parsed.city %}
 {% set state = parsed.state %}
 {% set postal_code = parsed.postal_code %}
-{% set country = parsed.country if parsed.country else 'United States' %}
+{% set country = parsed.country %}
 
 <div class="address-picker">
     <div class="mb-3">
@@ -59,23 +59,22 @@
                    {% if required %}required{% endif %}>
         </div>
         <div class="col-md-3">
-            <label for="{{ form_prefix }}postal_code" class="form-label">ZIP Code{% if required %}*{% endif %}</label>
+            <label for="{{ form_prefix }}postal_code" class="form-label">ZIP Code <span class="text-muted">(optional)</span></label>
             <input type="text"
                    class="form-control"
                    id="{{ form_prefix }}postal_code"
                    name="{{ form_prefix }}postal_code"
-                   value="{{ postal_code }}"
-                   {% if required %}required{% endif %}>
+                   value="{{ postal_code }}">
         </div>
     </div>
     <div class="mb-3 mt-3">
-        <label for="{{ form_prefix }}country" class="form-label">Country{% if required %}*{% endif %}</label>
+        <label for="{{ form_prefix }}country" class="form-label">Country <span class="text-muted">(optional)</span></label>
         <input type="text"
                class="form-control"
                id="{{ form_prefix }}country"
                name="{{ form_prefix }}country"
                value="{{ country }}"
-               {% if required %}required{% endif %}>
+               placeholder="Leave blank to omit from invoices">
     </div>
 </div>
 

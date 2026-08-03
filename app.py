@@ -390,23 +390,53 @@ def register_routes(app):
                     line_items = json.loads(line_items_json)
                     for item in line_items:
                         if item['type'] == 'item':
+                            qty = item.get('quantity') or 0
+                            price = item.get('price') or 0
+                            try:
+                                qty_f = float(qty)
+                                price_f = float(price)
+                            except (TypeError, ValueError):
+                                qty_f, price_f = 0.0, 0.0
+                            try:
+                                total_f = float(item['total']) if item.get('total') not in (None, '', 'NaN') else 0.0
+                            except (TypeError, ValueError):
+                                total_f = 0.0
+                            computed = round(qty_f * price_f, 2)
+                            if total_f == 0 and computed != 0:
+                                total_f = computed
+                            # Strip catalog price suffix from description when present
+                            desc = item.get('description') or ''
+                            if ' - $' in desc:
+                                desc = desc.split(' - $')[0].rstrip()
                             invoice_item = InvoiceItem(
                                 invoice_id=invoice.id,
-                                description=item['description'],
-                                quantity=item['quantity'],
-                                unit_price=item['price'],
-                                total=item['total'],
+                                description=desc,
+                                quantity=int(qty_f) if qty_f == int(qty_f) else qty_f,
+                                unit_price=price_f,
+                                total=total_f,
                                 date=date
                             )
                             db.session.add(invoice_item)
                         elif item['type'] == 'labor':
+                            hours = float(item['hours']) + float(item.get('minutes', 0)) / 60
+                            rate = float(item.get('rate') or 0)
+                            try:
+                                labor_total = float(item['total']) if item.get('total') not in (None, '', 'NaN') else 0.0
+                            except (TypeError, ValueError):
+                                labor_total = 0.0
+                            computed_labor = round(hours * rate, 2)
+                            if labor_total == 0 and computed_labor != 0:
+                                labor_total = computed_labor
+                            labor_desc = item.get('description') or ''
+                            if ' - $' in labor_desc:
+                                labor_desc = labor_desc.split(' - $')[0].rstrip()
                             invoice_labor = InvoiceLabor(
                                 invoice_id=invoice.id,
-                                description=item['description'],
+                                description=labor_desc,
                                 date=datetime.strptime(item['date'], '%Y-%m-%d').date(),
-                                hours=float(item['hours']) + float(item.get('minutes', 0)) / 60,
-                                rate=item['rate'],
-                                total=item['total']
+                                hours=hours,
+                                rate=rate,
+                                total=labor_total
                             )
                             db.session.add(invoice_labor)
                         elif item['type'] == 'note':
@@ -531,12 +561,21 @@ def register_routes(app):
                         'date': item.date.isoformat() if item.date else None
                     })
                 else:
+                    unit_price = float(item.unit_price or 0)
+                    qty = float(item.quantity or 0)
+                    total = float(item.total or 0)
+                    computed = round(qty * unit_price, 2)
+                    if total == 0 and computed != 0:
+                        total = computed
+                    desc = item.description or ''
+                    if ' - $' in desc:
+                        desc = desc.split(' - $')[0].rstrip()
                     all_line_items.append({
                         'type': 'item',
-                        'description': item.description,
+                        'description': desc,
                         'quantity': item.quantity,
-                        'unit_price': float(item.unit_price),
-                        'total': float(item.total),
+                        'unit_price': unit_price,
+                        'total': total,
                         'date': item.date.isoformat() if item.date else None
                     })
             for labor in db.session.query(InvoiceLabor).filter_by(invoice_id=invoice.id).order_by(InvoiceLabor.id).all():
@@ -1297,7 +1336,13 @@ def register_routes(app):
             # Calculate total for each invoice
             line_items = db.session.query(InvoiceItem).filter_by(invoice_id=invoice.id).all()
             labor_items = db.session.query(InvoiceLabor).filter_by(invoice_id=invoice.id).all()
-            subtotal = sum(item.total for item in line_items) + sum(item.total for item in labor_items)
+            def _line_total(item):
+                total = float(item.total or 0)
+                computed = round(float(item.quantity or 0) * float(item.unit_price or 0), 2)
+                if total == 0 and computed != 0:
+                    return computed
+                return total
+            subtotal = sum(_line_total(item) for item in line_items) + sum(float(item.total or 0) for item in labor_items)
             tax_amount = 0
             if invoice.sales_tax_id:
                 sales_tax = db.session.query(SalesTax).filter_by(id=invoice.sales_tax_id).first()
@@ -1342,9 +1387,15 @@ def register_routes(app):
             # Get line items
             line_items = db.session.query(InvoiceItem).filter_by(invoice_id=invoice.id).all()
             labor_items = db.session.query(InvoiceLabor).filter_by(invoice_id=invoice.id).all()
+            for item in line_items:
+                computed = round(float(item.quantity or 0) * float(item.unit_price or 0), 2)
+                if float(item.total or 0) == 0 and computed != 0:
+                    item.total = computed
+                if item.description and ' - $' in item.description and float(item.unit_price or 0) > 0:
+                    item.description = item.description.split(' - $')[0].rstrip()
             
             # Calculate totals
-            subtotal = sum(float(item.total) for item in line_items) + sum(float(item.total) for item in labor_items)
+            subtotal = sum(float(item.total or 0) for item in line_items) + sum(float(item.total or 0) for item in labor_items)
             tax_amount = 0
             if invoice.sales_tax_id:
                 sales_tax = db.session.query(SalesTax).filter_by(id=invoice.sales_tax_id).first()
@@ -1571,23 +1622,53 @@ def register_routes(app):
                     line_items = json.loads(line_items_json)
                     for item in line_items:
                         if item['type'] == 'item':
+                            qty = item.get('quantity') or 0
+                            price = item.get('price') or 0
+                            try:
+                                qty_f = float(qty)
+                                price_f = float(price)
+                            except (TypeError, ValueError):
+                                qty_f, price_f = 0.0, 0.0
+                            try:
+                                total_f = float(item['total']) if item.get('total') not in (None, '', 'NaN') else 0.0
+                            except (TypeError, ValueError):
+                                total_f = 0.0
+                            computed = round(qty_f * price_f, 2)
+                            if total_f == 0 and computed != 0:
+                                total_f = computed
+                            # Strip catalog price suffix from description when present
+                            desc = item.get('description') or ''
+                            if ' - $' in desc:
+                                desc = desc.split(' - $')[0].rstrip()
                             invoice_item = InvoiceItem(
                                 invoice_id=invoice.id,
-                                description=item['description'],
-                                quantity=item['quantity'],
-                                unit_price=item['price'],
-                                total=item['total'],
+                                description=desc,
+                                quantity=int(qty_f) if qty_f == int(qty_f) else qty_f,
+                                unit_price=price_f,
+                                total=total_f,
                                 date=date
                             )
                             db.session.add(invoice_item)
                         elif item['type'] == 'labor':
+                            hours = float(item['hours']) + float(item.get('minutes', 0)) / 60
+                            rate = float(item.get('rate') or 0)
+                            try:
+                                labor_total = float(item['total']) if item.get('total') not in (None, '', 'NaN') else 0.0
+                            except (TypeError, ValueError):
+                                labor_total = 0.0
+                            computed_labor = round(hours * rate, 2)
+                            if labor_total == 0 and computed_labor != 0:
+                                labor_total = computed_labor
+                            labor_desc = item.get('description') or ''
+                            if ' - $' in labor_desc:
+                                labor_desc = labor_desc.split(' - $')[0].rstrip()
                             invoice_labor = InvoiceLabor(
                                 invoice_id=invoice.id,
-                                description=item['description'],
+                                description=labor_desc,
                                 date=datetime.strptime(item['date'], '%Y-%m-%d').date(),
-                                hours=float(item['hours']) + float(item.get('minutes', 0)) / 60,
-                                rate=item['rate'],
-                                total=item['total']
+                                hours=hours,
+                                rate=rate,
+                                total=labor_total
                             )
                             db.session.add(invoice_labor)
                         elif item['type'] == 'note':

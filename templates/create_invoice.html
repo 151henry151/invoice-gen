@@ -1104,12 +1104,17 @@
         const selectedOption = select.options[select.selectedIndex];
         const itemDiv = select.closest('.item');
         if (selectedOption && selectedOption.value !== 'new') {
-            const description = selectedOption.text.split(' - $')[0];
-            const price = selectedOption.text.split(' - $')[1];
+            const description = selectedOption.text.split(' - $')[0].trim();
+            const priceFromText = selectedOption.text.split(' - $')[1];
+            const price = selectedOption.getAttribute('data-price') || priceFromText || '0';
             const priceInput = itemDiv.querySelector('input[name="item_price[]"]');
             const descriptionInput = itemDiv.querySelector('input[name="item_description[]"]');
-            priceInput.value = price;
-            descriptionInput.value = description;
+            if (priceInput) {
+                priceInput.value = price;
+            }
+            if (descriptionInput) {
+                descriptionInput.value = description;
+            }
             calculateItemTotal(itemDiv);
         }
     }
@@ -1270,10 +1275,12 @@
         }
         
         const selectedOption = itemSelect.options[itemSelect.selectedIndex];
-        const description = selectedOption.text;
+        const description = (selectedOption.text.split(' - $')[0] || selectedOption.text).trim();
         const quantity = parseInt(quantityInput.value) || 0;
-        const price = parseFloat(priceInput.value);
-        const total = parseFloat(totalCost.textContent.replace('Total Cost: $', ''));
+        const price = parseFloat(priceInput && priceInput.value) || parseFloat(selectedOption.getAttribute('data-price')) || 0;
+        // Always compute from qty * price; DOM text was previously stuck at $0.00
+        // when handleItemSelection threw before calculateItemTotal ran.
+        const total = Math.round(quantity * price * 100) / 100;
         
         const lineItem = document.createElement('div');
         lineItem.className = 'line-item confirmed';
