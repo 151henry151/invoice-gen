@@ -27,6 +27,7 @@ from flask_sqlalchemy import SQLAlchemy
 from models import db, User, Business, Setting, Client, Invoice, SalesTax, Item, LaborItem, InvoiceItem, InvoiceLabor, InvoiceDraft
 import configparser
 from sqlalchemy.sql import text
+from address_utils import address_from_form, parse_address
 
 # Configure upload settings
 UPLOAD_FOLDER = 'uploads'
@@ -555,11 +556,18 @@ def register_routes(app):
     def update_client():
         client_id = request.form.get('client_id')
         name = request.form.get('name')
-        address = request.form.get('address')
+        # Prefer address-picker fields (client_address_line1, ...); fall back to legacy "address".
+        address = address_from_form(request.form, prefix='client_')
         email = request.form.get('email')
         phone = request.form.get('phone')
         from_create_invoice = request.form.get('from_create_invoice') == 'true'
         
+        if not name or not str(name).strip():
+            flash('Client name is required.', 'danger')
+            if client_id:
+                return redirect(url_for_with_prefix('client_details', client_id=client_id))
+            return redirect(url_for_with_prefix('client_details', new='true'))
+
         if client_id:
             # Update existing client
             client = db.session.query(Client).filter_by(id=client_id, user_id=session['user_id']).first()
@@ -1160,7 +1168,7 @@ def register_routes(app):
 
     @app.context_processor
     def inject_get_setting():
-        return dict(get_setting=get_setting)
+        return dict(get_setting=get_setting, parse_address=parse_address)
 
     @app.route('/businesses')
     def businesses():

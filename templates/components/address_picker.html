@@ -1,15 +1,24 @@
 {% macro address_picker(form_prefix='', required=false, address='') %}
+{% if parse_address is defined %}
+    {% set parsed = parse_address(address) %}
+{% else %}
+    {% set parsed = {
+        'address_line1': '',
+        'address_line2': '',
+        'city': '',
+        'state': '',
+        'postal_code': '',
+        'country': 'United States'
+    } %}
+{% endif %}
+{% set address_line1 = parsed.address_line1 %}
+{% set address_line2 = parsed.address_line2 %}
+{% set city = parsed.city %}
+{% set state = parsed.state %}
+{% set postal_code = parsed.postal_code %}
+{% set country = parsed.country if parsed.country else 'United States' %}
+
 <div class="address-picker">
-    {% if address %}
-        {% set parts = address.split(',') %}
-        {% set address_line1 = parts[0].strip() if parts|length > 0 else '' %}
-        {% set address_line2 = parts[1].strip() if parts|length > 1 else '' %}
-        {% set city = parts[2].strip() if parts|length > 2 else '' %}
-        {% set state = parts[3].strip() if parts|length > 3 else '' %}
-        {% set postal_code = parts[4].strip() if parts|length > 4 else '' %}
-        {% set country = parts[5].strip() if parts|length > 5 else 'United States' %}
-    {% endif %}
-    
     <div class="mb-3">
         <label for="{{ form_prefix }}address_line1" class="form-label">Address Line 1{% if required %}*{% endif %}</label>
         <input type="text"
@@ -17,8 +26,9 @@
                id="{{ form_prefix }}address_line1"
                name="{{ form_prefix }}address_line1"
                placeholder="Start typing an address..."
-               value="{{ address_line1 if address_line1 is defined else '' }}"
-               {% if required %}required{% endif %}>
+               value="{{ address_line1 }}"
+               {% if required %}required{% endif %}
+               autocomplete="street-address">
     </div>
     <div class="mb-3">
         <label for="{{ form_prefix }}address_line2" class="form-label">Address Line 2</label>
@@ -27,7 +37,7 @@
                id="{{ form_prefix }}address_line2"
                name="{{ form_prefix }}address_line2"
                placeholder="Apartment, suite, unit, etc. (optional)"
-               value="{{ address_line2 if address_line2 is defined else '' }}">
+               value="{{ address_line2 }}">
     </div>
     <div class="row g-3">
         <div class="col-md-6">
@@ -36,7 +46,7 @@
                    class="form-control"
                    id="{{ form_prefix }}city"
                    name="{{ form_prefix }}city"
-                   value="{{ city if city is defined else '' }}"
+                   value="{{ city }}"
                    {% if required %}required{% endif %}>
         </div>
         <div class="col-md-3">
@@ -45,7 +55,7 @@
                    class="form-control"
                    id="{{ form_prefix }}state"
                    name="{{ form_prefix }}state"
-                   value="{{ state if state is defined else '' }}"
+                   value="{{ state }}"
                    {% if required %}required{% endif %}>
         </div>
         <div class="col-md-3">
@@ -54,24 +64,24 @@
                    class="form-control"
                    id="{{ form_prefix }}postal_code"
                    name="{{ form_prefix }}postal_code"
-                   value="{{ postal_code if postal_code is defined else '' }}"
+                   value="{{ postal_code }}"
                    {% if required %}required{% endif %}>
         </div>
     </div>
-    <div class="mb-3">
+    <div class="mb-3 mt-3">
         <label for="{{ form_prefix }}country" class="form-label">Country{% if required %}*{% endif %}</label>
         <input type="text"
                class="form-control"
                id="{{ form_prefix }}country"
                name="{{ form_prefix }}country"
-               value="{{ country if country is defined else '' }}"
+               value="{{ country }}"
                {% if required %}required{% endif %}>
     </div>
 </div>
 
 <script>
 (function() {
-    var callbackName = 'initAddressAutocomplete_{{ form_prefix|replace('-', '_') }}';
+    var callbackName = 'initAddressAutocomplete_{{ form_prefix|replace('-', '_') or "default" }}';
     window[callbackName] = function() {
         var input = document.getElementById('{{ form_prefix }}address_line1');
         if (!input || !window.google || !window.google.maps) return;
@@ -86,25 +96,49 @@
                 var comp = addressComponents.find(function(c) { return c.types.indexOf(type) !== -1; });
                 return comp ? comp.long_name : '';
             }
+            function getShort(type) {
+                var comp = addressComponents.find(function(c) { return c.types.indexOf(type) !== -1; });
+                return comp ? comp.short_name : '';
+            }
             document.getElementById('{{ form_prefix }}address_line1').value = [
                 getComponent('street_number'),
                 getComponent('route')
             ].filter(Boolean).join(' ');
             document.getElementById('{{ form_prefix }}city').value = getComponent('locality') || getComponent('sublocality') || getComponent('administrative_area_level_2');
-            document.getElementById('{{ form_prefix }}state').value = getComponent('administrative_area_level_1');
+            document.getElementById('{{ form_prefix }}state').value = getShort('administrative_area_level_1') || getComponent('administrative_area_level_1');
             document.getElementById('{{ form_prefix }}postal_code').value = getComponent('postal_code');
-            document.getElementById('{{ form_prefix }}country').value = getComponent('country');
+            document.getElementById('{{ form_prefix }}country').value = getComponent('country') || 'United States';
         });
     };
+    var apiKey = '{{ GOOGLE_MAPS_API_KEY | default("", true) }}';
+    if (!apiKey) {
+        return;
+    }
     if (!window.google || !window.google.maps || !window.google.maps.places) {
-        var script = document.createElement('script');
-        script.src = 'https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY }}&libraries=places&callback=' + callbackName;
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
+        if (!window.__invoiceGenMapsLoading) {
+            window.__invoiceGenMapsLoading = true;
+            window.__invoiceGenMapsCallbacks = window.__invoiceGenMapsCallbacks || [];
+            window.__invoiceGenMapsCallbacks.push(callbackName);
+            window.__invoiceGenMapsBoot = function() {
+                (window.__invoiceGenMapsCallbacks || []).forEach(function(name) {
+                    if (typeof window[name] === 'function') window[name]();
+                });
+            };
+            var script = document.createElement('script');
+            script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) + '&libraries=places&callback=__invoiceGenMapsBoot';
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        } else {
+            window.__invoiceGenMapsCallbacks = window.__invoiceGenMapsCallbacks || [];
+            window.__invoiceGenMapsCallbacks.push(callbackName);
+            if (window.google && window.google.maps && window.google.maps.places) {
+                window[callbackName]();
+            }
+        }
     } else {
         window[callbackName]();
     }
 })();
 </script>
-{% endmacro %} 
+{% endmacro %}

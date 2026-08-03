@@ -1059,7 +1059,7 @@
 
                 document.querySelectorAll('.edit-client-btn-responsive').forEach(function(editButton) {
                     editButton.classList.remove('disabled');
-                    editButton.href = `${APP_ROOT}/client_details?client_id=${value}`;
+                    editButton.href = `${APP_ROOT}/client_details?client_id=${value}&from_create_invoice=true`;
                     editButton.style.pointerEvents = 'auto';
                     editButton.style.opacity = '1';
                 });

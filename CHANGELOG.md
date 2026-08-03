@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.12] - 2026-08-03
+
+### Fixed
+
+- Persist client address from the address-picker fields on create and edit instead of reading a missing `address` form key that cleared the stored address
+- Parse stored addresses from the trailing country/ZIP/state/city so a missing address line 2 no longer mis-fills the edit form
+- Preserve `from_create_invoice` when opening client details from the invoice editor and return to create-invoice on cancel
+
+### Added
+
+- Add `address_utils` helpers and regression tests for client address save/restore
+
 ## [0.9.0-beta.11] - 2026-08-03
 
 ### Added
