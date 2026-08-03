@@ -34,6 +34,26 @@ UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 MAX_LOGO_SIZE = (200, 200)
 
+def get_google_maps_api_key():
+    """Return Google Maps API key from env or credentials.ini (optional)."""
+    env_key = os.environ.get('GOOGLE_MAPS_API_KEY', '').strip()
+    if env_key:
+        return env_key
+    config = configparser.ConfigParser()
+    config.read('credentials.ini')
+    env = os.environ.get('FLASK_ENV', 'development')
+    section = 'production' if env == 'production' else 'dev'
+    if config.has_section(section):
+        return config.get(section, 'GOOGLE_MAPS_API_KEY', fallback='').strip()
+    # Fall back across sections
+    for sec in ('production', 'dev'):
+        if config.has_section(sec):
+            val = config.get(sec, 'GOOGLE_MAPS_API_KEY', fallback='').strip()
+            if val:
+                return val
+    return ''
+
+
 def register_routes(app):
     # Configure upload folder
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -549,7 +569,13 @@ def register_routes(app):
         if client_id and not is_new:
             selected_client = db.session.query(Client).filter_by(id=client_id, user_id=session['user_id']).first()
         
-        return render_template('client_details.html', clients=clients, selected_client=selected_client, is_new=is_new)
+        return render_template(
+            'client_details.html',
+            clients=clients,
+            selected_client=selected_client,
+            is_new=is_new,
+            GOOGLE_MAPS_API_KEY=get_google_maps_api_key(),
+        )
 
     @app.route('/update_client', methods=['POST'])
     @login_required
@@ -1168,7 +1194,11 @@ def register_routes(app):
 
     @app.context_processor
     def inject_get_setting():
-        return dict(get_setting=get_setting, parse_address=parse_address)
+        return dict(
+            get_setting=get_setting,
+            parse_address=parse_address,
+            GOOGLE_MAPS_API_KEY=get_google_maps_api_key(),
+        )
 
     @app.route('/businesses')
     def businesses():
@@ -1206,12 +1236,7 @@ def register_routes(app):
     @app.route('/business_details', methods=['GET', 'POST'])
     @login_required
     def business_details():
-        # Read Google Maps API key from credentials.ini
-        config = configparser.ConfigParser()
-        config.read('credentials.ini')
-        env = os.environ.get('FLASK_ENV', 'development')
-        section = 'dev' if env == 'development' else 'production'
-        api_key = config.get(section, 'GOOGLE_MAPS_API_KEY', fallback='')
+        api_key = get_google_maps_api_key()
 
         if request.method == 'POST':
             name = request.form.get('name')

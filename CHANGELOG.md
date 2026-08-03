@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.13] - 2026-08-03
+
+### Fixed
+
+- Load Google Maps Places autocomplete on client details by injecting `GOOGLE_MAPS_API_KEY` into that template (previously only business details received the key)
+- Resolve the Maps API key from `GOOGLE_MAPS_API_KEY` or `credentials.ini` via `get_google_maps_api_key()`
+
+### Added
+
+- Add tests for Maps API key resolution and client-details key embedding
+
 ## [0.9.0-beta.12] - 2026-08-03
 
 ### Fixed
