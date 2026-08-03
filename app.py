@@ -28,6 +28,7 @@ from models import db, User, Business, Setting, Client, Invoice, SalesTax, Item,
 import configparser
 from sqlalchemy.sql import text
 from address_utils import address_from_form, parse_address
+from invoice_numbering import allocate_next_invoice_number, peek_next_invoice_number
 
 # Configure upload settings
 UPLOAD_FOLDER = 'uploads'
@@ -282,33 +283,45 @@ def register_routes(app):
         if request.method == 'POST':
             try:
                 # Extract form data
-                invoice_number = request.form.get('invoice_number')
-                date = datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
-                due_date = datetime.strptime(request.form.get('due_date'), '%Y-%m-%d').date()
+                invoice_number = (request.form.get('invoice_number') or '').strip()
+                date_raw = request.form.get('date') or datetime.now().strftime('%Y-%m-%d')
+                date = datetime.strptime(date_raw, '%Y-%m-%d').date()
+                due_raw = request.form.get('due_date') or date_raw
+                due_date = datetime.strptime(due_raw, '%Y-%m-%d').date()
                 client_id = request.form.get('client_id') or session.get('selected_client_id')
                 business_id = request.form.get('business_id') or session.get('selected_company_id')
                 notes = request.form.get('notes')
                 sales_tax_id = request.form.get('sales_tax_id')
                 tax_applies_to = request.form.get('tax_applies_to')
                 
-                # Validate invoice number
-                if not invoice_number:
-                    flash('Invoice number is required', 'danger')
-                    return redirect(url_for_with_prefix('create_invoice'))
-                
-                # Check for duplicate invoice number
-                existing_invoice = db.session.query(Invoice).filter_by(
-                    invoice_number=invoice_number,
-                    user_id=session['user_id']
-                ).first()
-                if existing_invoice:
-                    flash('This invoice number is already in use. Please choose a different one.', 'danger')
-                    return redirect(url_for_with_prefix('create_invoice'))
-                
-                # Validate invoice number format (alphanumeric with optional hyphens and underscores)
-                if not re.match(r'^[A-Za-z0-9\-_]+$', invoice_number):
-                    flash('Invoice number can only contain letters, numbers, hyphens, and underscores', 'danger')
-                    return redirect(url_for_with_prefix('create_invoice'))
+                # Invoice numbers are assigned by the server; accept a reserved draft
+                # number when present, otherwise allocate the next sequential value.
+                existing_invoice = None
+                if invoice_number:
+                    existing_invoice = db.session.query(Invoice).filter_by(
+                        invoice_number=invoice_number,
+                        user_id=session['user_id']
+                    ).first()
+                if not invoice_number or existing_invoice:
+                    invoice_number = allocate_next_invoice_number(session['user_id'])
+                elif not re.match(r'^[A-Za-z0-9\-_]+$', invoice_number):
+                    invoice_number = allocate_next_invoice_number(session['user_id'])
+                else:
+                    # Advance the counter past this number when a draft reserved it.
+                    setting = db.session.query(Setting).filter_by(
+                        user_id=session['user_id'], key='next_invoice_number'
+                    ).first()
+                    if invoice_number.isdigit():
+                        nxt = str(int(invoice_number) + 1).zfill(len(invoice_number))
+                        if setting:
+                            if not setting.value.isdigit() or int(setting.value) <= int(invoice_number):
+                                setting.value = nxt
+                        else:
+                            db.session.add(Setting(
+                                user_id=session['user_id'],
+                                key='next_invoice_number',
+                                value=nxt
+                            ))
                 
                 # Validate required fields
                 if not client_id:
@@ -401,6 +414,8 @@ def register_routes(app):
         tax_rates = db.session.query(SalesTax).filter_by(user_id=session['user_id']).all()
         items = db.session.query(Item).filter_by(user_id=session['user_id']).all()
         labor_items = db.session.query(LaborItem).filter_by(user_id=session['user_id']).all()
+        assigned_invoice_number = peek_next_invoice_number(session['user_id'])
+        today_str = datetime.now().strftime('%Y-%m-%d')
         
         return render_template('create_invoice.html',
                              businesses=businesses,
@@ -409,7 +424,9 @@ def register_routes(app):
                              selected_client=selected_client,
                              tax_rates=tax_rates,
                              items=items,
-                             labor_items=labor_items)
+                             labor_items=labor_items,
+                             assigned_invoice_number=assigned_invoice_number,
+                             today_str=today_str)
 
     @app.route('/preview_invoice')
     @login_required
@@ -1508,6 +1525,8 @@ def register_routes(app):
             labor_items=labor_items,
             items=items,
             invoice_snapshot=invoice_snapshot,
+            assigned_invoice_number=invoice.invoice_number,
+            today_str=invoice.date.isoformat() if invoice.date else '',
             edit_post_url=url_for_with_prefix('edit_invoice', invoice_number=invoice.invoice_number)
         )
 

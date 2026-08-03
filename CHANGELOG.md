@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.14] - 2026-08-03
+
+### Changed
+
+- Assign invoice numbers automatically from each user's sequential counter and show them as read-only
+- Default the invoice date to today while keeping date and due date editable
+- Remove the invoice number/date confirm control from the create-invoice form
+
+### Added
+
+- Add `invoice_numbering` helpers and tests for sequential allocation that skips existing invoices and drafts
+- Add `schema_migrate.ensure_invoice_draft_schema` and an `invoice_number` column on `InvoiceDraft` to reserve numbers for drafts
+
 ## [0.9.0-beta.13] - 2026-08-03
 
 ### Fixed

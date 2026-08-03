@@ -239,7 +239,7 @@
             background-color: var(--section-bg);
         }
         
-        .invoice-header.confirmed input {
+        .invoice-header.confirmed input#invoice_number {
             background-color: transparent;
             border: none;
             pointer-events: none;
@@ -536,7 +536,7 @@
             date: document.getElementById('date').value,
             dueDate: dueEl ? dueEl.value : '',
             invoiceNumber: document.getElementById('invoice_number').value,
-            isConfirmed: document.querySelector('.invoice-header').classList.contains('confirmed'),
+            isConfirmed: true,
             businessId: businessIdInput ? businessIdInput.value : '',
             clientId: clientIdInput ? clientIdInput.value : '',
             pendingNotes: notesEl ? notesEl.value : '',
@@ -622,31 +622,22 @@
             notesEl.value = invoiceData.pendingNotes;
         }
 
-        const invoiceHeader = document.querySelector('.invoice-header');
-        const confirmBtn = document.getElementById('confirmInvoiceBtn');
+        // Invoice number is always assigned and locked; date/due date stay editable.
+        const invoiceNumberEl = document.getElementById('invoice_number');
+        if (invoiceNumberEl) {
+            invoiceNumberEl.readOnly = true;
+        }
+        const dateEl = document.getElementById('date');
+        if (dateEl) {
+            dateEl.readOnly = false;
+        }
         const dueDateEl = document.getElementById('due_date');
-        if (invoiceData.isConfirmed) {
+        if (dueDateEl) {
+            dueDateEl.readOnly = false;
+        }
+        const invoiceHeader = document.querySelector('.invoice-header');
+        if (invoiceHeader) {
             invoiceHeader.classList.add('confirmed');
-            document.getElementById('date').readOnly = true;
-            if (dueDateEl) {
-                dueDateEl.readOnly = true;
-            }
-            document.getElementById('invoice_number').readOnly = true;
-            confirmBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
-            confirmBtn.title = 'Edit invoice';
-            confirmBtn.classList.remove('btn-success');
-            confirmBtn.classList.add('btn-warning');
-        } else {
-            invoiceHeader.classList.remove('confirmed');
-            document.getElementById('date').readOnly = false;
-            if (dueDateEl) {
-                dueDateEl.readOnly = false;
-            }
-            document.getElementById('invoice_number').readOnly = false;
-            confirmBtn.innerHTML = '<i class="fas fa-check"></i>';
-            confirmBtn.title = 'Add to invoice';
-            confirmBtn.classList.remove('btn-warning');
-            confirmBtn.classList.add('btn-success');
         }
 
         const itemsContainer = document.getElementById('items');
@@ -1486,7 +1477,18 @@
     // Initialize everything when the DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
         const today = new Date().toISOString().split('T')[0];
-        document.getElementById('date').value = today;
+        const dateInput = document.getElementById('date');
+        if (dateInput && !dateInput.value) {
+            dateInput.value = today;
+        }
+        const invoiceNumberInput = document.getElementById('invoice_number');
+        const assignedNumber = {{ assigned_invoice_number|tojson if assigned_invoice_number is defined else 'null' }};
+        if (invoiceNumberInput) {
+            invoiceNumberInput.readOnly = true;
+            if (!invoiceNumberInput.value && assignedNumber) {
+                invoiceNumberInput.value = assignedNumber;
+            }
+        }
 
         // Initialize all event listeners
         initializeEventListeners();
@@ -1595,72 +1597,7 @@
             addNoteBtn.addEventListener('click', showAddNoteDialog);
         }
 
-        // Confirm Invoice button
-        const confirmBtn = document.getElementById('confirmInvoiceBtn');
-        if (confirmBtn) {
-            confirmBtn.addEventListener('click', function() {
-                const invoiceHeader = document.querySelector('.invoice-header');
-                const dateInput = document.getElementById('date');
-                const dueDateInput = document.getElementById('due_date');
-                const invoiceNumberInput = document.getElementById('invoice_number');
-                
-                if (this.innerHTML.includes('fa-check')) {
-                    // Confirm mode
-                    if (!dateInput.value) {
-                        alert('Please enter an invoice date');
-                        return;
-                    }
-                    if (!invoiceNumberInput.value) {
-                        alert('Please enter an invoice number');
-                        return;
-                    }
-                    
-                    fetch(`${APP_ROOT}/check_invoice_number/${invoiceNumberInput.value}`)
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Network response was not ok');
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (data.exists) {
-                                if (!confirm('This invoice number already exists. Do you want to proceed anyway?')) {
-                                    return;
-                                }
-                            }
-                            
-                            invoiceHeader.classList.add('confirmed');
-                            dateInput.readOnly = true;
-                            if (dueDateInput) {
-                                dueDateInput.readOnly = true;
-                            }
-                            invoiceNumberInput.readOnly = true;
-                            this.innerHTML = '<i class="fas fa-pencil-alt"></i>';
-                            this.title = 'Edit invoice';
-                            this.classList.remove('btn-success');
-                            this.classList.add('btn-warning');
-                            saveInvoiceData();
-                        })
-                        .catch(error => {
-                            console.error('Error checking invoice number:', error);
-                            alert('Error checking invoice number. Please try again.');
-                        });
-                } else {
-                    // Edit mode
-                    invoiceHeader.classList.remove('confirmed');
-                    dateInput.readOnly = false;
-                    if (dueDateInput) {
-                        dueDateInput.readOnly = false;
-                    }
-                    invoiceNumberInput.readOnly = false;
-                    this.innerHTML = '<i class="fas fa-check"></i>';
-                    this.title = 'Add to invoice';
-                    this.classList.remove('btn-warning');
-                    this.classList.add('btn-success');
-                    saveInvoiceData();
-                }
-            });
-        }
+        // Invoice number/date confirm control removed; numbers are assigned automatically.
 
         // Form submission (fetch + redirect so we only clear drafts after the server accepts the invoice)
         const form = document.querySelector('form');
@@ -1674,10 +1611,16 @@
                         return;
                     }
 
-                    const invoiceHeader = document.querySelector('.invoice-header');
-                    if (!invoiceHeader.classList.contains('confirmed')) {
+                    const invoiceNumberInput = document.getElementById('invoice_number');
+                    if (!invoiceNumberInput || !invoiceNumberInput.value) {
                         e.preventDefault();
-                        alert('Please confirm invoice date and invoice number');
+                        alert('Invoice number is missing; reload the page to assign one.');
+                        return;
+                    }
+                    const dateInput = document.getElementById('date');
+                    if (!dateInput || !dateInput.value) {
+                        e.preventDefault();
+                        alert('Please enter an invoice date');
                         return;
                     }
 

@@ -2,33 +2,33 @@
 <div class="invoice-fields row">
   <div class="form-group col-md-4">
     <label for="date">Invoice Date:</label>
-    <input type="date" id="date" name="date" class="form-control" required>
+    <input type="date" id="date" name="date" class="form-control" required value="{{ today_str|default('') }}">
   </div>
   <div class="form-group col-md-4">
     <label for="due_date">Due Date:</label>
     <input type="date" id="due_date" name="due_date" class="form-control" required>
   </div>
-  <div class="form-group col-md-4 d-flex align-items-end invoice-number-group" style="flex-direction: column;">
+  <div class="form-group col-md-4 invoice-number-group">
     <label for="invoice_number" class="w-100">Invoice Number:</label>
-    <div class="input-group w-100">
-      <input type="text" id="invoice_number" name="invoice_number" class="form-control" required>
-      <button type="button" id="confirmInvoiceBtn" class="btn btn-success btn-sm ms-2" title="Confirm invoice number" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem; align-self: center;">
-        <i class="fas fa-check"></i>
-      </button>
-    </div>
+    <input type="text"
+           id="invoice_number"
+           name="invoice_number"
+           class="form-control"
+           value="{{ assigned_invoice_number|default('') }}"
+           readonly
+           required
+           aria-readonly="true"
+           title="Assigned automatically">
+    <div class="form-text">Assigned automatically; not editable.</div>
   </div>
 </div>
-
-{# The confirm/edit toggle for #confirmInvoiceBtn is handled in create_invoice.html
-   (initializeEventListeners). A second handler here previously re-locked the
-   fields on every click, which prevented editing the invoice number after
-   confirming. #}
 
 <style>
 .invoice-fields {
   margin-bottom: 20px;
 }
-.invoice-number-group .input-group {
-  align-items: center;
+.invoice-number-group input[readonly] {
+  background-color: var(--bs-secondary-bg, #e9ecef);
+  cursor: default;
 }
-</style> 
+</style>

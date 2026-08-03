@@ -2,6 +2,7 @@ from flask import Flask
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from models import db, User, Business, Setting, Client, Invoice, SalesTax, Item, LaborItem, InvoiceItem, InvoiceLabor, InvoiceDraft
+from schema_migrate import ensure_invoice_draft_schema
 import os
 from datetime import timedelta
 
@@ -41,9 +42,14 @@ def create_app(config_name='development'):
     from app import register_routes
     register_routes(app)
     
-    # Create tables if they don't exist
+    # Create tables if they don't exist, then apply light schema upgrades
     with app.app_context():
         db.create_all()
+        try:
+            ensure_invoice_draft_schema()
+        except Exception as exc:
+            # Log and continue; routes that need drafts will surface errors.
+            app.logger.exception('invoice_draft schema migration failed: %s', exc)
     
     return app
 

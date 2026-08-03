@@ -273,16 +273,21 @@ class Item(db.Model):
         }
 
 class InvoiceDraft(db.Model):
-    """Server-side autosave for the create-invoice form (one row per user)."""
+    """Server-side autosave for in-progress invoice drafts (many per user)."""
 
     __tablename__ = 'invoice_draft'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    invoice_number = db.Column(db.String(50), nullable=False)
     payload = db.Column(db.Text, nullable=False)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user = db.relationship('User', backref=db.backref('invoice_draft', uselist=False))
+    user = db.relationship('User', backref=db.backref('invoice_drafts', lazy=True))
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'invoice_number', name='uq_invoice_draft_user_number'),
+    )
 
 
 class LaborItem(db.Model):
