@@ -26,6 +26,7 @@
             {% endif %}
             
             <input type="hidden" name="from_create_invoice" value="{{ request.args.get('from_create_invoice', 'false') }}">
+            <input type="hidden" name="draft_id" value="{{ request.args.get('draft_id', '') }}">
             
             <input type="text" id="name" name="name" placeholder="Client Name" value="{{ selected_client.name if selected_client else '' }}" required>
             
@@ -41,7 +42,7 @@
             <div class="button-container">
                 <input type="submit" value="Save Client Details" class="file-input-style">
                 {% if request.args.get('from_create_invoice') == 'true' %}
-                <a href="{{ url_for('create_invoice') }}" class="file-input-style">Cancel</a>
+                <a href="{% if request.args.get('draft_id') %}{{ url_for('create_invoice', draft_id=request.args.get('draft_id')) }}{% else %}{{ url_for('create_invoice') }}{% endif %}" class="file-input-style">Cancel</a>
                 {% else %}
                 <a href="{{ url_for('clients') }}" class="file-input-style">Cancel</a>
                 {% endif %}

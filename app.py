@@ -136,6 +136,43 @@ def register_routes(app):
             db.session.add(setting)
         db.session.commit()
 
+
+    def _draft_to_dict(row):
+        try:
+            payload = json.loads(row.payload) if row.payload else None
+        except json.JSONDecodeError:
+            payload = None
+        return {
+            'id': row.id,
+            'invoice_number': row.invoice_number,
+            'updated_at': row.updated_at.isoformat() if row.updated_at else None,
+            'payload': payload,
+        }
+
+    def _create_empty_draft_for_user(user_id):
+        number = allocate_next_invoice_number(user_id)
+        today = datetime.now().strftime('%Y-%m-%d')
+        payload = {
+            'date': today,
+            'dueDate': '',
+            'invoiceNumber': number,
+            'isConfirmed': True,
+            'businessId': '',
+            'clientId': '',
+            'pendingNotes': '',
+            'items': [],
+            'savedAt': int(time.time() * 1000),
+        }
+        row = InvoiceDraft(
+            user_id=user_id,
+            invoice_number=number,
+            payload=json.dumps(payload),
+        )
+        db.session.add(row)
+        db.session.commit()
+        return row
+
+
     @app.route('/register', methods=['GET', 'POST'])
     def register():
         if request.method == 'POST':
@@ -385,10 +422,14 @@ def register_routes(app):
                 
                 db.session.commit()
                 try:
-                    draft = db.session.query(InvoiceDraft).filter_by(user_id=session['user_id']).first()
+                    draft_q = db.session.query(InvoiceDraft).filter_by(user_id=session['user_id'])
+                    draft = draft_q.filter_by(invoice_number=invoice_number).first()
+                    if not draft and session.get('active_draft_id'):
+                        draft = draft_q.filter_by(id=session.get('active_draft_id')).first()
                     if draft:
                         db.session.delete(draft)
                         db.session.commit()
+                    session.pop('active_draft_id', None)
                 except Exception:
                     db.session.rollback()
                 flash('Invoice generated successfully!')
@@ -399,6 +440,32 @@ def register_routes(app):
                 return redirect(url_for_with_prefix('create_invoice'))
         
         # GET request handling
+        if request.args.get('new') == '1':
+            row = _create_empty_draft_for_user(session['user_id'])
+            session['active_draft_id'] = row.id
+            return redirect(url_for_with_prefix('create_invoice', draft_id=row.id))
+
+        draft_id = request.args.get('draft_id', type=int)
+        active_draft = None
+        if draft_id:
+            active_draft = db.session.query(InvoiceDraft).filter_by(
+                id=draft_id, user_id=session['user_id']
+            ).first()
+            if not active_draft:
+                flash('Draft not found.', 'danger')
+                return redirect(url_for_with_prefix('invoice_list'))
+            session['active_draft_id'] = active_draft.id
+        elif session.get('active_draft_id'):
+            active_draft = db.session.query(InvoiceDraft).filter_by(
+                id=session['active_draft_id'], user_id=session['user_id']
+            ).first()
+            if active_draft:
+                return redirect(url_for_with_prefix('create_invoice', draft_id=active_draft.id))
+            session.pop('active_draft_id', None)
+            return redirect(url_for_with_prefix('create_invoice', new=1))
+        else:
+            return redirect(url_for_with_prefix('create_invoice', new=1))
+
         business_id = request.args.get('business_id')
         businesses = db.session.query(Business).filter_by(user_id=session['user_id']).all()
         selected_business = None
@@ -414,8 +481,12 @@ def register_routes(app):
         tax_rates = db.session.query(SalesTax).filter_by(user_id=session['user_id']).all()
         items = db.session.query(Item).filter_by(user_id=session['user_id']).all()
         labor_items = db.session.query(LaborItem).filter_by(user_id=session['user_id']).all()
-        assigned_invoice_number = peek_next_invoice_number(session['user_id'])
+        assigned_invoice_number = active_draft.invoice_number
         today_str = datetime.now().strftime('%Y-%m-%d')
+        try:
+            draft_payload = json.loads(active_draft.payload) if active_draft.payload else None
+        except json.JSONDecodeError:
+            draft_payload = None
         
         return render_template('create_invoice.html',
                              businesses=businesses,
@@ -426,7 +497,9 @@ def register_routes(app):
                              items=items,
                              labor_items=labor_items,
                              assigned_invoice_number=assigned_invoice_number,
-                             today_str=today_str)
+                             today_str=today_str,
+                             active_draft_id=active_draft.id,
+                             server_draft_payload=draft_payload)
 
     @app.route('/preview_invoice')
     @login_required
@@ -636,6 +709,9 @@ def register_routes(app):
         if from_create_invoice:
             # Store the selected client ID in the session
             session['selected_client_id'] = client.id
+            draft_id = request.form.get('draft_id') or session.get('active_draft_id')
+            if draft_id:
+                return redirect(url_for_with_prefix('create_invoice', draft_id=draft_id))
             return redirect(url_for_with_prefix('create_invoice'))
         else:
             return redirect(url_for_with_prefix('clients'))
@@ -955,24 +1031,63 @@ def register_routes(app):
             session['selected_client_id'] = data.get('clientId')
         return jsonify({'success': True})
 
-    def _get_invoice_draft_response():
-        row = db.session.query(InvoiceDraft).filter_by(user_id=session['user_id']).first()
-        if not row:
-            return jsonify({'draft': None, 'updated_at': None})
-        try:
-            payload = json.loads(row.payload)
-        except json.JSONDecodeError:
-            payload = None
-        return jsonify({
-            'draft': payload,
-            'updated_at': row.updated_at.isoformat() if row.updated_at else None,
-        })
+
+    @app.route('/delete_invoice_draft/<int:draft_id>', methods=['POST'])
+    @login_required
+    def delete_invoice_draft_page(draft_id):
+        draft = db.session.query(InvoiceDraft).filter_by(id=draft_id, user_id=session['user_id']).first()
+        if draft:
+            db.session.delete(draft)
+            db.session.commit()
+            if session.get('active_draft_id') == draft_id:
+                session.pop('active_draft_id', None)
+            flash(f'Draft #{draft.invoice_number} discarded.', 'success')
+        else:
+            flash('Draft not found.', 'danger')
+        return redirect(url_for_with_prefix('invoice_list'))
+
+    @app.route('/api/invoice-drafts', methods=['GET'])
+    @app.route('/invoice/api/invoice-drafts', methods=['GET'])
+    @login_required
+    def list_invoice_drafts():
+        rows = (
+            db.session.query(InvoiceDraft)
+            .filter_by(user_id=session['user_id'])
+            .order_by(InvoiceDraft.updated_at.desc())
+            .all()
+        )
+        return jsonify({'drafts': [_draft_to_dict(r) for r in rows]})
+
+    @app.route('/api/invoice-drafts', methods=['POST'])
+    @app.route('/invoice/api/invoice-drafts', methods=['POST'])
+    @login_required
+    def create_invoice_draft():
+        row = _create_empty_draft_for_user(session['user_id'])
+        session['active_draft_id'] = row.id
+        return jsonify({'draft': _draft_to_dict(row)})
 
     @app.route('/api/invoice-draft', methods=['GET'])
     @app.route('/invoice/api/invoice-draft', methods=['GET'])
     @login_required
     def get_invoice_draft():
-        return _get_invoice_draft_response()
+        draft_id = request.args.get('draft_id', type=int)
+        invoice_number = request.args.get('invoice_number')
+        query = db.session.query(InvoiceDraft).filter_by(user_id=session['user_id'])
+        if draft_id:
+            row = query.filter_by(id=draft_id).first()
+        elif invoice_number:
+            row = query.filter_by(invoice_number=invoice_number).first()
+        else:
+            row = query.order_by(InvoiceDraft.updated_at.desc()).first()
+        if not row:
+            return jsonify({'draft': None, 'updated_at': None, 'id': None, 'invoice_number': None})
+        data = _draft_to_dict(row)
+        return jsonify({
+            'draft': data['payload'],
+            'updated_at': data['updated_at'],
+            'id': data['id'],
+            'invoice_number': data['invoice_number'],
+        })
 
     @app.route('/api/invoice-draft', methods=['PUT'])
     @login_required
@@ -982,15 +1097,38 @@ def register_routes(app):
         body = request.get_json()
         if body is None:
             return jsonify({'error': 'Invalid JSON'}), 400
-        payload_str = json.dumps(body)
-        row = db.session.query(InvoiceDraft).filter_by(user_id=session['user_id']).first()
-        if row:
-            row.payload = payload_str
-        else:
-            row = InvoiceDraft(user_id=session['user_id'], payload=payload_str)
+        draft_id = body.get('draftId') or body.get('draft_id') or request.args.get('draft_id', type=int)
+        invoice_number = body.get('invoiceNumber') or body.get('invoice_number')
+        query = db.session.query(InvoiceDraft).filter_by(user_id=session['user_id'])
+        row = None
+        if draft_id:
+            row = query.filter_by(id=draft_id).first()
+        elif invoice_number:
+            row = query.filter_by(invoice_number=str(invoice_number)).first()
+        if row is None:
+            # Create/reserve a draft for this number, or allocate a new one.
+            if not invoice_number:
+                invoice_number = allocate_next_invoice_number(session['user_id'])
+                body['invoiceNumber'] = invoice_number
+            row = InvoiceDraft(
+                user_id=session['user_id'],
+                invoice_number=str(invoice_number),
+                payload=json.dumps(body),
+            )
             db.session.add(row)
+        else:
+            if invoice_number:
+                row.invoice_number = str(invoice_number)
+            body['invoiceNumber'] = row.invoice_number
+            row.payload = json.dumps(body)
         db.session.commit()
-        return jsonify({'success': True, 'updated_at': row.updated_at.isoformat()})
+        session['active_draft_id'] = row.id
+        return jsonify({
+            'success': True,
+            'updated_at': row.updated_at.isoformat(),
+            'id': row.id,
+            'invoice_number': row.invoice_number,
+        })
 
     @app.route('/invoice/api/invoice-draft', methods=['PUT'])
     @login_required
@@ -1000,8 +1138,32 @@ def register_routes(app):
     @app.route('/api/invoice-draft', methods=['DELETE'])
     @login_required
     def delete_invoice_draft():
-        db.session.query(InvoiceDraft).filter_by(user_id=session['user_id']).delete()
+        draft_id = request.args.get('draft_id', type=int)
+        invoice_number = request.args.get('invoice_number')
+        query = db.session.query(InvoiceDraft).filter_by(user_id=session['user_id'])
+        if draft_id:
+            query.filter_by(id=draft_id).delete()
+        elif invoice_number:
+            query.filter_by(invoice_number=invoice_number).delete()
+        else:
+            # Backward compatible: delete active draft only, not every draft.
+            active_id = session.get('active_draft_id')
+            if active_id:
+                db.session.query(InvoiceDraft).filter_by(
+                    user_id=session['user_id'], id=active_id
+                ).delete()
+            else:
+                newest = (
+                    db.session.query(InvoiceDraft)
+                    .filter_by(user_id=session['user_id'])
+                    .order_by(InvoiceDraft.updated_at.desc())
+                    .first()
+                )
+                if newest:
+                    db.session.delete(newest)
         db.session.commit()
+        if draft_id and session.get('active_draft_id') == draft_id:
+            session.pop('active_draft_id', None)
         return jsonify({'success': True})
 
     @app.route('/invoice/api/invoice-draft', methods=['DELETE'])
@@ -1151,8 +1313,15 @@ def register_routes(app):
                             taxable_amount += item.total
                     tax_amount = taxable_amount * (sales_tax.rate / 100)
             invoice.total = subtotal + tax_amount
+
+        drafts = (
+            db.session.query(InvoiceDraft)
+            .filter_by(user_id=session['user_id'])
+            .order_by(InvoiceDraft.updated_at.desc())
+            .all()
+        )
         
-        return render_template('invoice_list.html', invoices=invoices)
+        return render_template('invoice_list.html', invoices=invoices, drafts=drafts)
 
     @app.route('/invoice/<invoice_number>')
     @login_required

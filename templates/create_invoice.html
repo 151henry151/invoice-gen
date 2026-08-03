@@ -484,9 +484,16 @@
 <script>
     const APP_ROOT = "{{ APP_ROOT }}";
     const CURRENT_USER_ID = "{{ session.get('user_id') }}";
+    const ACTIVE_DRAFT_ID = {{ active_draft_id|tojson if active_draft_id is defined else 'null' }};
+    const SERVER_DRAFT_PAYLOAD = {% if server_draft_payload is defined and server_draft_payload %}{{ server_draft_payload|tojson }}{% else %}null{% endif %};
     const IS_EDIT = {% if is_edit %}true{% else %}false{% endif %};
     const INVOICE_SNAPSHOT = {% if is_edit %}{{ invoice_snapshot|tojson }}{% else %}null{% endif %};
     const EDIT_POST_URL = {% if is_edit %}{{ edit_post_url|tojson }}{% else %}null{% endif %};
+    function draftStorageKey(invoiceNumber) {
+        const num = invoiceNumber || (document.getElementById('invoice_number') || {}).value || 'unknown';
+        return `invoiceData_${CURRENT_USER_ID}_${num}`;
+    }
+
     // Pristine copy of the saved invoice used to discard in-progress edits.
     let pristineEditSnapshot = null;
 
@@ -533,6 +540,7 @@
         const dueEl = document.getElementById('due_date');
         const notesEl = document.getElementById('notes');
         return {
+            draftId: ACTIVE_DRAFT_ID,
             date: document.getElementById('date').value,
             dueDate: dueEl ? dueEl.value : '',
             invoiceNumber: document.getElementById('invoice_number').value,
@@ -587,9 +595,8 @@
 
     // Function to save invoice data to localStorage and queue server autosave
     function saveInvoiceData() {
-        const userId = "{{ session.get('user_id') }}";
         const invoiceData = gatherInvoicePayload();
-        localStorage.setItem(`invoiceData_${userId}`, JSON.stringify(invoiceData));
+        localStorage.setItem(draftStorageKey(invoiceData.invoiceNumber), JSON.stringify(invoiceData));
         scheduleServerDraftSave();
     }
 
@@ -841,8 +848,16 @@
     }
 
     function restoreInvoiceData() {
-        const userId = "{{ session.get('user_id') }}";
-        const savedData = localStorage.getItem(`invoiceData_${userId}`);
+        if (SERVER_DRAFT_PAYLOAD) {
+            try {
+                applyInvoicePayload(SERVER_DRAFT_PAYLOAD);
+                return;
+            } catch (e) {
+                console.error('Failed to restore server draft payload', e);
+            }
+        }
+        const num = (document.getElementById('invoice_number') || {}).value;
+        const savedData = localStorage.getItem(draftStorageKey(num));
         if (savedData) {
             try {
                 applyInvoicePayload(JSON.parse(savedData));
@@ -853,8 +868,17 @@
     }
 
     function mergeServerDraftAfterLocalRestore() {
-        const userId = "{{ session.get('user_id') }}";
-        return fetch(`${APP_ROOT}/api/invoice-draft`, { credentials: 'same-origin' })
+        if (SERVER_DRAFT_PAYLOAD) {
+            return Promise.resolve();
+        }
+        const num = (document.getElementById('invoice_number') || {}).value;
+        let url = `${APP_ROOT}/api/invoice-draft`;
+        if (ACTIVE_DRAFT_ID) {
+            url += `?draft_id=${ACTIVE_DRAFT_ID}`;
+        } else if (num) {
+            url += `?invoice_number=${encodeURIComponent(num)}`;
+        }
+        return fetch(url, { credentials: 'same-origin' })
             .then(function(r) { return r.json(); })
             .then(function(resp) {
                 const serverDraft = resp.draft;
@@ -865,7 +889,7 @@
                 const serverTime = updatedAt ? new Date(updatedAt).getTime() : 0;
                 let local = null;
                 try {
-                    const localRaw = localStorage.getItem(`invoiceData_${userId}`);
+                    const localRaw = localStorage.getItem(draftStorageKey(num || serverDraft.invoiceNumber));
                     local = localRaw ? JSON.parse(localRaw) : null;
                 } catch (e) {
                     local = null;
@@ -873,7 +897,6 @@
                 const localTime = local && local.savedAt ? Number(local.savedAt) : 0;
                 const localItemCount = local && Array.isArray(local.items) ? local.items.length : 0;
                 const serverItemCount = serverDraft && Array.isArray(serverDraft.items) ? serverDraft.items.length : 0;
-                // Do not clobber local line items with a newer but empty or partial server snapshot.
                 if (serverTime >= localTime) {
                     if (serverItemCount === 0 && localItemCount > 0) {
                         return;
@@ -882,7 +905,7 @@
                         return;
                     }
                     applyInvoicePayload(serverDraft);
-                    localStorage.setItem(`invoiceData_${userId}`, JSON.stringify(serverDraft));
+                    localStorage.setItem(draftStorageKey(serverDraft.invoiceNumber || num), JSON.stringify(serverDraft));
                 }
             })
             .catch(function() { /* ignore */ });
@@ -890,12 +913,19 @@
 
     // Function to clear invoice data from localStorage
     function clearInvoiceData() {
-        const userId = "{{ session.get('user_id') }}";  // Get the current user's ID from session
-        localStorage.removeItem(`invoiceData_${userId}`);
+        const num = (document.getElementById('invoice_number') || {}).value;
+        localStorage.removeItem(draftStorageKey(num));
     }
 
     function clearServerDraft() {
-        fetch(`${APP_ROOT}/api/invoice-draft`, { method: 'DELETE', credentials: 'same-origin' }).catch(function() {});
+        let url = `${APP_ROOT}/api/invoice-draft`;
+        if (ACTIVE_DRAFT_ID) {
+            url += `?draft_id=${ACTIVE_DRAFT_ID}`;
+        } else {
+            const num = (document.getElementById('invoice_number') || {}).value;
+            if (num) url += `?invoice_number=${encodeURIComponent(num)}`;
+        }
+        fetch(url, { method: 'DELETE', credentials: 'same-origin' }).catch(function() {});
     }
 
     // Function to save selected business and client
@@ -1050,7 +1080,7 @@
 
                 document.querySelectorAll('.edit-client-btn-responsive').forEach(function(editButton) {
                     editButton.classList.remove('disabled');
-                    editButton.href = `${APP_ROOT}/client_details?client_id=${value}&from_create_invoice=true`;
+                    editButton.href = `${APP_ROOT}/client_details?client_id=${value}&from_create_invoice=true` + (ACTIVE_DRAFT_ID ? `&draft_id=${ACTIVE_DRAFT_ID}` : '');
                     editButton.style.pointerEvents = 'auto';
                     editButton.style.opacity = '1';
                 });
@@ -1466,7 +1496,7 @@
         // Reset the autosave draft to the pristine snapshot so a reload or the
         // background autosave cannot resurrect the discarded edits.
         try {
-            localStorage.setItem(`invoiceData_${CURRENT_USER_ID}`, JSON.stringify(restored));
+            localStorage.setItem(draftStorageKey(restored.invoiceNumber), JSON.stringify(restored));
         } catch (e) {
             /* ignore storage errors */
         }

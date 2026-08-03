@@ -1,88 +1,81 @@
-"""Tests for server-side invoice draft autosave API."""
+"""Tests for multi-draft invoice autosave API."""
+
 import json
-import os
-import tempfile
-import unittest
 
-from app import app as flask_app
-from models import db, User, InvoiceDraft
-from werkzeug.security import generate_password_hash
+from models import InvoiceDraft, Setting, db
+from invoice_numbering import allocate_next_invoice_number
 
 
-class InvoiceDraftApiTestCase(unittest.TestCase):
-    def setUp(self):
-        self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
-        flask_app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{self.db_path}"
-        flask_app.config["TESTING"] = True
-        self.client = flask_app.test_client()
-        self._ctx = flask_app.app_context()
-        self._ctx.push()
-        db.create_all()
-        user = User(
-            username="draftuser",
-            email="draft@example.com",
-            password=generate_password_hash("secret"),
-        )
-        db.session.add(user)
+def test_create_two_drafts_keeps_both(auth_client, app, test_user):
+    with app.app_context():
+        setting = db.session.query(Setting).filter_by(user_id=test_user.id, key="next_invoice_number").first()
+        if setting:
+            setting.value = "3001"
+        else:
+            db.session.add(Setting(user_id=test_user.id, key="next_invoice_number", value="3001"))
         db.session.commit()
-        self.user_id = user.id
 
-    def tearDown(self):
-        db.session.remove()
-        db.drop_all()
-        self._ctx.pop()
-        os.close(self.db_fd)
-        os.unlink(self.db_path)
+    r1 = auth_client.post("/api/invoice-drafts")
+    r2 = auth_client.post("/api/invoice-drafts")
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    d1 = r1.get_json()["draft"]
+    d2 = r2.get_json()["draft"]
+    assert d1["invoice_number"] != d2["invoice_number"]
 
-    def _login(self):
-        with self.client.session_transaction() as sess:
-            sess["user_id"] = self.user_id
-            sess["username"] = "draftuser"
-
-    def test_get_empty_draft(self):
-        self._login()
-        rv = self.client.get("/api/invoice-draft")
-        self.assertEqual(rv.status_code, 200)
-        data = json.loads(rv.data)
-        self.assertIsNone(data["draft"])
-        self.assertIsNone(data["updated_at"])
-
-    def test_put_get_roundtrip(self):
-        self._login()
-        payload = {"date": "2025-01-01", "items": [], "savedAt": 1}
-        rv = self.client.put(
-            "/api/invoice-draft",
-            data=json.dumps(payload),
-            content_type="application/json",
-        )
-        self.assertEqual(rv.status_code, 200)
-        rv2 = self.client.get("/api/invoice-draft")
-        self.assertEqual(rv2.status_code, 200)
-        data = json.loads(rv2.data)
-        self.assertEqual(data["draft"]["date"], "2025-01-01")
-        self.assertIsNotNone(data["updated_at"])
-
-    def test_delete_clears_draft(self):
-        self._login()
-        self.client.put(
-            "/api/invoice-draft",
-            data=json.dumps({"savedAt": 1}),
-            content_type="application/json",
-        )
-        rv = self.client.delete("/api/invoice-draft")
-        self.assertEqual(rv.status_code, 200)
-        row = db.session.query(InvoiceDraft).filter_by(user_id=self.user_id).first()
-        self.assertIsNone(row)
-
-    def test_prefixed_path_put(self):
-        self._login()
-        rv = self.client.put(
-            "/invoice/api/invoice-draft",
-            data=json.dumps({"savedAt": 2}),
-            content_type="application/json",
-        )
-        self.assertEqual(rv.status_code, 200)
+    listed = auth_client.get("/api/invoice-drafts").get_json()["drafts"]
+    assert len(listed) >= 2
+    numbers = {d["invoice_number"] for d in listed}
+    assert d1["invoice_number"] in numbers
+    assert d2["invoice_number"] in numbers
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_put_updates_specific_draft(auth_client, app, test_user):
+    created = auth_client.post("/api/invoice-drafts").get_json()["draft"]
+    draft_id = created["id"]
+    payload = {
+        "draftId": draft_id,
+        "invoiceNumber": created["invoice_number"],
+        "date": "2026-08-03",
+        "items": [{"type": "note", "description": "hello", "total": "0"}],
+        "savedAt": 123,
+    }
+    rv = auth_client.put(
+        "/api/invoice-draft",
+        data=json.dumps(payload),
+        content_type="application/json",
+    )
+    assert rv.status_code == 200
+    got = auth_client.get(f"/api/invoice-draft?draft_id={draft_id}").get_json()
+    assert got["draft"]["date"] == "2026-08-03"
+    assert len(got["draft"]["items"]) == 1
+
+
+def test_delete_one_draft_leaves_others(auth_client, app, test_user):
+    d1 = auth_client.post("/api/invoice-drafts").get_json()["draft"]
+    d2 = auth_client.post("/api/invoice-drafts").get_json()["draft"]
+    auth_client.delete(f"/api/invoice-draft?draft_id={d1['id']}")
+    listed = auth_client.get("/api/invoice-drafts").get_json()["drafts"]
+    ids = {d["id"] for d in listed}
+    assert d1["id"] not in ids
+    assert d2["id"] in ids
+
+
+def test_create_invoice_new_redirects_to_draft(auth_client, app, test_user):
+    with app.app_context():
+        setting = db.session.query(Setting).filter_by(user_id=test_user.id, key="next_invoice_number").first()
+        if setting:
+            setting.value = "4001"
+        else:
+            db.session.add(Setting(user_id=test_user.id, key="next_invoice_number", value="4001"))
+        db.session.commit()
+
+    resp = auth_client.get("/create_invoice?new=1", follow_redirects=False)
+    assert resp.status_code in (302, 303)
+    loc = resp.headers["Location"]
+    assert "draft_id=" in loc
+
+    resp2 = auth_client.get(loc, follow_redirects=True)
+    assert resp2.status_code == 200
+    assert b"4001" in resp2.data
+    assert b"confirmInvoiceBtn" not in resp2.data

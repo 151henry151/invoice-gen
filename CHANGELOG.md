@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.15] - 2026-08-03
+
+### Changed
+
+- Store multiple in-progress invoice drafts per user, each with its own reserved invoice number
+- Open Create New Invoice as a new draft (`?new=1`) without clearing other drafts
+- Scope local and server autosave to the active draft id / invoice number
+- List draft invoices on the invoices page with continue and discard actions
+
+### Fixed
+
+- Delete only the generated draft after a successful save instead of clearing every draft for the user
+- Preserve `draft_id` when editing a client from an in-progress invoice
+
 ## [0.9.0-beta.14] - 2026-08-03
 
 ### Changed
