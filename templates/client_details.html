@@ -5,6 +5,7 @@
 {% block page_subtitle %}Client Details{% endblock %}
 
 {% import "components/address_picker.html" as address_picker with context %}
+{% import "components/phone_input.html" as phone_fields %}
 
 {% block content %}
 <div class="container">
@@ -35,7 +36,7 @@
             {% endif %}
             
             <input type="email" id="email" name="email" placeholder="Email" value="{{ selected_client.email if selected_client else '' }}">
-            <input type="tel" id="phone" name="phone" placeholder="Phone Number" value="{{ selected_client.phone if selected_client else '' }}" required>
+            {{ phone_fields.phone_input(name='phone', value=selected_client.phone if selected_client else '', required=true, input_id='phone') }}
             
             <div class="button-container">
                 <input type="submit" value="Save Client Details" class="file-input-style">
@@ -47,17 +48,11 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/phone_input.js') }}"></script>
 <script>
-    function updateFormAction(clientId) {
-        if (clientId) {
-            window.location.href = "{{ url_for('client_details') }}?client_id=" + clientId;
-        }
-    }
-
-    // Add form validation
     document.getElementById('client-form').addEventListener('submit', function(event) {
         const name = document.getElementById('name').value.trim();
-        const address = document.getElementById('client_address').value.trim();
+        const addressLine1 = document.getElementById('client_address_line1');
         const email = document.getElementById('email').value.trim();
         const phone = document.getElementById('phone').value.trim();
 
@@ -67,7 +62,7 @@
             return;
         }
 
-        if (!address) {
+        if (!addressLine1 || !addressLine1.value.trim()) {
             event.preventDefault();
             alert('Please enter an address');
             return;
@@ -85,7 +80,7 @@
             return;
         }
 
-        if (!isValidPhone(phone)) {
+        if (window.PhoneInput && !PhoneInput.isValidPhone(phone)) {
             event.preventDefault();
             alert('Please enter a valid phone number');
             return;
@@ -96,11 +91,5 @@
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
     }
-
-    function isValidPhone(phone) {
-        // Allow various phone number formats
-        const phoneRegex = /^[\d\s\-\(\)\.]+$/;
-        return phoneRegex.test(phone);
-    }
 </script>
-{% endblock %} 
+{% endblock %}

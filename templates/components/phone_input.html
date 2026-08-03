@@ -1,0 +1,31 @@
+{% macro phone_input(name='phone', value='', required=false, input_id='phone') %}
+{% set initial = value or '' %}
+<div class="phone-input-group mb-3" data-phone-input data-initial="{{ initial }}">
+    <label for="{{ input_id }}_national" class="form-label">Phone Number{% if required %}*{% endif %}</label>
+    <div class="input-group">
+        <select class="form-select phone-country" id="{{ input_id }}_country" aria-label="Country calling code" style="max-width: 9rem;">
+            <option value="1" selected>🇺🇸 +1</option>
+            <option value="44">🇬🇧 +44</option>
+            <option value="61">🇦🇺 +61</option>
+            <option value="353">🇮🇪 +353</option>
+            <option value="33">🇫🇷 +33</option>
+            <option value="49">🇩🇪 +49</option>
+            <option value="52">🇲🇽 +52</option>
+            <option value="91">🇮🇳 +91</option>
+        </select>
+        <input type="tel"
+               class="form-control phone-national"
+               id="{{ input_id }}_national"
+               inputmode="numeric"
+               autocomplete="tel-national"
+               placeholder="(555) 123-4567"
+               {% if required %}required{% endif %}>
+        <input type="hidden"
+               class="phone-full"
+               id="{{ input_id }}"
+               name="{{ name }}"
+               value="{{ initial }}">
+    </div>
+    <div class="form-text">Country defaults to +1. Digits are formatted as you type.</div>
+</div>
+{% endmacro %}

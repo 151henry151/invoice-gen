@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.11] - 2026-08-03
+
+### Added
+
+- Add `phone_utils` helpers and a reusable phone input (country dial code + progressive national formatting) for client and business detail forms
+- Add `static/js/phone_input.js` so mobile users can enter NANP numbers without typing parentheses or dashes
+
+### Changed
+
+- Widen client and business `phone` columns from 20 to 40 characters to store formatted international values
+
 ## [0.9.0-beta.10] - 2026-05-31
 
 ### Fixed

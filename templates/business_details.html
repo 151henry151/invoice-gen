@@ -6,6 +6,7 @@
 {% block page_subtitle %}Business Details{% endblock %}
 
 {% import "components/address_picker.html" as address_picker with context %}
+{% import "components/phone_input.html" as phone_fields %}
 
 {% block content %}
 <div class="container">
@@ -37,7 +38,7 @@
             {% endif %}
             
             <input type="email" id="email" name="email" placeholder="Email" value="{{ selected_business.email if selected_business else '' }}">
-            <input type="tel" id="phone" name="phone" placeholder="Phone Number" value="{{ selected_business.phone if selected_business else '' }}" required>
+            {{ phone_fields.phone_input(name='phone', value=selected_business.phone if selected_business else '', required=true, input_id='phone') }}
             
             {% if selected_business and selected_business.logo_path %}
                 <div class="mb-2" id="logo-preview-container">
@@ -66,6 +67,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/phone_input.js') }}"></script>
 <script>
     // Parse address into components
     function parseAddress(address) {
@@ -159,8 +161,11 @@
         return emailRegex.test(email);
     }
     function isValidPhone(phone) {
-        const phoneRegex = /^[\d\s\-\(\)\.]+$/;
-        return phoneRegex.test(phone);
+        if (window.PhoneInput) {
+            return PhoneInput.isValidPhone(phone);
+        }
+        const phoneRegex = /^[+]?[\d\s\-\(\)\.]+$/;
+        return phoneRegex.test(phone) && phone.replace(/\D/g, '').length >= 10;
     }
     document.getElementById('logo').addEventListener('change', function(event) {
         const file = event.target.files[0];

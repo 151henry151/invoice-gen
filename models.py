@@ -22,7 +22,7 @@ class Business(db.Model):
     name = db.Column(db.String(100), nullable=False)
     address = db.Column(db.String(200))
     email = db.Column(db.String(120))
-    phone = db.Column(db.String(20))
+    phone = db.Column(db.String(40))
     logo_path = db.Column(db.String(200))
     invoice_template = db.Column(db.String(100), default='invoice_pretty')
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -50,7 +50,7 @@ class Client(db.Model):
     name = db.Column(db.String(100), nullable=False)
     address = db.Column(db.String(200))
     email = db.Column(db.String(120))
-    phone = db.Column(db.String(20))
+    phone = db.Column(db.String(40))
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     

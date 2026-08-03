@@ -1199,3 +1199,20 @@ form {
         display: none;
     }
 }
+/* Phone input: country + national number */
+.phone-input-group .input-group {
+  flex-wrap: nowrap;
+}
+.phone-input-group .phone-country {
+  flex: 0 0 auto;
+}
+.phone-input-group .phone-national {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+@media (max-width: 576px) {
+  .phone-input-group .phone-country {
+    max-width: 7.5rem !important;
+    font-size: 0.9rem;
+  }
+}
