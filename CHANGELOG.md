@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.17] - 2026-08-04
+
+### Fixed
+
+- Stop the address line input from showing a premature invalid/exclamation icon while typing by disabling browser autofill on Places fields, removing HTML5 `required` from the address picker, and validating address fields on submit instead
+
+### Changed
+
+- Document the 2026-08-03 UI audit backlog and the address-field icon report in `ISSUES.md` (#31, #32)
+
 ## [0.9.0-beta.16] - 2026-08-03
 
 ### Fixed

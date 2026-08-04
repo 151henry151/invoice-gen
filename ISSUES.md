@@ -396,3 +396,67 @@ If a person wants to make a client without a phone number or email address that 
 
 ---
 
+---
+
+# Issue #31: Address field shows exclamation / invalid icon while typing
+
+**State:** FIXED (0.9.0-beta.17)
+**Created:** 2026-08-04
+**Updated:** 2026-08-04
+
+## Description
+When editing a client address, an exclamation / error icon appears in the address text input as soon as the user starts typing. Suspected causes: HTML5 `required` + Bootstrap `:invalid` feedback styling, browser autofill conflicting with Google Places Autocomplete (`autocomplete="street-address"`), and/or Places API auth/referrer failures for hromp.com.
+
+## Acceptance
+- [ ] Typing freely in Address Line 1 does not show an error icon
+- [ ] Manual address entry works even if Places autocomplete is unavailable
+- [ ] Selecting a Places suggestion still fills city/state/ZIP when available
+
+---
+
+# Issue #32: Audit backlog (2026-08-03) — follow-ups deferred
+
+**State:** OPEN
+**Created:** 2026-08-03
+**Updated:** 2026-08-04
+
+Findings from the post-deploy audit. Track here for later; not all are scheduled.
+
+## Critical
+1. PDF `download_invoice` lacks `user_id` filter (IDOR).
+2. Create-invoice business "Edit Details" links to settings and overwrites all `.settings-link` hrefs (including client edit).
+
+## High
+3. Labor totals still parse "Total Cost" DOM text (same class as fixed item bug).
+4. `handleLaborItemSelection` can throw without null-guards.
+5. Creating item/labor from invoice drops `open_dialog` / `new_*_id` across draft redirects.
+6. Business edit from invoice loses `draft_id` (client path was fixed).
+7. PDF tax ignores `tax_applies_to`.
+8. Business-details JS re-parses address line 1 on load and can wipe city/state/ZIP.
+9. Create-invoice logo URLs use `/uploads/` instead of `/serve_upload/`.
+10. No CSRF on state-changing routes.
+
+## Medium
+11. `/businesses`, `/clients`, `/remove_client` missing `@login_required`.
+12. Notes render as $0 product rows on view page.
+13. Free ($0) items can be misclassified as notes.
+14. Failed create-invoice validation redirects can drop `draft_id`.
+15. "Create New Client" option omits `draft_id`.
+16. Browser submit checks client but not business.
+17. XSS via `innerHTML` with descriptions/notes.
+18. `invoice_number` unique globally, not per-user.
+19. Legacy invoice number `O045` (letter O) exists for jyblair31.
+20. Fragile tax logic using `'h' in str(quantity)` on list/view.
+21. Client phone still required in UI (server allows blank) — related to #25.
+22. Sales-tax dialog stacks duplicate `change` listeners.
+
+## Low / UX
+23. Edit line item does not re-select catalog option.
+24. Labor descriptions show " - $X/hr" in builder until save.
+25. Create-invoice subtitle says "Dashboard".
+26. Large invoice JS in `<head>`.
+27. Due date required but not defaulted.
+28. Keyboard "Create New …" option navigation (see #27).
+29. Disabled edit buttons still say "Edit Details" (see #26).
+30. Duplicate mobile/desktop accordions share selectors.
+

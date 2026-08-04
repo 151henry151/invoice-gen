@@ -18,17 +18,24 @@
 {% set postal_code = parsed.postal_code %}
 {% set country = parsed.country %}
 
-<div class="address-picker">
+<div class="address-picker" {% if required %}data-address-required="true"{% endif %}>
     <div class="mb-3">
         <label for="{{ form_prefix }}address_line1" class="form-label">Address Line 1{% if required %}*{% endif %}</label>
+        {# autocomplete=off avoids Chrome/Safari autofill fighting Google Places,
+           which often surfaces as a warning/exclamation icon inside the input. #}
         <input type="text"
                class="form-control address-autocomplete"
                id="{{ form_prefix }}address_line1"
                name="{{ form_prefix }}address_line1"
                placeholder="Start typing an address..."
                value="{{ address_line1 }}"
-               {% if required %}required{% endif %}
-               autocomplete="street-address">
+               autocomplete="off"
+               autocorrect="off"
+               autocapitalize="words"
+               spellcheck="false"
+               data-lpignore="true"
+               data-1p-ignore="true"
+               {% if required %}data-required="true"{% endif %}>
     </div>
     <div class="mb-3">
         <label for="{{ form_prefix }}address_line2" class="form-label">Address Line 2</label>
@@ -37,7 +44,8 @@
                id="{{ form_prefix }}address_line2"
                name="{{ form_prefix }}address_line2"
                placeholder="Apartment, suite, unit, etc. (optional)"
-               value="{{ address_line2 }}">
+               value="{{ address_line2 }}"
+               autocomplete="off">
     </div>
     <div class="row g-3">
         <div class="col-md-6">
@@ -47,7 +55,8 @@
                    id="{{ form_prefix }}city"
                    name="{{ form_prefix }}city"
                    value="{{ city }}"
-                   {% if required %}required{% endif %}>
+                   autocomplete="off"
+                   {% if required %}data-required="true"{% endif %}>
         </div>
         <div class="col-md-3">
             <label for="{{ form_prefix }}state" class="form-label">State{% if required %}*{% endif %}</label>
@@ -56,7 +65,8 @@
                    id="{{ form_prefix }}state"
                    name="{{ form_prefix }}state"
                    value="{{ state }}"
-                   {% if required %}required{% endif %}>
+                   autocomplete="off"
+                   {% if required %}data-required="true"{% endif %}>
         </div>
         <div class="col-md-3">
             <label for="{{ form_prefix }}postal_code" class="form-label">ZIP Code <span class="text-muted">(optional)</span></label>
@@ -64,7 +74,8 @@
                    class="form-control"
                    id="{{ form_prefix }}postal_code"
                    name="{{ form_prefix }}postal_code"
-                   value="{{ postal_code }}">
+                   value="{{ postal_code }}"
+                   autocomplete="off">
         </div>
     </div>
     <div class="mb-3 mt-3">
@@ -74,43 +85,76 @@
                id="{{ form_prefix }}country"
                name="{{ form_prefix }}country"
                value="{{ country }}"
-               placeholder="Leave blank to omit from invoices">
+               placeholder="Leave blank to omit from invoices"
+               autocomplete="off">
     </div>
 </div>
 
 <script>
 (function() {
+    var prefix = '{{ form_prefix }}';
     var callbackName = 'initAddressAutocomplete_{{ form_prefix|replace('-', '_') or "default" }}';
+    var inputId = prefix + 'address_line1';
+
+    function fillFromPlace(place) {
+        var addressComponents = (place && place.address_components) || [];
+        function getComponent(type, shortName) {
+            var comp = addressComponents.find(function(c) { return c.types.indexOf(type) !== -1; });
+            if (!comp) return '';
+            return shortName ? comp.short_name : comp.long_name;
+        }
+        var line1 = [getComponent('street_number'), getComponent('route')].filter(Boolean).join(' ');
+        // If Places returned a formatted address but no street parts, keep what the user typed.
+        var line1El = document.getElementById(prefix + 'address_line1');
+        if (line1) {
+            line1El.value = line1;
+        } else if (place && place.name && !line1El.value) {
+            line1El.value = place.name;
+        }
+        document.getElementById(prefix + 'city').value =
+            getComponent('locality') || getComponent('sublocality') || getComponent('administrative_area_level_2');
+        document.getElementById(prefix + 'state').value =
+            getComponent('administrative_area_level_1', true) || getComponent('administrative_area_level_1');
+        document.getElementById(prefix + 'postal_code').value = getComponent('postal_code');
+        // Do not force a country; leave blank if Places omits it so invoices can omit it.
+        document.getElementById(prefix + 'country').value = getComponent('country');
+        // Clear any browser/Bootstrap invalid state after a successful pick.
+        [prefix + 'address_line1', prefix + 'city', prefix + 'state'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.classList.remove('is-invalid');
+                if (typeof el.setCustomValidity === 'function') el.setCustomValidity('');
+            }
+        });
+    }
+
     window[callbackName] = function() {
-        var input = document.getElementById('{{ form_prefix }}address_line1');
-        if (!input || !window.google || !window.google.maps) return;
+        var input = document.getElementById(inputId);
+        if (!input || !window.google || !window.google.maps || !window.google.maps.places) return;
+        // Keep browser autofill suppressed while Places is bound.
+        input.setAttribute('autocomplete', 'off');
         var autocomplete = new google.maps.places.Autocomplete(input, {
             types: ['address'],
+            fields: ['address_components', 'formatted_address', 'name'],
             componentRestrictions: { country: 'us' }
         });
         autocomplete.addListener('place_changed', function() {
-            var place = autocomplete.getPlace();
-            var addressComponents = place.address_components || [];
-            function getComponent(type) {
-                var comp = addressComponents.find(function(c) { return c.types.indexOf(type) !== -1; });
-                return comp ? comp.long_name : '';
-            }
-            function getShort(type) {
-                var comp = addressComponents.find(function(c) { return c.types.indexOf(type) !== -1; });
-                return comp ? comp.short_name : '';
-            }
-            document.getElementById('{{ form_prefix }}address_line1').value = [
-                getComponent('street_number'),
-                getComponent('route')
-            ].filter(Boolean).join(' ');
-            document.getElementById('{{ form_prefix }}city').value = getComponent('locality') || getComponent('sublocality') || getComponent('administrative_area_level_2');
-            document.getElementById('{{ form_prefix }}state').value = getShort('administrative_area_level_1') || getComponent('administrative_area_level_1');
-            document.getElementById('{{ form_prefix }}postal_code').value = getComponent('postal_code');
-            document.getElementById('{{ form_prefix }}country').value = getComponent('country') || 'United States';
+            fillFromPlace(autocomplete.getPlace());
+        });
+        // Typing freely is always allowed; never mark the field invalid while composing.
+        input.addEventListener('input', function() {
+            input.classList.remove('is-invalid');
+            if (typeof input.setCustomValidity === 'function') input.setCustomValidity('');
         });
     };
+
+    window.gm_authFailure = window.gm_authFailure || function() {
+        window.__invoiceGenMapsFailed = true;
+        console.warn('Google Maps failed to authenticate; address fields remain manual entry.');
+    };
+
     var apiKey = '{{ GOOGLE_MAPS_API_KEY | default("", true) }}';
-    if (!apiKey) {
+    if (!apiKey || window.__invoiceGenMapsFailed) {
         return;
     }
     if (!window.google || !window.google.maps || !window.google.maps.places) {
@@ -127,6 +171,9 @@
             script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) + '&libraries=places&callback=__invoiceGenMapsBoot';
             script.async = true;
             script.defer = true;
+            script.onerror = function() {
+                window.__invoiceGenMapsFailed = true;
+            };
             document.head.appendChild(script);
         } else {
             window.__invoiceGenMapsCallbacks = window.__invoiceGenMapsCallbacks || [];

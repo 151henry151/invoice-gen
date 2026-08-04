@@ -20,7 +20,7 @@
     {% endwith %}
 
     <div class="form-group">
-        <form action="{{ url_for('update_client') }}" method="post" id="client-form">
+        <form action="{{ url_for('update_client') }}" method="post" id="client-form" novalidate>
             {% if selected_client %}
                 <input type="hidden" name="client_id" value="{{ selected_client.id }}">
             {% endif %}
@@ -70,6 +70,18 @@
         if (!addressLine1 || !addressLine1.value.trim()) {
             event.preventDefault();
             alert('Please enter an address');
+            return;
+        }
+        const city = document.getElementById('client_city');
+        const state = document.getElementById('client_state');
+        if (!city || !city.value.trim()) {
+            event.preventDefault();
+            alert('Please enter a city');
+            return;
+        }
+        if (!state || !state.value.trim()) {
+            event.preventDefault();
+            alert('Please enter a state');
             return;
         }
 
