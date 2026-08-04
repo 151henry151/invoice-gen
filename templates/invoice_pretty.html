@@ -144,7 +144,7 @@
         {% endif %}
         <div class="business-info">
             <h2>{{ company.name|blank }}</h2>
-            {% if company.address|blank %}<div>{{ company.address|blank }}</div>{% endif %}
+            {% if company.address|format_address %}<div>{{ company.address|format_address }}</div>{% endif %}
             {% if company.phone|blank %}<div>{{ company.phone|blank }}</div>{% endif %}
             {% if company.email|blank %}<div>{{ company.email|blank }}</div>{% endif %}
         </div>
@@ -153,7 +153,7 @@
         <div class="bill-to">
             <strong>BILL TO</strong><br>
             {{ client.name|blank }}<br>
-            {% if client.address|blank %}{{ client.address|blank }}<br>{% endif %}
+            {% if client.address|format_address %}{{ client.address|format_address }}<br>{% endif %}
             {% if client.phone|blank %}{{ client.phone|blank }}<br>{% endif %}
             {% if client.email|blank %}{{ client.email|blank }}{% endif %}
         </div>

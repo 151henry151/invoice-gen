@@ -998,7 +998,7 @@
             .then(company => {
                 // Update all company details
                 document.querySelectorAll('.detail-value[data-placeholder="Business Name"]').forEach(el => el.textContent = displayBlank(company.name));
-                document.querySelectorAll('.detail-value[data-placeholder="Business Address"]').forEach(el => el.textContent = displayBlank(company.address));
+                document.querySelectorAll('.detail-value[data-placeholder="Business Address"]').forEach(el => { el.textContent = company.address_display || formatAddressDisplay(company.address); el.style.whiteSpace = 'pre-line'; });
                 document.querySelectorAll('.detail-value[data-placeholder="business@example.com"]').forEach(el => el.textContent = displayBlank(company.email));
                 document.querySelectorAll('.detail-value[data-placeholder="(xxx) xxx-xxxx"]').forEach(el => el.textContent = displayBlank(company.phone));
 
@@ -1033,6 +1033,52 @@
             });
     }
 
+    function formatAddressDisplay(value) {
+        if (value === undefined || value === null) return '';
+        var text = displayBlank(value);
+        if (!text) return '';
+        if (text.indexOf(',') === -1) return text;
+        var parts = text.split(',').map(function(p) { return p.trim(); }).filter(Boolean);
+        if (parts.length === 1) return parts[0];
+        var country = '';
+        var postal = '';
+        var state = '';
+        var city = '';
+        var street = [];
+        var looksPostal = function(v) {
+            var c = v.replace(/\s/g, '');
+            return /^\d{5}(-\d{4})?$/.test(c) || /^\d{5}$/.test(c);
+        };
+        var looksCountry = function(v) {
+            var lower = v.toLowerCase();
+            return lower === 'united states' || lower === 'usa' || lower === 'us' || v.indexOf(' ') !== -1;
+        };
+        if (parts.length >= 5) {
+            country = parts[parts.length - 1];
+            postal = parts[parts.length - 2];
+            state = parts[parts.length - 3];
+            city = parts[parts.length - 4];
+            street = parts.slice(0, parts.length - 4);
+        } else if (parts.length === 4 && looksPostal(parts[3])) {
+            street = [parts[0]]; city = parts[1]; state = parts[2]; postal = parts[3];
+        } else if (parts.length === 4 && looksCountry(parts[3])) {
+            street = [parts[0]]; city = parts[1]; state = parts[2]; country = parts[3];
+        } else if (parts.length === 4) {
+            street = [parts[0], parts[1]]; city = parts[2]; state = parts[3];
+        } else if (parts.length === 3) {
+            street = [parts[0]]; city = parts[1]; state = parts[2];
+        } else {
+            street = [parts[0]]; city = parts[1] || '';
+        }
+        var lines = street.filter(Boolean);
+        var stateZip = [state, postal].filter(Boolean).join(' ');
+        if (city && stateZip) lines.push(city + ', ' + stateZip);
+        else if (city) lines.push(city);
+        else if (stateZip) lines.push(stateZip);
+        if (country) lines.push(country);
+        return lines.join('\n');
+    }
+
     function displayBlank(value) {
         if (value === undefined || value === null) return '';
         var text = String(value).trim();
@@ -1053,7 +1099,12 @@
         document.querySelectorAll('[data-client-preview]').forEach(function(el) {
             const key = el.getAttribute('data-client-preview');
             if (key && Object.prototype.hasOwnProperty.call(data, key)) {
-                el.textContent = displayBlank(data[key]);
+                if (key === 'address') {
+                    el.textContent = data.address_display || formatAddressDisplay(data.address);
+                    el.style.whiteSpace = 'pre-line';
+                } else {
+                    el.textContent = displayBlank(data[key]);
+                }
             }
         });
         const titleEl = document.getElementById('clientAccordionTitle');
@@ -2228,7 +2279,7 @@
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">Address:</span>
-                  <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address|blank if selected_company else '' }}</span>
+                  <span class="detail-value" data-placeholder="Business Address" style="white-space: pre-line;">{{ selected_company.address|format_address if selected_company else '' }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">Email:</span>
@@ -2280,7 +2331,7 @@
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Address:</span>
-                    <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address|blank if selected_company else '' }}</span>
+                    <span class="detail-value" data-placeholder="Business Address" style="white-space: pre-line;">{{ selected_company.address|format_address if selected_company else '' }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Email:</span>
@@ -2330,7 +2381,7 @@
               </div>
               <div class="detail-item">
                 <span class="detail-label">Address:</span>
-                <span class="detail-value" data-client-preview="address">{{ selected_client.address|blank if selected_client else '' }}</span>
+                <span class="detail-value" data-client-preview="address" style="white-space: pre-line;">{{ selected_client.address|format_address if selected_client else '' }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Email:</span>
@@ -2347,7 +2398,7 @@
               </div>
               <div class="detail-item">
                 <span class="detail-label">Address:</span>
-                <span class="detail-value" data-client-preview="address" data-placeholder="Your Client's Address"></span>
+                <span class="detail-value" data-client-preview="address" style="white-space: pre-line;" data-placeholder="Your Client's Address"></span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Email:</span>
@@ -2388,7 +2439,7 @@
           </div>
           <div class="detail-item">
             <span class="detail-label">Address:</span>
-            <span class="detail-value" data-client-preview="address">{{ selected_client.address|blank if selected_client else '' }}</span>
+            <span class="detail-value" data-client-preview="address" style="white-space: pre-line;">{{ selected_client.address|format_address if selected_client else '' }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Email:</span>
@@ -2405,7 +2456,7 @@
           </div>
           <div class="detail-item">
             <span class="detail-label">Address:</span>
-            <span class="detail-value" data-client-preview="address" data-placeholder="Your Client's Address"></span>
+            <span class="detail-value" data-client-preview="address" style="white-space: pre-line;" data-placeholder="Your Client's Address"></span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Email:</span>

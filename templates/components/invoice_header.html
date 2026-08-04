@@ -23,7 +23,7 @@
             </div>
             <div class="detail-item">
               <span class="detail-label">Address:</span>
-              <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address|blank if selected_company else '' }}</span>
+              <span class="detail-value" data-placeholder="Business Address" style="white-space: pre-line;">{{ selected_company.address|format_address if selected_company else '' }}</span>
             </div>
             <div class="detail-item">
               <span class="detail-label">Email:</span>
@@ -76,7 +76,7 @@
             </div>
             <div class="detail-item">
                 <span class="detail-label">Address:</span>
-                <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address|blank if selected_company else '' }}</span>
+                <span class="detail-value" data-placeholder="Business Address" style="white-space: pre-line;">{{ selected_company.address|format_address if selected_company else '' }}</span>
             </div>
             <div class="detail-item">
                 <span class="detail-label">Email:</span>
@@ -128,7 +128,7 @@
               </div>
               <div class="detail-item">
                 <span class="detail-label">Address:</span>
-                <span class="detail-value">{{ selected_client.address|blank if selected_client else '' }}</span>
+                <span class="detail-value" style="white-space: pre-line;">{{ selected_client.address|format_address if selected_client else '' }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Email:</span>
@@ -187,7 +187,7 @@
           </div>
           <div class="detail-item">
             <span class="detail-label">Address:</span>
-            <span class="detail-value">{{ selected_client.address|blank if selected_client else '' }}</span>
+            <span class="detail-value" style="white-space: pre-line;">{{ selected_client.address|format_address if selected_client else '' }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Email:</span>

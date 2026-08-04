@@ -27,7 +27,7 @@ from flask_sqlalchemy import SQLAlchemy
 from models import db, User, Business, Setting, Client, Invoice, SalesTax, Item, LaborItem, InvoiceItem, InvoiceLabor, InvoiceDraft
 import configparser
 from sqlalchemy.sql import text
-from address_utils import address_from_form, parse_address, blank, combine_address
+from address_utils import address_from_form, parse_address, blank, combine_address, format_address_display
 from invoice_numbering import allocate_next_invoice_number, peek_next_invoice_number
 
 # Configure upload settings
@@ -1053,6 +1053,7 @@ def register_routes(app):
                 'id': company.id,
                 'name': blank(company.name),
                 'address': blank(company.address),
+                'address_display': format_address_display(company.address),
                 'email': blank(company.email),
                 'phone': blank(company.phone),
                 'logo_path': company.logo_path
@@ -1449,6 +1450,7 @@ def register_routes(app):
             get_setting=get_setting,
             parse_address=parse_address,
             blank=blank,
+            format_address_display=format_address_display,
             GOOGLE_MAPS_API_KEY=get_google_maps_api_key(),
             APP_VERSION=get_app_version(),
         )
@@ -1832,6 +1834,15 @@ def register_routes(app):
 
     app.jinja_env.filters['format_date'] = format_date
     app.jinja_env.filters['blank'] = blank
+
+    def format_address_filter(value):
+        from markupsafe import Markup, escape
+        text = format_address_display(value)
+        if not text:
+            return ''
+        return Markup('<br>'.join(escape(line) for line in text.splitlines()))
+
+    app.jinja_env.filters['format_address'] = format_address_filter
 
     app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix) 
 

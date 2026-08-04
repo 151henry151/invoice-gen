@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 
-from address_utils import blank
+from address_utils import blank, format_address_display
 
 db = SQLAlchemy()
 
@@ -38,6 +38,7 @@ class Business(db.Model):
             'id': self.id,
             'name': blank(self.name),
             'address': blank(self.address),
+            'address_display': format_address_display(self.address),
             'email': blank(self.email),
             'phone': blank(self.phone),
             'logo_path': self.logo_path,
@@ -64,6 +65,7 @@ class Client(db.Model):
             'id': self.id,
             'name': blank(self.name),
             'address': blank(self.address),
+            'address_display': format_address_display(self.address),
             'email': blank(self.email),
             'phone': blank(self.phone)
         }

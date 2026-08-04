@@ -42,6 +42,46 @@ def _clean_part(value: Optional[object]) -> str:
     return text
 
 
+
+def format_address_display(address: Optional[object]) -> str:
+    """
+    Format a stored address for invoices as normal postal lines.
+
+    Example::
+
+        402 Hewitt Rd
+        Bristol, VT 05443
+        United States
+    """
+    parsed = parse_address(address)
+    lines = []
+    line1 = _clean_part(parsed.get("address_line1"))
+    line2 = _clean_part(parsed.get("address_line2"))
+    city = _clean_part(parsed.get("city"))
+    state = _clean_part(parsed.get("state"))
+    postal = _clean_part(parsed.get("postal_code"))
+    country = _clean_part(parsed.get("country"))
+
+    if line1:
+        lines.append(line1)
+    if line2:
+        lines.append(line2)
+
+    state_zip = " ".join(part for part in (state, postal) if part)
+    if city and state_zip:
+        lines.append(f"{city}, {state_zip}")
+    elif city:
+        lines.append(city)
+    elif state_zip:
+        lines.append(state_zip)
+
+    if country:
+        lines.append(country)
+
+    # Unparsed / free-text fallback already lives in line1 via parse_address.
+    return "\n".join(lines)
+
+
 def combine_address(
     address_line1: Optional[str],
     address_line2: Optional[str] = None,
@@ -104,6 +144,12 @@ def parse_address(address: Optional[str]) -> Dict[str, str]:
             result["state"] = parts[2]
             result["postal_code"] = parts[3]
             return result
+        if _looks_like_country(parts[-1]):
+            result["address_line1"] = parts[0]
+            result["city"] = parts[1]
+            result["state"] = parts[2]
+            result["country"] = parts[3]
+            return result
         result["address_line1"] = parts[0]
         result["address_line2"] = parts[1]
         result["city"] = parts[2]
@@ -128,6 +174,23 @@ def _looks_like_postal(value: str) -> bool:
         or (len(compact) >= 5 and compact[:5].isdigit())
         or ("-" in compact and compact.replace("-", "").isalnum())
     )
+
+
+_COUNTRY_NAMES = frozenset({
+    "united states", "usa", "us", "canada", "mexico", "united kingdom", "uk",
+})
+
+
+def _looks_like_country(value: str) -> bool:
+    cleaned = value.strip()
+    if not cleaned:
+        return False
+    if cleaned.lower() in _COUNTRY_NAMES:
+        return True
+    # Multi-word names are usually countries, not US state codes.
+    if " " in cleaned and not _looks_like_postal(cleaned):
+        return True
+    return False
 
 
 def address_from_form(form: Mapping, prefix: str = "") -> Optional[str]:

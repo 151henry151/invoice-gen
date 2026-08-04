@@ -195,7 +195,7 @@
             <img src="file://{{ logo_url }}" alt="Business Logo" class="logo">
             <div class="business-info">
                 <h2>{{ business_name }}</h2>
-                {% if business_address|blank %}<div>{{ business_address|blank }}</div>{% endif %}
+                {% if business_address|format_address %}<div>{{ business_address|format_address }}</div>{% endif %}
                 {% if business_phone|blank %}<div>{{ business_phone|blank }}</div>{% endif %}
                 {% if business_email|blank %}<div>{{ business_email|blank }}</div>{% endif %}
             </div>
@@ -207,7 +207,7 @@
             <div class="bill-to">
                 <strong>Bill To</strong>
                 {{ client_name }}<br>
-                {% if client_address|blank %}{{ client_address|blank }}<br>{% endif %}
+                {% if client_address|format_address %}{{ client_address|format_address }}<br>{% endif %}
                 {% if client_phone|blank %}{{ client_phone|blank }}<br>{% endif %}
                 {% if client_email|blank %}{{ client_email|blank }}{% endif %}
             </div>
