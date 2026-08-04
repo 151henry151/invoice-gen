@@ -1,6 +1,8 @@
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 
+from address_utils import blank
+
 db = SQLAlchemy()
 
 class User(db.Model):
@@ -34,10 +36,10 @@ class Business(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
-            'name': self.name,
-            'address': self.address,
-            'email': self.email,
-            'phone': self.phone,
+            'name': blank(self.name),
+            'address': blank(self.address),
+            'email': blank(self.email),
+            'phone': blank(self.phone),
             'logo_path': self.logo_path,
             'invoice_template': self.invoice_template
         }
@@ -60,10 +62,10 @@ class Client(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
-            'name': self.name,
-            'address': self.address,
-            'email': self.email,
-            'phone': self.phone
+            'name': blank(self.name),
+            'address': blank(self.address),
+            'email': blank(self.email),
+            'phone': blank(self.phone)
         }
 
 class SalesTax(db.Model):

@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.19] - 2026-08-04
+
+### Fixed
+
+- Style address picker fields like other form inputs and suppress browser autofill / Bootstrap invalid icons that showed an exclamation mark while typing
+- Cache-bust `style.css` with the app version so clients pick up address-field styling fixes
+
+## [0.9.0-beta.18] - 2026-08-04
+
+### Changed
+
+- Allow any address picker field (street, city, state, ZIP, country) to be left blank while keeping Google Maps autocomplete available
+- Omit blank contact and address values from invoice view, PDF, and create-invoice previews instead of rendering the word None
+
+### Fixed
+
+- Strip literal None/null tokens from stored comma-separated addresses when displaying or combining parts
+
 ## [0.9.0-beta.17] - 2026-08-04
 
 ### Fixed

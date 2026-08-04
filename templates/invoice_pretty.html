@@ -143,19 +143,19 @@
         <img src="file://{{ company.logo_path }}" alt="Business Logo" class="logo">
         {% endif %}
         <div class="business-info">
-            <h2>{{ company.name }}</h2>
-            <div>{{ company.address }}</div>
-            <div>{{ company.phone }}</div>
-            <div>{{ company.email }}</div>
+            <h2>{{ company.name|blank }}</h2>
+            {% if company.address|blank %}<div>{{ company.address|blank }}</div>{% endif %}
+            {% if company.phone|blank %}<div>{{ company.phone|blank }}</div>{% endif %}
+            {% if company.email|blank %}<div>{{ company.email|blank }}</div>{% endif %}
         </div>
     </div>
     <div class="invoice-details">
         <div class="bill-to">
             <strong>BILL TO</strong><br>
-            {{ client.name }}<br>
-            {{ client.address }}<br>
-            {{ client.phone }}<br>
-            {{ client.email }}
+            {{ client.name|blank }}<br>
+            {% if client.address|blank %}{{ client.address|blank }}<br>{% endif %}
+            {% if client.phone|blank %}{{ client.phone|blank }}<br>{% endif %}
+            {% if client.email|blank %}{{ client.email|blank }}{% endif %}
         </div>
         <div class="invoice-meta">
             <div><strong>Invoice Date:</strong> {{ date }}</div>

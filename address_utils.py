@@ -1,8 +1,45 @@
-"""Helpers for combining and splitting stored multi-part addresses."""
+"""Helpers for combining, splitting, and displaying multi-part addresses."""
 
 from __future__ import annotations
 
-from typing import Dict, Mapping, MutableMapping, Optional
+from typing import Dict, Mapping, Optional
+
+
+_BLANK_TOKENS = frozenset({"", "none", "null", "undefined", "nil"})
+
+
+def blank(value: Optional[object]) -> str:
+    """
+    Normalize a contact/address value for display or storage.
+
+    None and the literal strings "None"/"null" become empty so templates
+    never render the word None on invoices. Comma-separated addresses also
+    drop any segment that is itself blank/None.
+    """
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    if "," in text:
+        parts = []
+        for part in text.split(","):
+            cleaned = part.strip()
+            if cleaned and cleaned.lower() not in _BLANK_TOKENS:
+                parts.append(cleaned)
+        return ", ".join(parts)
+    if text.lower() in _BLANK_TOKENS:
+        return ""
+    return text
+
+
+def _clean_part(value: Optional[object]) -> str:
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text or text.lower() in _BLANK_TOKENS:
+        return ""
+    return text
 
 
 def combine_address(
@@ -15,13 +52,10 @@ def combine_address(
 ) -> str:
     """Join address parts into the comma-separated storage format."""
     parts = []
-    if address_line1 and str(address_line1).strip():
-        parts.append(str(address_line1).strip())
-    if address_line2 and str(address_line2).strip():
-        parts.append(str(address_line2).strip())
-    for value in (city, state, postal_code, country):
-        if value and str(value).strip():
-            parts.append(str(value).strip())
+    for value in (address_line1, address_line2, city, state, postal_code, country):
+        cleaned = _clean_part(value)
+        if cleaned:
+            parts.append(cleaned)
     return ", ".join(parts)
 
 
@@ -40,10 +74,11 @@ def parse_address(address: Optional[str]) -> Dict[str, str]:
         "postal_code": "",
         "country": "",
     }
-    if not address or not str(address).strip():
+    cleaned = blank(address)
+    if not cleaned:
         return empty
 
-    parts = [p.strip() for p in str(address).split(",") if p.strip()]
+    parts = [p.strip() for p in cleaned.split(",") if p.strip() and blank(p)]
     if not parts:
         return empty
 
@@ -52,7 +87,6 @@ def parse_address(address: Optional[str]) -> Dict[str, str]:
         result["address_line1"] = parts[0]
         return result
 
-    # Prefer trailing country / postal / state / city when enough parts exist.
     if len(parts) >= 5:
         result["country"] = parts[-1]
         result["postal_code"] = parts[-2]
@@ -64,8 +98,6 @@ def parse_address(address: Optional[str]) -> Dict[str, str]:
         return result
 
     if len(parts) == 4:
-        # line1, city, state, postal (no country) OR line1, line2, city, state
-        # Prefer interpreting as line1, city, state, postal when last looks like ZIP.
         if _looks_like_postal(parts[-1]):
             result["address_line1"] = parts[0]
             result["city"] = parts[1]
@@ -84,7 +116,6 @@ def parse_address(address: Optional[str]) -> Dict[str, str]:
         result["state"] = parts[2]
         return result
 
-    # len == 2
     result["address_line1"] = parts[0]
     result["city"] = parts[1]
     return result
@@ -99,18 +130,32 @@ def _looks_like_postal(value: str) -> bool:
     )
 
 
-def address_from_form(form: Mapping, prefix: str = "") -> str:
+def address_from_form(form: Mapping, prefix: str = "") -> Optional[str]:
     """
     Build a stored address from a form mapping.
 
     Accepts either a single `address` field (legacy/tests) or the split
     fields used by the address picker (`{prefix}address_line1`, etc.).
+    Returns None when every part is blank so invoices omit the address.
     """
-    legacy = form.get("address")
-    if legacy and str(legacy).strip() and not form.get(f"{prefix}address_line1"):
-        return str(legacy).strip()
+    legacy = blank(form.get("address"))
+    line1_key = f"{prefix}address_line1"
+    # Werkzeug ImmutableMultiDict supports .get; missing keys are fine.
+    has_picker = any(
+        blank(form.get(f"{prefix}{key}"))
+        for key in (
+            "address_line1",
+            "address_line2",
+            "city",
+            "state",
+            "postal_code",
+            "country",
+        )
+    )
+    if legacy and not blank(form.get(line1_key)) and not has_picker:
+        return legacy
 
-    return combine_address(
+    combined = combine_address(
         form.get(f"{prefix}address_line1"),
         form.get(f"{prefix}address_line2"),
         form.get(f"{prefix}city"),
@@ -118,3 +163,4 @@ def address_from_form(form: Mapping, prefix: str = "") -> str:
         form.get(f"{prefix}postal_code"),
         form.get(f"{prefix}country"),
     )
+    return combined or None

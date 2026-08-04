@@ -20,16 +20,16 @@
 
 <div class="address-picker" {% if required %}data-address-required="true"{% endif %}>
     <div class="mb-3">
-        <label for="{{ form_prefix }}address_line1" class="form-label">Address Line 1{% if required %}*{% endif %}</label>
+        <label for="{{ form_prefix }}address_line1" class="form-label">Address Line 1{% if required %}*{% else %} <span class="text-muted">(optional)</span>{% endif %}</label>
         {# autocomplete=off avoids Chrome/Safari autofill fighting Google Places,
            which often surfaces as a warning/exclamation icon inside the input. #}
         <input type="text"
-               class="form-control address-autocomplete"
+               class="address-field address-autocomplete"
                id="{{ form_prefix }}address_line1"
                name="{{ form_prefix }}address_line1"
                placeholder="Start typing an address..."
                value="{{ address_line1 }}"
-               autocomplete="off"
+               autocomplete="new-password"
                autocorrect="off"
                autocapitalize="words"
                spellcheck="false"
@@ -40,7 +40,7 @@
     <div class="mb-3">
         <label for="{{ form_prefix }}address_line2" class="form-label">Address Line 2</label>
         <input type="text"
-               class="form-control"
+               class="address-field"
                id="{{ form_prefix }}address_line2"
                name="{{ form_prefix }}address_line2"
                placeholder="Apartment, suite, unit, etc. (optional)"
@@ -49,9 +49,9 @@
     </div>
     <div class="row g-3">
         <div class="col-md-6">
-            <label for="{{ form_prefix }}city" class="form-label">City{% if required %}*{% endif %}</label>
+            <label for="{{ form_prefix }}city" class="form-label">City{% if required %}*{% else %} <span class="text-muted">(optional)</span>{% endif %}</label>
             <input type="text"
-                   class="form-control"
+                   class="address-field"
                    id="{{ form_prefix }}city"
                    name="{{ form_prefix }}city"
                    value="{{ city }}"
@@ -59,9 +59,9 @@
                    {% if required %}data-required="true"{% endif %}>
         </div>
         <div class="col-md-3">
-            <label for="{{ form_prefix }}state" class="form-label">State{% if required %}*{% endif %}</label>
+            <label for="{{ form_prefix }}state" class="form-label">State{% if required %}*{% else %} <span class="text-muted">(optional)</span>{% endif %}</label>
             <input type="text"
-                   class="form-control"
+                   class="address-field"
                    id="{{ form_prefix }}state"
                    name="{{ form_prefix }}state"
                    value="{{ state }}"
@@ -71,7 +71,7 @@
         <div class="col-md-3">
             <label for="{{ form_prefix }}postal_code" class="form-label">ZIP Code <span class="text-muted">(optional)</span></label>
             <input type="text"
-                   class="form-control"
+                   class="address-field"
                    id="{{ form_prefix }}postal_code"
                    name="{{ form_prefix }}postal_code"
                    value="{{ postal_code }}"
@@ -81,7 +81,7 @@
     <div class="mb-3 mt-3">
         <label for="{{ form_prefix }}country" class="form-label">Country <span class="text-muted">(optional)</span></label>
         <input type="text"
-               class="form-control"
+               class="address-field"
                id="{{ form_prefix }}country"
                name="{{ form_prefix }}country"
                value="{{ country }}"
@@ -128,11 +128,31 @@
         });
     }
 
+    function suppressBrowserChrome(el) {
+        if (!el) return;
+        el.classList.remove('is-invalid');
+        if (typeof el.setCustomValidity === 'function') el.setCustomValidity('');
+        // "new-password" is a widely used hint that disables address autofill without blocking typing.
+        el.setAttribute('autocomplete', 'new-password');
+    }
+
+    function bindManualEntryGuards() {
+        [prefix + 'address_line1', prefix + 'address_line2', prefix + 'city',
+         prefix + 'state', prefix + 'postal_code', prefix + 'country'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (!el || el.dataset.addressGuardsBound === '1') return;
+            el.dataset.addressGuardsBound = '1';
+            suppressBrowserChrome(el);
+            el.addEventListener('input', function() { suppressBrowserChrome(el); });
+            el.addEventListener('focus', function() { suppressBrowserChrome(el); });
+        });
+    }
+    bindManualEntryGuards();
+
     window[callbackName] = function() {
         var input = document.getElementById(inputId);
         if (!input || !window.google || !window.google.maps || !window.google.maps.places) return;
-        // Keep browser autofill suppressed while Places is bound.
-        input.setAttribute('autocomplete', 'off');
+        suppressBrowserChrome(input);
         var autocomplete = new google.maps.places.Autocomplete(input, {
             types: ['address'],
             fields: ['address_components', 'formatted_address', 'name'],
@@ -140,12 +160,10 @@
         });
         autocomplete.addListener('place_changed', function() {
             fillFromPlace(autocomplete.getPlace());
+            bindManualEntryGuards();
         });
-        // Typing freely is always allowed; never mark the field invalid while composing.
-        input.addEventListener('input', function() {
-            input.classList.remove('is-invalid');
-            if (typeof input.setCustomValidity === 'function') input.setCustomValidity('');
-        });
+        // Places may rewrite autocomplete; put our hint back after a tick.
+        setTimeout(function() { suppressBrowserChrome(input); }, 0);
     };
 
     window.gm_authFailure = window.gm_authFailure || function() {

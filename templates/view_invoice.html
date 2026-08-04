@@ -26,9 +26,9 @@
                     </div>
                     {% endif %}
                     <p class="mb-1 business-name"><strong>{{ company.name }}</strong></p>
-                    <p class="mb-1 small">{{ company.address }}</p>
-                    <p class="mb-1 small">{{ company.phone }}</p>
-                    <p class="mb-0 small">{{ company.email }}</p>
+                    {% if company.address|blank %}<p class="mb-1 small">{{ company.address|blank }}</p>{% endif %}
+                    {% if company.phone|blank %}<p class="mb-1 small">{{ company.phone|blank }}</p>{% endif %}
+                    {% if company.email|blank %}<p class="mb-0 small">{{ company.email|blank }}</p>{% endif %}
                 </div>
                 <div class="col-12 col-md-6 text-md-end">
                     <h5 class="card-title mb-2">Invoice Details</h5>
@@ -48,9 +48,9 @@
         <div class="card-body p-3">
             <h5 class="card-title mb-2">Client Information</h5>
             <p class="mb-1 client-name"><strong>{{ invoice.client.name }}</strong></p>
-            <p class="mb-1 small">{{ invoice.client.address }}</p>
-            <p class="mb-1 small">{{ invoice.client.phone }}</p>
-            <p class="mb-0 small">{{ invoice.client.email }}</p>
+            {% if invoice.client.address|blank %}<p class="mb-1 small">{{ invoice.client.address|blank }}</p>{% endif %}
+            {% if invoice.client.phone|blank %}<p class="mb-1 small">{{ invoice.client.phone|blank }}</p>{% endif %}
+            {% if invoice.client.email|blank %}<p class="mb-0 small">{{ invoice.client.email|blank }}</p>{% endif %}
         </div>
     </div>
 

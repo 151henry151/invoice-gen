@@ -31,9 +31,9 @@
             <input type="text" id="name" name="name" placeholder="Client Name" value="{{ selected_client.name if selected_client else '' }}" required>
             
             {% if selected_client %}
-                {{ address_picker.address_picker(form_prefix='client_', required=true, address=selected_client.address) }}
+                {{ address_picker.address_picker(form_prefix='client_', required=false, address=selected_client.address) }}
             {% else %}
-                {{ address_picker.address_picker(form_prefix='client_', required=true) }}
+                {{ address_picker.address_picker(form_prefix='client_', required=false) }}
             {% endif %}
             
             <input type="email" id="email" name="email" placeholder="Email" value="{{ selected_client.email if selected_client else '' }}">
@@ -57,31 +57,12 @@
 <script>
     document.getElementById('client-form').addEventListener('submit', function(event) {
         const name = document.getElementById('name').value.trim();
-        const addressLine1 = document.getElementById('client_address_line1');
         const email = document.getElementById('email').value.trim();
         const phone = document.getElementById('phone').value.trim();
 
         if (!name) {
             event.preventDefault();
             alert('Please enter a client name');
-            return;
-        }
-
-        if (!addressLine1 || !addressLine1.value.trim()) {
-            event.preventDefault();
-            alert('Please enter an address');
-            return;
-        }
-        const city = document.getElementById('client_city');
-        const state = document.getElementById('client_state');
-        if (!city || !city.value.trim()) {
-            event.preventDefault();
-            alert('Please enter a city');
-            return;
-        }
-        if (!state || !state.value.trim()) {
-            event.preventDefault();
-            alert('Please enter a state');
             return;
         }
 

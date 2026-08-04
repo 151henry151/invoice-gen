@@ -23,15 +23,15 @@
             </div>
             <div class="detail-item">
               <span class="detail-label">Address:</span>
-              <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address if selected_company else '' }}</span>
+              <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address|blank if selected_company else '' }}</span>
             </div>
             <div class="detail-item">
               <span class="detail-label">Email:</span>
-              <span class="detail-value" data-placeholder="business@example.com">{{ selected_company.email if selected_company else '' }}</span>
+              <span class="detail-value" data-placeholder="business@example.com">{{ selected_company.email|blank if selected_company else '' }}</span>
             </div>
             <div class="detail-item">
               <span class="detail-label">Phone:</span>
-              <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone if selected_company else '' }}</span>
+              <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone|blank if selected_company else '' }}</span>
             </div>
             <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else url_for('business_details', new='true', source='create_invoice') }}" 
                class="settings-link{% if not selected_company %} create-new-btn{% endif %} edit-business-btn-responsive"
@@ -76,15 +76,15 @@
             </div>
             <div class="detail-item">
                 <span class="detail-label">Address:</span>
-                <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address if selected_company else '' }}</span>
+                <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address|blank if selected_company else '' }}</span>
             </div>
             <div class="detail-item">
                 <span class="detail-label">Email:</span>
-                <span class="detail-value" data-placeholder="business@example.com">{{ selected_company.email if selected_company else '' }}</span>
+                <span class="detail-value" data-placeholder="business@example.com">{{ selected_company.email|blank if selected_company else '' }}</span>
             </div>
             <div class="detail-item">
                 <span class="detail-label">Phone:</span>
-                <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone if selected_company else '' }}</span>
+                <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone|blank if selected_company else '' }}</span>
             </div>
             <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else url_for('business_details', new='true', source='create_invoice') }}" 
                class="settings-link{% if not selected_company %} create-new-btn{% endif %} edit-business-btn-responsive"
@@ -128,15 +128,15 @@
               </div>
               <div class="detail-item">
                 <span class="detail-label">Address:</span>
-                <span class="detail-value">{{ selected_client.address }}</span>
+                <span class="detail-value">{{ selected_client.address|blank if selected_client else '' }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Email:</span>
-                <span class="detail-value">{{ selected_client.email }}</span>
+                <span class="detail-value">{{ selected_client.email|blank if selected_client else '' }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Phone Number:</span>
-                <span class="detail-value">{{ selected_client.phone }}</span>
+                <span class="detail-value">{{ selected_client.phone|blank if selected_client else '' }}</span>
               </div>
             {% else %}
               <div class="detail-item">
@@ -187,15 +187,15 @@
           </div>
           <div class="detail-item">
             <span class="detail-label">Address:</span>
-            <span class="detail-value">{{ selected_client.address }}</span>
+            <span class="detail-value">{{ selected_client.address|blank if selected_client else '' }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Email:</span>
-            <span class="detail-value">{{ selected_client.email }}</span>
+            <span class="detail-value">{{ selected_client.email|blank if selected_client else '' }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Phone Number:</span>
-            <span class="detail-value">{{ selected_client.phone }}</span>
+            <span class="detail-value">{{ selected_client.phone|blank if selected_client else '' }}</span>
           </div>
         {% else %}
           <div class="detail-item">

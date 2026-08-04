@@ -27,13 +27,21 @@ from flask_sqlalchemy import SQLAlchemy
 from models import db, User, Business, Setting, Client, Invoice, SalesTax, Item, LaborItem, InvoiceItem, InvoiceLabor, InvoiceDraft
 import configparser
 from sqlalchemy.sql import text
-from address_utils import address_from_form, parse_address
+from address_utils import address_from_form, parse_address, blank, combine_address
 from invoice_numbering import allocate_next_invoice_number, peek_next_invoice_number
 
 # Configure upload settings
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 MAX_LOGO_SIZE = (200, 200)
+
+def get_app_version():
+    try:
+        with open(os.path.join(os.path.dirname(__file__), 'VERSION'), encoding='utf-8') as fh:
+            return fh.read().strip()
+    except OSError:
+        return ''
+
 
 def get_google_maps_api_key():
     """Return Google Maps API key from env or credentials.ini (optional)."""
@@ -604,12 +612,21 @@ def register_routes(app):
                 'invoice_number': invoice.invoice_number,
                 'date': invoice.date.isoformat() if invoice.date else None,
                 'due_date': invoice.due_date.isoformat() if invoice.due_date else None,
-                'client': invoice.client.to_dict() if invoice.client else None,
+                'client': (
+                    {
+                        **invoice.client.to_dict(),
+                        'address': blank(invoice.client.address),
+                        'phone': blank(invoice.client.phone),
+                        'email': blank(invoice.client.email),
+                        'name': blank(invoice.client.name) or invoice.client.name,
+                    }
+                    if invoice.client else None
+                ),
                 'company': {
-                    'name': company.name,
-                    'address': company.address,
-                    'phone': company.phone,
-                    'email': company.email,
+                    'name': blank(company.name),
+                    'address': blank(company.address),
+                    'phone': blank(company.phone),
+                    'email': blank(company.email),
                     'logo_path': logo_path
                 } if company else None,
                 'subtotal': float(subtotal),
@@ -770,12 +787,9 @@ def register_routes(app):
         phone = request.form.get('phone')
         invoice_template = request.form.get('invoice_template', 'invoice_pretty')
         
-        # Combine address fields
-        address_parts = [address_line1]
-        if address_line2:
-            address_parts.append(address_line2)
-        address_parts.extend([city, state, postal_code, country])
-        address = ', '.join(filter(None, address_parts))
+        address = combine_address(
+            address_line1, address_line2, city, state, postal_code, country
+        ) or None
         
         # Handle logo upload
         logo_path = None
@@ -1037,10 +1051,10 @@ def register_routes(app):
         if company:
             return jsonify({
                 'id': company.id,
-                'name': company.name,
-                'address': company.address,
-                'email': company.email,
-                'phone': company.phone,
+                'name': blank(company.name),
+                'address': blank(company.address),
+                'email': blank(company.email),
+                'phone': blank(company.phone),
                 'logo_path': company.logo_path
             })
         return jsonify({'error': 'Company not found'}), 404
@@ -1434,7 +1448,9 @@ def register_routes(app):
         return dict(
             get_setting=get_setting,
             parse_address=parse_address,
+            blank=blank,
             GOOGLE_MAPS_API_KEY=get_google_maps_api_key(),
+            APP_VERSION=get_app_version(),
         )
 
     @app.route('/businesses')
@@ -1487,12 +1503,9 @@ def register_routes(app):
             phone = request.form.get('phone')
             business_id = request.form.get('business_id')
             
-            # Combine address fields
-            address_parts = [address_line1]
-            if address_line2:
-                address_parts.append(address_line2)
-            address_parts.extend([city, state, postal_code, country])
-            address = ', '.join(filter(None, address_parts))
+            address = combine_address(
+                address_line1, address_line2, city, state, postal_code, country
+            ) or None
             
             # Handle logo upload
             logo_path = None
@@ -1818,6 +1831,7 @@ def register_routes(app):
             return date_str
 
     app.jinja_env.filters['format_date'] = format_date
+    app.jinja_env.filters['blank'] = blank
 
     app.jinja_env.globals.update(url_for_with_prefix=url_for_with_prefix) 
 

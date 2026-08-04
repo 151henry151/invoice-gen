@@ -195,9 +195,9 @@
             <img src="file://{{ logo_url }}" alt="Business Logo" class="logo">
             <div class="business-info">
                 <h2>{{ business_name }}</h2>
-                <div>{{ business_address }}</div>
-                <div>{{ business_phone }}</div>
-                <div>{{ business_email }}</div>
+                {% if business_address|blank %}<div>{{ business_address|blank }}</div>{% endif %}
+                {% if business_phone|blank %}<div>{{ business_phone|blank }}</div>{% endif %}
+                {% if business_email|blank %}<div>{{ business_email|blank }}</div>{% endif %}
             </div>
         </div>
     </div>
@@ -207,9 +207,9 @@
             <div class="bill-to">
                 <strong>Bill To</strong>
                 {{ client_name }}<br>
-                {{ client_address }}<br>
-                {{ client_phone }}<br>
-                {{ client_email }}
+                {% if client_address|blank %}{{ client_address|blank }}<br>{% endif %}
+                {% if client_phone|blank %}{{ client_phone|blank }}<br>{% endif %}
+                {% if client_email|blank %}{{ client_email|blank }}{% endif %}
             </div>
             <div class="invoice-meta">
                 <div><strong>Invoice Date:</strong> {{ invoice_date }}</div>

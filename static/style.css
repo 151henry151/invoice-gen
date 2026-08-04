@@ -1217,19 +1217,39 @@ form {
   }
 }
 
-/* Address picker: suppress premature browser/Bootstrap invalid icons while typing.
-   HTML5 required was removed from these inputs; validation is JS-on-submit. */
-.address-picker .form-control:invalid {
-  background-image: none !important;
-  border-color: var(--input-border);
-  padding-right: 8px;
-  box-shadow: none;
-}
-.address-picker .form-control.is-invalid {
-  border-color: #dc3545;
-  background-image: none !important;
-}
-.address-picker .pac-target-input {
+/* Address picker: match app inputs; kill Bootstrap/browser invalid & autofill chrome. */
+.address-picker .address-field {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  box-sizing: border-box;
   background-color: var(--input-bg) !important;
+  background-image: none !important;
   color: var(--input-text) !important;
+  box-shadow: none !important;
+}
+.address-picker .address-field:invalid,
+.address-picker .address-field.is-invalid,
+.address-picker .address-field.pac-target-input {
+  background-color: var(--input-bg) !important;
+  background-image: none !important;
+  border-color: var(--input-border) !important;
+  box-shadow: none !important;
+  color: var(--input-text) !important;
+  padding-right: 8px !important;
+}
+.address-picker .address-field:-webkit-autofill,
+.address-picker .address-field:-webkit-autofill:hover,
+.address-picker .address-field:-webkit-autofill:focus,
+.address-picker .address-field:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--input-text) !important;
+  caret-color: var(--input-text);
+  box-shadow: 0 0 0 1000px var(--input-bg) inset !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--input-bg) inset !important;
+  transition: background-color 99999s ease-out;
+  border: 1px solid var(--input-border) !important;
+}
+.address-picker label .text-muted {
+  font-weight: normal;
 }

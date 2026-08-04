@@ -997,10 +997,10 @@
             .then(response => response.json())
             .then(company => {
                 // Update all company details
-                document.querySelectorAll('.detail-value[data-placeholder="Business Name"]').forEach(el => el.textContent = company.name);
-                document.querySelectorAll('.detail-value[data-placeholder="Business Address"]').forEach(el => el.textContent = company.address);
-                document.querySelectorAll('.detail-value[data-placeholder="business@example.com"]').forEach(el => el.textContent = company.email);
-                document.querySelectorAll('.detail-value[data-placeholder="(xxx) xxx-xxxx"]').forEach(el => el.textContent = company.phone);
+                document.querySelectorAll('.detail-value[data-placeholder="Business Name"]').forEach(el => el.textContent = displayBlank(company.name));
+                document.querySelectorAll('.detail-value[data-placeholder="Business Address"]').forEach(el => el.textContent = displayBlank(company.address));
+                document.querySelectorAll('.detail-value[data-placeholder="business@example.com"]').forEach(el => el.textContent = displayBlank(company.email));
+                document.querySelectorAll('.detail-value[data-placeholder="(xxx) xxx-xxxx"]').forEach(el => el.textContent = displayBlank(company.phone));
 
                 // Update logo if it exists
                 document.querySelectorAll('.logo-placeholder').forEach(logoPlaceholder => {
@@ -1033,11 +1033,27 @@
             });
     }
 
+    function displayBlank(value) {
+        if (value === undefined || value === null) return '';
+        var text = String(value).trim();
+        if (!text) return '';
+        if (text.indexOf(',') !== -1) {
+            return text.split(',').map(function(p) { return p.trim(); })
+                .filter(function(p) {
+                    var lower = p.toLowerCase();
+                    return p && lower !== 'none' && lower !== 'null' && lower !== 'undefined';
+                }).join(', ');
+        }
+        var lower = text.toLowerCase();
+        if (lower === 'none' || lower === 'null' || lower === 'undefined') return '';
+        return text;
+    }
+
     function setClientPreviewFields(data) {
         document.querySelectorAll('[data-client-preview]').forEach(function(el) {
             const key = el.getAttribute('data-client-preview');
-            if (key && data[key] !== undefined && data[key] !== null) {
-                el.textContent = data[key];
+            if (key && Object.prototype.hasOwnProperty.call(data, key)) {
+                el.textContent = displayBlank(data[key]);
             }
         });
         const titleEl = document.getElementById('clientAccordionTitle');
@@ -2212,15 +2228,15 @@
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">Address:</span>
-                  <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address if selected_company else '' }}</span>
+                  <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address|blank if selected_company else '' }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">Email:</span>
-                  <span class="detail-value" data-placeholder="business@example.com">{{ selected_company.email if selected_company else '' }}</span>
+                  <span class="detail-value" data-placeholder="business@example.com">{{ selected_company.email|blank if selected_company else '' }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">Phone:</span>
-                  <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone if selected_company else '' }}</span>
+                  <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone|blank if selected_company else '' }}</span>
                 </div>
                 <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else '#' }}" 
                    class="settings-link{% if not selected_company %} disabled{% endif %} edit-business-btn-responsive"
@@ -2264,15 +2280,15 @@
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Address:</span>
-                    <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address if selected_company else '' }}</span>
+                    <span class="detail-value" data-placeholder="Business Address">{{ selected_company.address|blank if selected_company else '' }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Email:</span>
-                    <span class="detail-value" data-placeholder="business@example.com">{{ selected_company.email if selected_company else '' }}</span>
+                    <span class="detail-value" data-placeholder="business@example.com">{{ selected_company.email|blank if selected_company else '' }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Phone:</span>
-                    <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone if selected_company else '' }}</span>
+                    <span class="detail-value" data-placeholder="(xxx) xxx-xxxx">{{ selected_company.phone|blank if selected_company else '' }}</span>
                 </div>
                 <a href="{{ url_for('settings', company_id=selected_company.id) if selected_company else '#' }}" 
                    class="settings-link{% if not selected_company %} disabled{% endif %} edit-business-btn-responsive"
@@ -2314,15 +2330,15 @@
               </div>
               <div class="detail-item">
                 <span class="detail-label">Address:</span>
-                <span class="detail-value" data-client-preview="address">{{ selected_client.address }}</span>
+                <span class="detail-value" data-client-preview="address">{{ selected_client.address|blank if selected_client else '' }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Email:</span>
-                <span class="detail-value" data-client-preview="email">{{ selected_client.email }}</span>
+                <span class="detail-value" data-client-preview="email">{{ selected_client.email|blank if selected_client else '' }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Phone Number:</span>
-                <span class="detail-value" data-client-preview="phone">{{ selected_client.phone }}</span>
+                <span class="detail-value" data-client-preview="phone">{{ selected_client.phone|blank if selected_client else '' }}</span>
               </div>
             {% else %}
               <div class="detail-item">
@@ -2372,15 +2388,15 @@
           </div>
           <div class="detail-item">
             <span class="detail-label">Address:</span>
-            <span class="detail-value" data-client-preview="address">{{ selected_client.address }}</span>
+            <span class="detail-value" data-client-preview="address">{{ selected_client.address|blank if selected_client else '' }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Email:</span>
-            <span class="detail-value" data-client-preview="email">{{ selected_client.email }}</span>
+            <span class="detail-value" data-client-preview="email">{{ selected_client.email|blank if selected_client else '' }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Phone Number:</span>
-            <span class="detail-value" data-client-preview="phone">{{ selected_client.phone }}</span>
+            <span class="detail-value" data-client-preview="phone">{{ selected_client.phone|blank if selected_client else '' }}</span>
           </div>
         {% else %}
           <div class="detail-item">
